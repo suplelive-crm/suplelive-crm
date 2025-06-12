@@ -1,0 +1,867 @@
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { 
+  ShoppingBag, 
+  RotateCcw, 
+  Truck, 
+  Package, 
+  ArrowLeftRight, 
+  Filter, 
+  Plus, 
+  RefreshCw, 
+  CheckSquare, 
+  Archive, 
+  Eye, 
+  MoreHorizontal,
+  Calendar,
+  Search,
+  LayoutGrid,
+  LayoutList,
+  CheckCircle,
+  Database
+} from 'lucide-react';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from '@/components/ui/dialog';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { useTrackingStore } from '@/store/trackingStore';
+import { Purchase, Return, Transfer } from '@/types/tracking';
+import { CreatePurchaseDialog } from '@/components/tracking/CreatePurchaseDialog';
+import { CreateReturnDialog } from '@/components/tracking/CreateReturnDialog';
+import { CreateTransferDialog } from '@/components/tracking/CreateTransferDialog';
+import { TrackingDetailsDialog } from '@/components/tracking/TrackingDetailsDialog';
+import { KanbanBoard } from '@/components/tracking/KanbanBoard';
+import { useToast } from '@/hooks/use-toast';
+import { getTrackingUrl } from '@/lib/tracking-api';
+
+export function TrackingPage() {
+  const { 
+    purchases, 
+    returns, 
+    transfers, 
+    viewMode,
+    showArchived,
+    loading,
+    setViewMode,
+    setShowArchived,
+    fetchPurchases,
+    fetchReturns,
+    fetchTransfers,
+    updateAllTrackingStatuses,
+    verifyPurchaseProduct,
+    addProductToInventory,
+    archivePurchase,
+    archiveReturn,
+    archiveTransfer,
+    findItemByTrackingCode
+  } = useTrackingStore();
+  
+  const [activeTab, setActiveTab] = useState('purchases');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [createPurchaseOpen, setCreatePurchaseOpen] = useState(false);
+  const [createReturnOpen, setCreateReturnOpen] = useState(false);
+  const [createTransferOpen, setCreateTransferOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Purchase | Return | Transfer | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [searchingByTracking, setSearchingByTracking] = useState(false);
+  const { toast } = useToast();
+  
+  useEffect(() => {
+    fetchPurchases();
+    fetchReturns();
+    fetchTransfers();
+    
+    // Set up auto-refresh every 30 minutes
+    const interval = setInterval(() => {
+      updateAllTrackingStatuses();
+    }, 30 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [fetchPurchases, fetchReturns, fetchTransfers, updateAllTrackingStatuses]);
+  
+  // Filter items based on search term
+  const filteredPurchases = purchases.filter(purchase => {
+    const searchTermLower = searchTerm ? searchTerm.toLowerCase() : '';
+    return (
+      (purchase.storeName || '').toLowerCase().includes(searchTermLower) ||
+      (purchase.customerName || '').toLowerCase().includes(searchTermLower) ||
+      (purchase.trackingCode || '').toLowerCase().includes(searchTermLower) ||
+      (purchase.status || '').toLowerCase().includes(searchTermLower)
+    );
+  });
+  
+  const filteredReturns = returns.filter(returnItem => {
+    const searchTermLower = searchTerm ? searchTerm.toLowerCase() : '';
+    return (
+      (returnItem.storeName || '').toLowerCase().includes(searchTermLower) ||
+      (returnItem.customerName || '').toLowerCase().includes(searchTermLower) ||
+      (returnItem.trackingCode || '').toLowerCase().includes(searchTermLower) ||
+      (returnItem.status || '').toLowerCase().includes(searchTermLower)
+    );
+  });
+  
+  const filteredTransfers = transfers.filter(transfer => {
+    const searchTermLower = searchTerm ? searchTerm.toLowerCase() : '';
+    return (
+      (transfer.storeName || '').toLowerCase().includes(searchTermLower) ||
+      (transfer.customerName || '').toLowerCase().includes(searchTermLower) ||
+      (transfer.trackingCode || '').toLowerCase().includes(searchTermLower) ||
+      (transfer.status || '').toLowerCase().includes(searchTermLower)
+    );
+  });
+  
+  const handleRefreshTracking = () => {
+    updateAllTrackingStatuses();
+  };
+  
+  const handleViewDetails = (item: Purchase | Return | Transfer) => {
+    setSelectedItem(item);
+    setDetailsOpen(true);
+  };
+  
+  const handleVerifyProduct = async (purchaseId: string, productId: string) => {
+    await verifyPurchaseProduct(purchaseId, productId);
+  };
+  
+  const handleAddToInventory = async (id: string, type: 'purchase' | 'return' | 'transfer') => {
+    if (type === 'purchase') {
+      await addProductToInventory(id);
+    } else if (type === 'return') {
+      await archiveReturn(id);
+    } else {
+      await archiveTransfer(id);
+    }
+  };
+  
+  const handleSearchByTrackingCode = async () => {
+    if (!searchTerm) {
+      toast({
+        title: "Código de rastreio vazio",
+        description: "Por favor, digite um código de rastreio para buscar",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setSearchingByTracking(true);
+    try {
+      const result = await findItemByTrackingCode(searchTerm);
+      
+      if (result) {
+        // Set the appropriate tab
+        setActiveTab(result.type === 'purchase' ? 'purchases' : 
+                    result.type === 'return' ? 'returns' : 'transfers');
+        
+        // Show the item details
+        setSelectedItem(result.item);
+        setDetailsOpen(true);
+        
+        toast({
+          title: "Item encontrado",
+          description: `Encontrado em ${result.type === 'purchase' ? 'compras' : 
+                        result.type === 'return' ? 'devoluções' : 'transferências'}`,
+        });
+      } else {
+        toast({
+          title: "Não encontrado",
+          description: "Nenhum item encontrado com este código de rastreio",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro na busca",
+        description: error.message || "Erro ao buscar por código de rastreio",
+        variant: "destructive"
+      });
+    } finally {
+      setSearchingByTracking(false);
+    }
+  };
+  
+  const getStatusColor = (status: string) => {
+    const statusLower = (status || '').toLowerCase();
+    if (statusLower.includes('entregue') || statusLower.includes('conferido')) {
+      return 'bg-green-100 text-green-800';
+    } else if (statusLower.includes('trânsito')) {
+      return 'bg-blue-100 text-blue-800';
+    } else if (statusLower.includes('aguardando')) {
+      return 'bg-yellow-100 text-yellow-800';
+    } else if (statusLower.includes('problema') || statusLower.includes('extraviado')) {
+      return 'bg-red-100 text-red-800';
+    } else {
+      return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  const renderTableView = () => {
+    if (activeTab === 'purchases') {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Compras ({filteredPurchases.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Loja/Cliente</TableHead>
+                    <TableHead>Transportadora</TableHead>
+                    <TableHead>Rastreio</TableHead>
+                    <TableHead>Produtos</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Previsão</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPurchases.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="h-24 text-center">
+                        Nenhuma compra encontrada.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredPurchases.map((purchase) => {
+                      // Check if all products are verified
+                      const allProductsVerified = purchase.products?.every(p => p.isVerified) || false;
+                      
+                      // Check if purchase is already in inventory
+                      const isInInventory = purchase.status?.toLowerCase().includes('estoque') || false;
+                      
+                      return (
+                        <TableRow key={purchase.id}>
+                          <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{purchase.storeName || 'Não informado'}</div>
+                              {purchase.customerName && (
+                                <div className="text-xs text-gray-500">{purchase.customerName}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{purchase.carrier || 'Não informado'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <span>{purchase.trackingCode || 'Não informado'}</span>
+                              {purchase.trackingCode && (
+                                <a 
+                                  href={getTrackingUrl(purchase.carrier, purchase.trackingCode)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-500 hover:text-blue-700"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-external-link"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                                </a>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {purchase.products?.length || 0} item(s)
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(purchase.status)}>
+                              {purchase.status || 'Não informado'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {purchase.estimatedDelivery 
+                              ? new Date(purchase.estimatedDelivery).toLocaleDateString('pt-BR')
+                              : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewDetails(purchase)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              
+                              {!allProductsVerified && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      <CheckSquare className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Confirmar Produto</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja marcar todos os produtos desta compra como conferidos?
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => {
+                                          if (purchase.products) {
+                                            purchase.products.forEach(product => {
+                                              handleVerifyProduct(purchase.id, product.id);
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        Confirmar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                              
+                              {allProductsVerified && !isInInventory && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="default" size="sm">
+                                      <Database className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Lançar no Estoque</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja lançar todos os produtos desta compra no estoque? Esta ação irá arquivar a compra.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => handleAddToInventory(purchase.id, 'purchase')}
+                                      >
+                                        Confirmar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                              
+                              {allProductsVerified && (
+                                <Badge className="bg-blue-100 text-blue-800">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Conferido
+                                </Badge>
+                              )}
+                              
+                              {isInInventory && (
+                                <Badge className="bg-green-100 text-green-800">
+                                  <Database className="h-3 w-3 mr-1" />
+                                  No Estoque
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    } else if (activeTab === 'returns') {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Devoluções ({filteredReturns.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Loja</TableHead>
+                    <TableHead>Transportadora</TableHead>
+                    <TableHead>Rastreio</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Previsão</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredReturns.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="h-24 text-center">
+                        Nenhuma devolução encontrada.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredReturns.map((returnItem) => {
+                      // Check if return is already in inventory
+                      const isInInventory = returnItem.status?.toLowerCase().includes('estoque') || false;
+                      
+                      return (
+                        <TableRow key={returnItem.id}>
+                          <TableCell>{new Date(returnItem.date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>{returnItem.customerName || 'Não informado'}</TableCell>
+                          <TableCell>{returnItem.storeName || 'Não informado'}</TableCell>
+                          <TableCell>{returnItem.carrier || 'Não informado'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <span>{returnItem.trackingCode || 'Não informado'}</span>
+                              {returnItem.trackingCode && (
+                                <a 
+                                  href={getTrackingUrl(returnItem.carrier, returnItem.trackingCode)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-500 hover:text-blue-700"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-external-link"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                                </a>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(returnItem.status)}>
+                              {returnItem.status || 'Não informado'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {returnItem.estimatedDelivery 
+                              ? new Date(returnItem.estimatedDelivery).toLocaleDateString('pt-BR')
+                              : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewDetails(returnItem)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              
+                              {!isInInventory ? (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="default" size="sm">
+                                      <Database className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Lançar no Estoque</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja lançar esta devolução no estoque? Esta ação irá arquivar a devolução.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => handleAddToInventory(returnItem.id, 'return')}
+                                      >
+                                        Confirmar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              ) : (
+                                <Badge className="bg-green-100 text-green-800">
+                                  <Database className="h-3 w-3 mr-1" />
+                                  No Estoque
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    } else {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Transferências ({filteredTransfers.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Loja</TableHead>
+                    <TableHead>Transportadora</TableHead>
+                    <TableHead>Rastreio</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Previsão</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTransfers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="h-24 text-center">
+                        Nenhuma transferência encontrada.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredTransfers.map((transfer) => {
+                      // Check if transfer is already in inventory
+                      const isInInventory = transfer.status?.toLowerCase().includes('estoque') || false;
+                      
+                      return (
+                        <TableRow key={transfer.id}>
+                          <TableCell>{new Date(transfer.date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>{transfer.customerName || 'Não informado'}</TableCell>
+                          <TableCell>{transfer.storeName || 'Não informado'}</TableCell>
+                          <TableCell>{transfer.carrier || 'Não informado'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <span>{transfer.trackingCode || 'Não informado'}</span>
+                              {transfer.trackingCode && (
+                                <a 
+                                  href={getTrackingUrl(transfer.carrier, transfer.trackingCode)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-500 hover:text-blue-700"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-external-link"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                                </a>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(transfer.status)}>
+                              {transfer.status || 'Não informado'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {transfer.estimatedDelivery 
+                              ? new Date(transfer.estimatedDelivery).toLocaleDateString('pt-BR')
+                              : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewDetails(transfer)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              
+                              {!isInInventory ? (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="default" size="sm">
+                                      <Database className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Lançar no Estoque</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja lançar esta transferência no estoque? Esta ação irá arquivar a transferência.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => handleAddToInventory(transfer.id, 'transfer')}
+                                      >
+                                        Confirmar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              ) : (
+                                <Badge className="bg-green-100 text-green-800">
+                                  <Database className="h-3 w-3 mr-1" />
+                                  No Estoque
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+  };
+  
+  return (
+    <DashboardLayout>
+      <div className="w-full h-full">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="w-full h-full space-y-6"
+        >
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Acompanhamento</h1>
+              <p className="text-gray-600 mt-2">Gerencie compras, devoluções e transferências</p>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleRefreshTracking}
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Atualizar Status
+              </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setCreatePurchaseOpen(true)}>
+                    <ShoppingBag className="h-4 w-4 mr-2" />
+                    Nova Compra
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCreateReturnOpen(true)}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Nova Devolução
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCreateTransferOpen(true)}>
+                    <ArrowLeftRight className="h-4 w-4 mr-2" />
+                    Nova Transferência
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <ShoppingBag className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{purchases.length}</div>
+                    <div className="text-sm text-gray-600">Compras</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <RotateCcw className="h-5 w-5 text-amber-600" />
+                  <div>
+                    <div className="text-2xl font-bold text-amber-600">{returns.length}</div>
+                    <div className="text-sm text-gray-600">Devoluções</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <ArrowLeftRight className="h-5 w-5 text-purple-600" />
+                  <div>
+                    <div className="text-2xl font-bold text-purple-600">{transfers.length}</div>
+                    <div className="text-sm text-gray-600">Transferências</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Truck className="h-5 w-5 text-green-600" />
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {purchases.filter(p => (p.status || '').includes('entregue')).length +
+                       returns.filter(r => (r.status || '').includes('entregue')).length +
+                       transfers.filter(t => (t.status || '').includes('entregue')).length}
+                    </div>
+                    <div className="text-sm text-gray-600">Entregues</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters and View Options */}
+          <div className="flex flex-col md:flex-row justify-between gap-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
+              <TabsList>
+                <TabsTrigger value="purchases">
+                  <ShoppingBag className="h-4 w-4 mr-2" />
+                  Compras
+                </TabsTrigger>
+                <TabsTrigger value="returns">
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Devoluções
+                </TabsTrigger>
+                <TabsTrigger value="transfers">
+                  <ArrowLeftRight className="h-4 w-4 mr-2" />
+                  Transferências
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar por código de rastreio..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSearchByTrackingCode();
+                      }
+                    }}
+                  />
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={handleSearchByTrackingCode}
+                  disabled={searchingByTracking || !searchTerm}
+                >
+                  {searchingByTracking ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="show-archived" className="text-sm">Mostrar Arquivados</Label>
+                <Switch
+                  id="show-archived"
+                  checked={showArchived}
+                  onCheckedChange={setShowArchived}
+                />
+              </div>
+              
+              <div className="flex border rounded-md">
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('table')}
+                  className="rounded-r-none"
+                >
+                  <LayoutList className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('kanban')}
+                  className="rounded-l-none"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1">
+            {viewMode === 'table' ? (
+              renderTableView()
+            ) : (
+              <KanbanBoard 
+                activeTab={activeTab}
+                purchases={filteredPurchases}
+                returns={filteredReturns}
+                transfers={filteredTransfers}
+                onViewDetails={handleViewDetails}
+                onVerifyProduct={handleVerifyProduct}
+                onAddToInventory={handleAddToInventory}
+              />
+            )}
+          </div>
+        </motion.div>
+      </div>
+      
+      {/* Dialogs */}
+      <CreatePurchaseDialog 
+        open={createPurchaseOpen} 
+        onOpenChange={setCreatePurchaseOpen} 
+      />
+      
+      <CreateReturnDialog 
+        open={createReturnOpen} 
+        onOpenChange={setCreateReturnOpen} 
+      />
+      
+      <CreateTransferDialog 
+        open={createTransferOpen} 
+        onOpenChange={setCreateTransferOpen} 
+      />
+      
+      <TrackingDetailsDialog 
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        item={selectedItem}
+        type={
+          selectedItem 
+            ? 'products' in selectedItem 
+              ? 'purchase' 
+              : activeTab === 'returns' 
+                ? 'return' 
+                : 'transfer'
+            : null
+        }
+      />
+    </DashboardLayout>
+  );
+}

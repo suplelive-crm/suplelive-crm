@@ -1,0 +1,177 @@
+import { useState } from 'react';
+import { Calendar, Package, Truck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useTrackingStore } from '@/store/trackingStore';
+import { useToast } from '@/hooks/use-toast';
+
+interface CreateTransferDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialogProps) {
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    carrier: '',
+    storeName: '',
+    customerName: '',
+    trackingCode: '',
+  });
+  
+  const [loading, setLoading] = useState(false);
+  const { createTransfer } = useTrackingStore();
+  const { toast } = useToast();
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!formData.date || !formData.carrier || !formData.storeName || !formData.customerName || !formData.trackingCode) {
+      toast({
+        title: 'Erro',
+        description: 'Por favor, preencha todos os campos obrigatórios',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      await createTransfer(formData);
+      
+      // Reset form
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        carrier: '',
+        storeName: '',
+        customerName: '',
+        trackingCode: '',
+      });
+      
+      onOpenChange(false);
+      
+      toast({
+        title: 'Sucesso',
+        description: 'Transferência criada com sucesso',
+      });
+    } catch (error) {
+      console.error('Error creating transfer:', error);
+      toast({
+        title: 'Erro',
+        description: 'Falha ao criar transferência',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Nova Transferência</DialogTitle>
+          <DialogDescription>
+            Adicione uma nova transferência para rastreamento
+          </DialogDescription>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="date" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                Data de Transferência *
+              </Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="carrier" className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-gray-500" />
+                Transportadora *
+              </Label>
+              <Select 
+                value={formData.carrier} 
+                onValueChange={(value) => setFormData({ ...formData, carrier: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a transportadora" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Correios">Correios</SelectItem>
+                  <SelectItem value="Jadlog">Jadlog</SelectItem>
+                  <SelectItem value="Total Express">Total Express</SelectItem>
+                  <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
+                  <SelectItem value="Braspress">Braspress</SelectItem>
+                  <SelectItem value="Outra">Outra</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="storeName" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" />
+                Nome da Loja *
+              </Label>
+              <Input
+                id="storeName"
+                value={formData.storeName}
+                onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
+                placeholder="Ex: Mercado Livre"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="customerName" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" />
+                Nome do Cliente *
+              </Label>
+              <Input
+                id="customerName"
+                value={formData.customerName}
+                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                placeholder="Ex: João Silva"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="trackingCode" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" />
+                Código de Rastreio *
+              </Label>
+              <Input
+                id="trackingCode"
+                value={formData.trackingCode}
+                onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })}
+                placeholder="Ex: AA123456789BR"
+                required
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Criando...' : 'Criar Transferência'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
