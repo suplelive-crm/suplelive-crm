@@ -1,52 +1,32 @@
 // Tracking API for Correios and Jadlog
 
-/**
- * Envia os dados de rastreamento para o nosso proxy seguro no back-end.
- * Esta é a ÚNICA função que o front-end precisa para iniciar um rastreamento.
- *
- * @param carrier - A transportadora (ex: 'correios', 'jadlog').
- * @param trackingCode - O código de rastreamento do pacote.
- * @returns A resposta processada pelo nosso back-end.
- */
-export async function trackPackage(carrier: string, trackingCode: string): Promise<any> {
-  // 1. Validação inicial para evitar chamadas de API desnecessárias.
-  if (!carrier || !trackingCode) {
-    throw new Error('Transportadora e código de rastreio são obrigatórios.');
-  }
-
+// Correios tracking via Wonca API
+export async function trackCorreios(trackingCode: string): Promise<any> {
   try {
-    // 2. A chamada 'fetch' foi reconstruída corretamente.
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const response = await fetch(`${supabaseUrl}/functions/v1/tracking-proxy`, {
+    // Instead of direct API call, use Supabase Edge Function as a proxy
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL; {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // 3. REMOVIDO: O cabeçalho 'Authorization' foi removido.
-        //    Esta é a correção de segurança mais importante.
+        'Authorization': "Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684"
       },
-      // 4. O 'body' envia os dois campos que o nosso back-end espera.
       body: JSON.stringify({ 
-        carrier,
+        carrier: 'correios',
         trackingCode 
       })
     });
 
-    // 5. Trata respostas de erro do nosso próprio back-end.
     if (!response.ok) {
-      const errorData = await response.json();
-      // Usa a mensagem de erro amigável que o nosso proxy retorna.
-      throw new Error(errorData.message || `Erro do servidor: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    // 6. Retorna a resposta de sucesso.
     return await response.json();
-
   } catch (error) {
-    console.error('Erro na função trackPackage:', error);
-    // Re-lança o erro para que o 'trackingStore' possa capturá-lo e tratar.
+    console.error('Error tracking Correios package:', error);
     throw error;
   }
 }
+
 // Jadlog tracking API
 export async function trackJadlog(trackingCode: string): Promise<any> {
   try {
