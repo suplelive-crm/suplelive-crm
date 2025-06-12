@@ -34,7 +34,7 @@ serve(async (req: Request) => {
     }
 
     // --- LÓGICA PARA OS CORREIOS (via API Wonca) ---
-    if (carrier.toLowerCase().includes("correios")) {
+    if (carrier.toLowerCase().includes("Correios")) {
       try {
         // Busca a chave de API dos Segredos do Supabase. É mais seguro.
         const woncaApiKey = Deno.env.get("WONCA_API_KEY");
