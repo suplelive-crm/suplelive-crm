@@ -4,7 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // Cabeçalhos CORS para permitir que seu app front-end acesse esta função
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, Apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
