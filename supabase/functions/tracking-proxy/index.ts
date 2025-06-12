@@ -45,7 +45,7 @@ serve(async (req: Request) => {
           headers: {
             "Content-Type": "application/json",
             // 3. Usa o formato de autorização "Bearer", conforme solicitado pela API
-            "Authorization": `Bearer ${woncaApiKey}`
+            "Authorization": `Apikey ${woncaApiKey}`
           },
           // 4. Envia o corpo da requisição com o código de rastreio
           body: JSON.stringify({ code: trackingCode })
