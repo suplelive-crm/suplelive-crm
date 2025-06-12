@@ -155,7 +155,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const dbPurchaseData = {
         date: purchaseData.date,
         carrier: purchaseData.carrier,
-        store_name: purchaseData.storeName,
+        storeName: purchaseData.storeName,
         customer_name: purchaseData.customerName || null,
         tracking_code: purchaseData.trackingCode,
         delivery_fee: purchaseData.deliveryFee,
@@ -221,7 +221,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       // Convert camelCase to snake_case for database fields
       const dbUpdates: any = {};
       
-      if (updates.storeName !== undefined) dbUpdates.store_name = updates.storeName;
+      if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
       if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
       if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode;
       if (updates.deliveryFee !== undefined) dbUpdates.delivery_fee = updates.deliveryFee;
@@ -351,7 +351,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const dbReturnData = {
         date: returnData.date,
         carrier: returnData.carrier,
-        store_name: returnData.storeName,
+        storeName: returnData.storeName,
         customer_name: returnData.customerName,
         tracking_code: returnData.trackingCode,
         status: 'Aguardando rastreamento',
@@ -392,7 +392,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       // Convert camelCase to snake_case for database fields
       const dbUpdates: any = {};
       
-      if (updates.storeName !== undefined) dbUpdates.store_name = updates.storeName;
+      if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
       if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
       if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
@@ -448,7 +448,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const dbTransferData = {
         date: transferData.date,
         carrier: transferData.carrier,
-        store_name: transferData.storeName,
+        storeName: transferData.storeName,
         customer_name: transferData.customerName,
         tracking_code: transferData.trackingCode,
         status: 'Aguardando rastreamento',
@@ -489,7 +489,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       // Convert camelCase to snake_case for database fields
       const dbUpdates: any = {};
       
-      if (updates.storeName !== undefined) dbUpdates.store_name = updates.storeName;
+      if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
       if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
       if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
