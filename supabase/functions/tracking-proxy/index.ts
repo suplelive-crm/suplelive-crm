@@ -37,9 +37,9 @@ serve(async (req: Request) => {
     if (carrier.toLowerCase().includes("correios")) {
       try {
         // Busca a chave de API dos Segredos do Supabase. É mais seguro.
-        const woncaApiKey = Deno.env.get("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwNTg3NywiZHQiOiIyMDIxMDYwOSJ9.ypRHGp0Emfo_VfQWmVyjKfw7Ilfoan_oR5NtPtEbx8k");
+        const woncaApiKey = Deno.env.get("WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684");
         if (!woncaApiKey) {
-          throw new Error("A chave de API da Wonca (eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwNTg3NywiZHQiOiIyMDIxMDYwOSJ9.ypRHGp0Emfo_VfQWmVyjKfw7Ilfoan_oR5NtPtEbx8k) não foi configurada nos segredos do Supabase.");
+          throw new Error("A chave de API da Wonca (WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684) não foi configurada nos segredos do Supabase.");
         }
         
         // Faz a chamada real para a API da Wonca
