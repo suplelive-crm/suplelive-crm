@@ -47,7 +47,7 @@ serve(async (req: Request) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Apikey ${woncaApiKey}`
+            "Authorization": `Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684`
           },
           body: JSON.stringify({ code: trackingCode })
         });
