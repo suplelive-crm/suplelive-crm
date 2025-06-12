@@ -157,7 +157,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         carrier: purchaseData.carrier,
         storeName: purchaseData.storeName,
         customer_name: purchaseData.customerName || null,
-        tracking_code: purchaseData.trackingCode,
+        trackingCode: purchaseData.trackingCode,
         delivery_fee: purchaseData.deliveryFee,
         status: 'Aguardando rastreamento',
         is_archived: false,
@@ -223,7 +223,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
       if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
-      if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode;
+      if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.deliveryFee !== undefined) dbUpdates.delivery_fee = updates.deliveryFee;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
       if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
@@ -353,7 +353,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         carrier: returnData.carrier,
         storeName: returnData.storeName,
         customer_name: returnData.customerName,
-        tracking_code: returnData.trackingCode,
+        trackingCode: returnData.trackingCode,
         status: 'Aguardando rastreamento',
         is_archived: false,
         workspace_id: currentWorkspace.id
@@ -394,7 +394,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
       if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
-      if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode;
+      if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
       if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
       
@@ -450,7 +450,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         carrier: transferData.carrier,
         storeName: transferData.storeName,
         customer_name: transferData.customerName,
-        tracking_code: transferData.trackingCode,
+        trackingCode: transferData.trackingCode,
         status: 'Aguardando rastreamento',
         is_archived: false,
         workspace_id: currentWorkspace.id
@@ -491,7 +491,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
       if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
-      if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode;
+      if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
       if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
       
@@ -541,7 +541,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       // Get the item
       const { data: item } = await supabase
         .from(type === 'purchase' ? 'purchases' : type === 'return' ? 'returns' : 'transfers')
-        .select('tracking_code, carrier')
+        .select('trackingCode, carrier')
         .eq('id', id)
         .single();
       
@@ -550,7 +550,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         return;
       }
       
-      if (!item.tracking_code) {
+      if (!item.trackingCode) {
         console.error(`No tracking code for ${type} ${id}`);
         return;
       }
@@ -559,7 +559,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       
       try {
         // Get tracking info using our tracking API
-        const trackingInfo = await get().getTrackingInfo(item.carrier, item.tracking_code);
+        const trackingInfo = await get().getTrackingInfo(item.carrier, item.trackingCode);
         
         if (!trackingInfo.success || !trackingInfo.data) {
           console.warn(`Failed to update tracking for ${type} ${id}:`, trackingInfo.error);
@@ -695,7 +695,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           products:purchase_products(*)
         `)
         .eq('workspace_id', currentWorkspace.id)
-        .eq('tracking_code', trackingCode)
+        .eq('trackingCode', trackingCode)
         .maybeSingle();
       
       if (purchaseData) {
@@ -707,7 +707,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .from('returns')
         .select('*')
         .eq('workspace_id', currentWorkspace.id)
-        .eq('tracking_code', trackingCode)
+        .eq('trackingCode', trackingCode)
         .maybeSingle();
       
       if (returnData) {
@@ -719,7 +719,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .from('transfers')
         .select('*')
         .eq('workspace_id', currentWorkspace.id)
-        .eq('tracking_code', trackingCode)
+        .eq('trackingCode', trackingCode)
         .maybeSingle();
       
       if (transferData) {
