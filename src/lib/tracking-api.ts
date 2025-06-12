@@ -14,7 +14,7 @@ export async function trackPackage(carrier: string, trackingCode: string): Promi
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Nenhuma chave de API ou autorização é enviada aqui. Isso é trabalho do back-end!
+        "Authorization": `Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684`
       },
       // Enviamos um payload padronizado que nosso back-end entende.
       body: JSON.stringify({ 
