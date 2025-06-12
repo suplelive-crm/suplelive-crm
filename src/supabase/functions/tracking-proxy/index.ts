@@ -40,9 +40,9 @@ serve(async (req: Request) => {
         const response = await fetch("https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': "application/json",
             // Usa a variável do segredo no cabeçalho
-            "Authorization": `Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684`
+            'Authorization': 'Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684"
           },
           // Objeto JavaScript correto passado para a função
           body: JSON.stringify({ code: trackingCode })
