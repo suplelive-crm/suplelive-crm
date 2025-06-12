@@ -34,10 +34,10 @@ serve(async (req: Request) => {
     }
 
     // --- LÓGICA PARA OS CORREIOS (via API Wonca) ---
-    if (carrier.toLowerCase().includes("Correios")) {
+    if (carrier.toLowerCase().includes("correios")) { // CORREÇÃO 1
       try {
-        // Busca a chave de API dos Segredos do Supabase. É mais seguro.
-        const woncaApiKey = Deno.env.get("WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684");
+        // CORREÇÃO 2: Busca o segredo pelo NOME correto.
+        const woncaApiKey = Deno.env.get("WONCA_API_KEY");
         if (!woncaApiKey) {
           throw new Error("A chave de API da Wonca (WONCA_API_KEY) não foi configurada nos segredos do Supabase.");
         }
@@ -47,7 +47,8 @@ serve(async (req: Request) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684`
+            // CORREÇÃO 3: Usa a variável do segredo no cabeçalho.
+            "Authorization": `Apikey ${woncaApiKey}`
           },
           body: JSON.stringify({ code: trackingCode })
         });
@@ -86,12 +87,12 @@ serve(async (req: Request) => {
     // --- LÓGICA PARA A JADLOG (EXEMPLO) ---
     else if (carrier.toLowerCase().includes("jadlog")) {
       try {
-        // IMPORTANTE: Este bloco é um exemplo e deve ser validado com a documentação oficial da Jadlog.
         const jadlogApiKey = Deno.env.get("JADLOG_API_KEY");
-         if (!jadlogApiKey) {
+        if (!jadlogApiKey) {
           throw new Error("A chave de API da Jadlog (JADLOG_API_KEY) não foi configurada nos segredos do Supabase.");
         }
 
+        // IMPORTANTE: Este bloco é um exemplo e deve ser validado com a documentação oficial da Jadlog.
         const response = await fetch("https://api.jadlog.com.br/v1/tracking", { // URL de exemplo
           method: "POST",
           headers: {
@@ -128,21 +129,19 @@ serve(async (req: Request) => {
     
     // --- LÓGICA PARA OUTRAS TRANSPORTADORAS ---
     else {
-      // Em vez de dados falsos, retorna um erro claro de que a transportadora não é suportada.
       return new Response(
         JSON.stringify({
           success: false,
           message: `A transportadora '${carrier}' não é suportada no momento.`
         }),
         {
-          status: 400, // Bad Request, pois a transportadora enviada não é válida
+          status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
   } catch (error) {
-    // Captura erros gerais, como um JSON mal formatado na requisição
     console.error("Error in tracking proxy:", error);
     return new Response(
       JSON.stringify({ success: false, message: "Erro interno no servidor de rastreamento." }),
