@@ -37,7 +37,7 @@ serve(async (req: Request) => {
             "Content-Type": "application/json",
             "Authorization": "Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684"
           },
-          body: JSON.stringify({ code: trackingCode })
+          body: JSON.stringify({"code": trackingCode })
         });
 
         if (!response.ok) {
