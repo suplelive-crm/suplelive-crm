@@ -10,7 +10,7 @@ export async function trackCorreios(trackingCode: string): Promise<any> {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: ""
+      body: JSON.stringify({ "code":trackingCode 
       })
     });
 
