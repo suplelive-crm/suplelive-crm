@@ -64,7 +64,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     fetchReturns();
     fetchTransfers();
   },
-  
   fetchPurchases: async () => {
     await ErrorHandler.handleAsync(async () => {
       set({ loading: true });
