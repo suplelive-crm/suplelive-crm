@@ -9,7 +9,7 @@ export async function trackCorreios(trackingCode: string): Promise<any> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        "Authorization": "Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684"
+        "Authorization": "Bearer WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684"
       },
       body: JSON.stringify({ "code":trackingCode})
     });
