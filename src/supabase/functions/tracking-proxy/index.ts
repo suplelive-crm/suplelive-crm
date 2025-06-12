@@ -29,14 +29,7 @@ serve(async (req: Request) => {
     }
 
     // --- LÓGICA PARA OS CORREIOS (CORRIGIDO) ---
-    if (carrier.toLowerCase().includes("correios")) {
-      try {
-        // Busca a chave de API dos Segredos do Supabase de forma segura
-        const woncaApiKey = Deno.env.get("WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684");
-        if (!woncaApiKey) {
-          throw new Error("A chave de API da Wonca (WONCA_API_KEY) não foi configurada nos segredos do Supabase.");
-        }
-        
+    if (carrier.toLowerCase().includes("correios")) {        
         const response = await fetch("https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track", {
           method: "POST",
           headers: {
