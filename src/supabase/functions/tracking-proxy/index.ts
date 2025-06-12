@@ -42,7 +42,7 @@ serve(async (req: Request) => {
           headers: {
             "Content-Type": "application/json",
             // Usa a variável do segredo no cabeçalho
-            "Authorization": `Bearer ${woncaApiKey}`
+            "Authorization": `Apikey ${woncaApiKey}`
           },
           // Objeto JavaScript correto passado para a função
           body: JSON.stringify({ code: trackingCode })
