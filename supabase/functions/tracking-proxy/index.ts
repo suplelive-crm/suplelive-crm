@@ -98,7 +98,7 @@ serve(async (req: Request) => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${jadlogApiKey}` // Formato de exemplo
           },
-          body: JSON.stringify({ trackingCode: trackingCode }) // Corpo de exemplo
+          body: JSON.stringify({ code: trackingCode }) // Corpo de exemplo
         });
 
         if (!response.ok) {
