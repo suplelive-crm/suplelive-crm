@@ -37,9 +37,9 @@ serve(async (req: Request) => {
     if (carrier.toLowerCase().includes("correios")) {
       try {
         // Busca a chave de API dos Segredos do Supabase. É mais seguro.
-        const woncaApiKey = Deno.env.get("WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684");
+        const woncaApiKey = Deno.env.get("WONCA_API_KEY");
         if (!woncaApiKey) {
-          throw new Error("A chave de API da Wonca (WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684) não foi configurada nos segredos do Supabase.");
+          throw new Error("A chave de API da Wonca (WONCA_API_KEY) não foi configurada nos segredos do Supabase.");
         }
         
         // Faz a chamada real para a API da Wonca
