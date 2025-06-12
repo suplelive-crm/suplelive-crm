@@ -5,7 +5,7 @@ export async function trackCorreios(trackingCode: string): Promise<any> {
   try {
     // Instead of direct API call, use Supabase Edge Function as a proxy
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const response = await fetch(`${supabaseUrl}/functions/v1/tracking-proxy`), {
+    const response = await fetch(`${supabaseUrl}/functions/v1/tracking-proxy`); {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
