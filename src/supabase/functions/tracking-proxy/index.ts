@@ -1,13 +1,16 @@
+// Importa o servidor HTTP do Deno
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Cabeçalhos CORS para permitir que seu app front-end acesse esta função
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Inicia o servidor para processar as requisições
 serve(async (req: Request) => {
-  // Handle CORS preflight requests
+  // Responde a requisições de 'preflight' do CORS
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 200,
@@ -18,161 +21,93 @@ serve(async (req: Request) => {
   try {
     const { carrier, trackingCode } = await req.json();
 
-    if (!trackingCode) {
+    if (!carrier || !trackingCode) {
       return new Response(
-        JSON.stringify({ success: false, error: "Tracking code is required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ success: false, message: "Transportadora e código de rastreio são obrigatórios" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // --- LÓGICA PARA OS CORREIOS (CORRIGIDO) ---
     if (carrier.toLowerCase().includes("correios")) {
       try {
-        // Call Correios API via Wonca
+        // Busca a chave de API dos Segredos do Supabase de forma segura
+        const woncaApiKey = Deno.env.get("WONCA_API_KEY");
+        if (!woncaApiKey) {
+          throw new Error("A chave de API da Wonca (WONCA_API_KEY) não foi configurada nos segredos do Supabase.");
+        }
+        
         const response = await fetch("https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": "Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684"
+            // Usa a variável do segredo no cabeçalho
+            "Authorization": `Apikey ${woncaApiKey}`
           },
-          body: JSON.stringify({"code": trackingCode })
+          // Objeto JavaScript correto passado para a função
+          body: JSON.stringify({ code: trackingCode })
         });
 
         if (!response.ok) {
-          console.error(`Wonca API error: ${response.status} ${response.statusText}`);
-          
-          // If we get a 401, the API key is invalid
-          if (response.status === 401) {
-            return new Response(
-              JSON.stringify({ 
-                success: false, 
-                error: "API key is invalid or expired",
-                message: "Erro de autenticação com a API de rastreamento. Por favor, contate o suporte."
-              }),
-              {
-                status: 401,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-              }
-            );
-          }
-          
-          // For other errors, return a generic error
+          const errorBody = await response.json();
+          console.error(`Wonca API error: ${response.status}`, errorBody);
           return new Response(
             JSON.stringify({ 
               success: false, 
-              error: `Error from tracking API: ${response.status} ${response.statusText}`,
-              message: "Erro ao consultar o rastreamento. Tente novamente mais tarde."
+              message: errorBody.message || "Erro ao consultar a API de rastreamento.",
+              error: `Error from tracking API: ${response.status}`
             }),
-            {
-              status: response.status,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
+            { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
         const data = await response.json();
-        
-        // If the API returns an error, format it nicely
-        if (!data.success) {
-          return new Response(
-            JSON.stringify({ 
-              success: false, 
-              error: data.message || "Unknown error from tracking API",
-              message: "Não foi possível rastrear o objeto. Verifique o código e tente novamente."
-            }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
-        }
-        
-        // Return the successful response
-        return new Response(
-          JSON.stringify(data),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+
       } catch (error) {
-        console.error("Error calling Wonca API:", error);
-        
+        console.error("Error calling Wonca API:", error.message);
         return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: error.message || "Error calling tracking API",
-            message: "Erro ao conectar com o serviço de rastreamento. Tente novamente mais tarde."
-          }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          JSON.stringify({ success: false, message: "Erro interno ao processar rastreamento dos Correios." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-    } else if (carrier.toLowerCase().includes("jadlog")) {
-      // Placeholder for Jadlog API
-      // In a real implementation, you would call the Jadlog API here
-      
-      // For now, return a mock response
+    } 
+    
+    // --- LÓGICA PARA A JADLOG (AINDA COMO EXEMPLO) ---
+    else if (carrier.toLowerCase().includes("jadlog")) {
+      // Lembre-se que esta parte ainda é um exemplo e precisa ser
+      // implementada com a API real da Jadlog para funcionar.
       return new Response(
         JSON.stringify({
           success: true,
           result: {
             code: trackingCode,
-            events: [
-              {
-                date: new Date().toISOString(),
-                status: "Em trânsito",
-                location: "São Paulo, SP"
-              }
-            ],
-            estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+            events: [{ date: new Date().toISOString(), status: "Em trânsito (Exemplo)", location: "São Paulo, SP" }],
           }
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    } else {
-      // For other carriers, return a generic response
+    } 
+    
+    // --- LÓGICA PARA OUTRAS TRANSPORTADORAS ---
+    else {
       return new Response(
         JSON.stringify({
-          success: true,
-          result: {
-            code: trackingCode,
-            events: [
-              {
-                date: new Date().toISOString(),
-                status: `Em processamento pela ${carrier}`,
-                location: "Brasil"
-              }
-            ],
-            estimatedDelivery: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
-          }
+          success: false,
+          message: `A transportadora '${carrier}' não é suportada no momento.`
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
   } catch (error) {
     console.error("Error in tracking proxy:", error);
-    
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message || "Internal server error",
-        message: "Erro interno no servidor. Por favor, tente novamente mais tarde."
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: false, message: "Erro interno no servidor de rastreamento." }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
