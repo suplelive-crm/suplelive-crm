@@ -12,7 +12,7 @@ export async function trackCorreios(trackingCode: string): Promise<any> {
       },
       body: JSON.stringify({ 
         carrier: 'correios',
-        trackingcode 
+        trackingCode 
       })
     });
 
