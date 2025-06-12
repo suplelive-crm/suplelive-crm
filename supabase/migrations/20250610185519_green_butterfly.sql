@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS transfers (
   workspace_id uuid REFERENCES workspaces(id) ON DELETE CASCADE,
   date date NOT NULL,
   carrier text NOT NULL,
-  store_name text NOT NULL,
+  storeName text NOT NULL,
   customer_name text NOT NULL,
   trackingCode text NOT NULL,
   status text DEFAULT 'Aguardando rastreamento',
