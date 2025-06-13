@@ -97,7 +97,7 @@ const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
     }
 
     // 4. Em trânsito: Itens em movimento.
-     if (statusLower.includes('trânsito') || statusLower.includes('transferência')) {
+    if (statusLower.includes('trânsito')) {
         return 'Em trânsito';
     }
 
