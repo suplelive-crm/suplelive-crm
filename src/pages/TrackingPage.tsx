@@ -301,7 +301,7 @@ export function TrackingPage() {
                           <TableCell>
                             {purchase.estimated_delivery 
                               ? new Date(purchase.estimated_delivery).toLocaleDateString('pt-BR')
-                              : 'N/A'}
+                              : 'N/A/1'}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
