@@ -219,7 +219,7 @@ export function TrackingPage() {
       return 'bg-blue-100 text-blue-800';
     } else if (statusLower.includes('aguardando')) {
       return 'bg-yellow-100 text-yellow-800';
-    } else if (statusLower.includes('problema') || statusLower.includes('extraviado')) {
+    } else if (statusLower.includes('problema', 'não autorizada', 'necessidade de apresentar') || statusLower.includes('extraviado')) {
       return 'bg-red-100 text-red-800';
     } else {
       return 'bg-gray-100 text-gray-800';
