@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'; // useMemo foi adicionado para otimização
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   ShoppingBag, 
@@ -66,7 +66,6 @@ import { KanbanBoard } from '@/components/tracking/KanbanBoard';
 import { useToast } from '@/hooks/use-toast';
 import { getTrackingUrl } from '@/lib/tracking-api';
 
-// --- INÍCIO DA MODIFICAÇÃO: Helper para categorizar o status ---
 /**
  * Categoriza um item com base em seu status e data de entrega estimada.
  * @param item - O objeto de compra, devolução ou transferência.
@@ -110,7 +109,6 @@ const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
     // Fallback para outros status não categorizados
     return 'Outro';
 };
-// --- FIM DA MODIFICAÇÃO ---
 
 
 export function TrackingPage() {
@@ -137,11 +135,7 @@ export function TrackingPage() {
   
   const [activeTab, setActiveTab] = useState('purchases');
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // --- INÍCIO DA MODIFICAÇÃO: Estado para o filtro de status ---
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' para mostrar todos
-  // --- FIM DA MODIFICAÇÃO ---
-
   const [createPurchaseOpen, setCreatePurchaseOpen] = useState(false);
   const [createReturnOpen, setCreateReturnOpen] = useState(false);
   const [createTransferOpen, setCreateTransferOpen] = useState(false);
@@ -155,6 +149,7 @@ export function TrackingPage() {
     fetchReturns();
     fetchTransfers();
     
+    // Set up auto-refresh every 30 minutes
     const interval = setInterval(() => {
       updateAllTrackingStatuses();
     }, 30 * 60 * 1000);
@@ -162,9 +157,7 @@ export function TrackingPage() {
     return () => clearInterval(interval);
   }, [fetchPurchases, fetchReturns, fetchTransfers, updateAllTrackingStatuses]);
   
-
-  // --- INÍCIO DA MODIFICAÇÃO: Lógica de filtragem atualizada ---
-  // A lógica foi movida para dentro do useMemo para otimização, evitando recálculos a cada renderização.
+  // Filter items based on search term and status filter
   const filteredPurchases = useMemo(() => {
     return purchases.filter(purchase => {
         const searchTermLower = searchTerm.toLowerCase();
@@ -218,7 +211,6 @@ export function TrackingPage() {
         return category === statusFilter;
     });
   }, [transfers, searchTerm, statusFilter]);
-  // --- FIM DA MODIFICAÇÃO ---
   
   const handleRefreshTracking = () => {
     updateAllTrackingStatuses();
@@ -258,15 +250,17 @@ export function TrackingPage() {
       const result = await findItemByTrackingCode(searchTerm);
       
       if (result) {
+        // Set the appropriate tab
         setActiveTab(result.type === 'purchase' ? 'purchases' : 
                     result.type === 'return' ? 'returns' : 'transfers');
         
+        // Show the item details
         setSelectedItem(result.item);
         setDetailsOpen(true);
         
         toast({
           title: "Item encontrado",
-          description: `Encontrado em ${result.type === 'purchase' ? 'compras' : result.type === 'return' ? 'devoluções' : 'transferências'}`,
+          description: `Encontrado em ${result.type === 'purchase' ? 'compras' :                         result.type === 'return' ? 'devoluções' : 'transferências'}`,
         });
       } else {
         toast({
@@ -302,8 +296,6 @@ export function TrackingPage() {
   };
   
   const renderTableView = () => {
-    // A lógica interna de renderTableView continua a mesma, pois ela já utiliza as listas filtradas
-    // (filteredPurchases, filteredReturns, filteredTransfers)
     if (activeTab === 'purchases') {
       return (
         <Card>
@@ -311,7 +303,6 @@ export function TrackingPage() {
             <CardTitle>Compras ({filteredPurchases.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* O restante do código da tabela de compras permanece inalterado */}
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -335,12 +326,135 @@ export function TrackingPage() {
                     </TableRow>
                   ) : (
                     filteredPurchases.map((purchase) => {
+                      // Check if all products are verified
                       const allProductsVerified = purchase.products?.every(p => p.isVerified) || false;
+                      
+                      // Check if purchase is already in inventory
                       const isInInventory = purchase.status?.toLowerCase().includes('estoque') || false;
                       
                       return (
                         <TableRow key={purchase.id}>
-                           {/* Células da tabela de compras... */}
+                          <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{purchase.storeName || 'Não informado'}</div>
+                              {purchase.customerName && (
+                                <div className="text-xs text-gray-500">{purchase.customerName}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{purchase.carrier || 'Não informado'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <span>{purchase.trackingCode || 'Não informado'}</span>
+                              {purchase.trackingCode && (
+                                <a 
+                                  href={getTrackingUrl(purchase.carrier, purchase.trackingCode)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-500 hover:text-blue-700"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-external-link"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                                </a>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {purchase.products?.length || 0} item(s)
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(purchase.status)}>
+                              {purchase.status || 'Não informado'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {purchase.estimated_delivery 
+                              ? new Date(purchase.estimated_delivery).toLocaleDateString('pt-BR')
+                              : 'N/A/2'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewDetails(purchase)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              
+                              {!allProductsVerified && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      <CheckSquare className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Confirmar Produto</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja marcar todos os produtos desta compra como conferidos?
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => {
+                                          if (purchase.products) {
+                                            purchase.products.forEach(product => {
+                                              handleVerifyProduct(purchase.id, product.id);
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        Confirmar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                              
+                              {allProductsVerified && !isInInventory && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="default" size="sm">
+                                      <Database className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Lançar no Estoque</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja lançar todos os produtos desta compra no estoque? Esta ação irá arquivar a compra.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => handleAddToInventory(purchase.id, 'purchase')}
+                                      >
+                                        Confirmar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                              
+                              {allProductsVerified && (
+                                <Badge className="bg-blue-100 text-blue-800">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Conferido
+                                </Badge>
+                              )}
+                              
+                              {isInInventory && (
+                                <Badge className="bg-green-100 text-green-800">
+                                  <Database className="h-3 w-3 mr-1" />
+                                  No Estoque
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                         </TableRow>
                       );
                     })
@@ -358,8 +472,7 @@ export function TrackingPage() {
             <CardTitle>Devoluções ({filteredReturns.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* O restante do código da tabela de devoluções permanece inalterado */}
-             <div className="overflow-x-auto">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -382,11 +495,82 @@ export function TrackingPage() {
                     </TableRow>
                   ) : (
                     filteredReturns.map((returnItem) => {
+                      // Check if return is already in inventory
                       const isInInventory = returnItem.status?.toLowerCase().includes('estoque') || false;
                       
                       return (
                         <TableRow key={returnItem.id}>
-                          {/* Células da tabela de devoluções... */}
+                          <TableCell>{new Date(returnItem.date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>{returnItem.customerName || 'Não informado'}</TableCell>
+                          <TableCell>{returnItem.storeName || 'Não informado'}</TableCell>
+                          <TableCell>{returnItem.carrier || 'Não informado'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <span>{returnItem.trackingCode || 'Não informado'}</span>
+                              {returnItem.trackingCode && (
+                                <a 
+                                  href={getTrackingUrl(returnItem.carrier, returnItem.trackingCode)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-500 hover:text-blue-700"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-external-link"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                                </a>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(returnItem.status)}>
+                              {returnItem.status || 'Não informado'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {returnItem.estimated_delivery 
+                              ? new Date(returnItem.estimated_delivery).toLocaleDateString('pt-BR')
+                              : 'N/A/1'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewDetails(returnItem)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              
+                              {!isInInventory ? (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="default" size="sm">
+                                      <Database className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Lançar no Estoque</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja lançar esta devolução no estoque? Esta ação irá arquivar a devolução.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => handleAddToInventory(returnItem.id, 'return')}
+                                      >
+                                        Confirmar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              ) : (
+                                <Badge className="bg-green-100 text-green-800">
+                                  <Database className="h-3 w-3 mr-1" />
+                                  No Estoque
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                         </TableRow>
                       );
                     })
@@ -404,8 +588,7 @@ export function TrackingPage() {
             <CardTitle>Transferências ({filteredTransfers.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* O restante do código da tabela de transferências permanece inalterado */}
-             <div className="overflow-x-auto">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -428,11 +611,82 @@ export function TrackingPage() {
                     </TableRow>
                   ) : (
                     filteredTransfers.map((transfer) => {
-                       const isInInventory = transfer.status?.toLowerCase().includes('estoque') || false;
+                      // Check if transfer is already in inventory
+                      const isInInventory = transfer.status?.toLowerCase().includes('estoque') || false;
                       
                       return (
                         <TableRow key={transfer.id}>
-                          {/* Células da tabela de transferências... */}
+                          <TableCell>{new Date(transfer.date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>{transfer.customerName || 'Não informado'}</TableCell>
+                          <TableCell>{transfer.storeName || 'Não informado'}</TableCell>
+                          <TableCell>{transfer.carrier || 'Não informado'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <span>{transfer.trackingCode || 'Não informado'}</span>
+                              {transfer.trackingCode && (
+                                <a 
+                                  href={getTrackingUrl(transfer.carrier, transfer.trackingCode)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-500 hover:text-blue-700"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-external-link"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                                </a>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(transfer.status)}>
+                              {transfer.status || 'Não informado'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {transfer.estimated_delivery 
+                              ? new Date(transfer.estimated_delivery).toLocaleDateString('pt-BR')
+                              : 'N/A/3'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewDetails(transfer)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              
+                              {!isInInventory ? (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="default" size="sm">
+                                      <Database className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Lançar no Estoque</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja lançar esta transferência no estoque? Esta ação irá arquivar a transferência.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => handleAddToInventory(transfer.id, 'transfer')}
+                                      >
+                                        Confirmar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              ) : (
+                                <Badge className="bg-green-100 text-green-800">
+                                  <Database className="h-3 w-3 mr-1" />
+                                  No Estoque
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                         </TableRow>
                       );
                     })
@@ -454,16 +708,103 @@ export function TrackingPage() {
           animate={{ opacity: 1 }}
           className="w-full h-full space-y-6"
         >
-          {/* O cabeçalho e os cards de estatísticas permanecem os mesmos */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-             {/* ... */}
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Acompanhamento</h1>
+              <p className="text-gray-600 mt-2">Gerencie compras, devoluções e transferências</p>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleRefreshTracking}
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Atualizar Status
+              </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setCreatePurchaseOpen(true)}>
+                    <ShoppingBag className="h-4 w-4 mr-2" />
+                    Nova Compra
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCreateReturnOpen(true)}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Nova Devolução
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCreateTransferOpen(true)}>
+                    <ArrowLeftRight className="h-4 w-4 mr-2" />
+                    Nova Transferência
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
+
+          {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* ... */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <ShoppingBag className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{purchases.length}</div>
+                    <div className="text-sm text-gray-600">Compras</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <RotateCcw className="h-5 w-5 text-amber-600" />
+                  <div>
+                    <div className="text-2xl font-bold text-amber-600">{returns.length}</div>
+                    <div className="text-sm text-gray-600">Devoluções</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <ArrowLeftRight className="h-5 w-5 text-purple-600" />
+                  <div>
+                    <div className="text-2xl font-bold text-purple-600">{transfers.length}</div>
+                    <div className="text-sm text-gray-600">Transferências</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Truck className="h-5 w-5 text-green-600" />
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {purchases.filter(p => (p.status || '').toLowerCase().includes('entregue')).length +
+                       returns.filter(r => (r.status || '').toLowerCase().includes('entregue')).length +
+                       transfers.filter(t => (t.status || '').toLowerCase().includes('entregue')).length}
+                    </div>
+                    <div className="text-sm text-gray-600">Entregues</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-
-          {/* --- INÍCIO DA MODIFICAÇÃO: UI de filtros com o novo Select --- */}
+          {/* Filters and View Options */}
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
               <TabsList>
@@ -487,7 +828,7 @@ export function TrackingPage() {
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Buscar por loja, cliente, rastreio..."
+                    placeholder="Buscar por código de rastreio..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -510,8 +851,7 @@ export function TrackingPage() {
                   )}
                 </Button>
               </div>
-
-              {/* Novo componente Select para filtrar por status */}
+              
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full md:w-[200px]">
                   <Filter className="h-4 w-4 mr-2" />
@@ -556,7 +896,6 @@ export function TrackingPage() {
               </div>
             </div>
           </div>
-          {/* --- FIM DA MODIFICAÇÃO --- */}
 
           {/* Main Content */}
           <div className="flex-1">
@@ -578,9 +917,21 @@ export function TrackingPage() {
       </div>
       
       {/* Dialogs */}
-      <CreatePurchaseDialog open={createPurchaseOpen} onOpenChange={setCreatePurchaseOpen} />
-      <CreateReturnDialog open={createReturnOpen} onOpenChange={setCreateReturnOpen} />
-      <CreateTransferDialog open={createTransferOpen} onOpenChange={setCreateTransferOpen} />
+      <CreatePurchaseDialog 
+        open={createPurchaseOpen} 
+        onOpenChange={setCreatePurchaseOpen} 
+      />
+      
+      <CreateReturnDialog 
+        open={createReturnOpen} 
+        onOpenChange={setCreateReturnOpen} 
+      />
+      
+      <CreateTransferDialog 
+        open={createTransferOpen} 
+        onOpenChange={setCreateTransferOpen} 
+      />
+      
       <TrackingDetailsDialog 
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
