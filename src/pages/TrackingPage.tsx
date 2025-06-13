@@ -130,6 +130,7 @@ const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
         statusLower.includes('problema') ||
         statusLower.includes('não autorizada') ||
         statusLower.includes('necessidade de apresentar') ||
+        statusLower.includes('complementar informação') ||
         statusLower.includes('extraviado') ||
         statusLower.includes('pausado')
     ) {
