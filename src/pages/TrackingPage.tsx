@@ -70,8 +70,7 @@ import { getTrackingUrl } from '@/lib/tracking-api';
  * Categoriza um item com base em seu status e data de entrega estimada.
  * @param item - O objeto de compra, devolução ou transferência.
  * @returns Uma string representando a categoria do status.
- */
-const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
+ const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
     const statusLower = (item.status || '').toLowerCase();
     const isFinalStatus = statusLower.includes('entregue') || statusLower.includes('conferido') || statusLower.includes('estoque');
 
@@ -110,7 +109,43 @@ const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
     // Fallback para outros status não categorizados
     return 'Outro';
 };
+ */
+const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
+    const statusLower = (item.status || '').toLowerCase();
+    
+    // A verificação de 'estoque' deve vir primeiro se quisermos uma categoria "Concluído" separada,
+    // mas para a sua lógica atual, "Entregue" abrange tudo.
+    const isFinalStatus = statusLower.includes('entregue') || statusLower.includes('conferido') || statusLower.includes('estoque');
 
+    if (!isFinalStatus && item.estimated_delivery && new Date(item.estimated_delivery) < new Date()) {
+        return 'Atrasado';
+    }
+
+    if (isFinalStatus) {
+        return 'Entregue';
+    }
+
+    // A linha duplicada "Necessidade de apresentar" foi removida, pois toLowerCase() já a cobre.
+    if (
+        statusLower.includes('problema') ||
+        statusLower.includes('não autorizada') ||
+        statusLower.includes('necessidade de apresentar') ||
+        statusLower.includes('extraviado') ||
+        statusLower.includes('pausado')
+    ) {
+        return 'Pausado/Problema';
+    }
+
+    if (statusLower.includes('trânsito') || statusLower.includes('transferência')) { // Adicionando 'transferência' que discutimos
+        return 'Em trânsito';
+    }
+
+    if (statusLower.includes('aguardando') || statusLower.includes('aguarde')) { // Adicionando 'aguarde'
+        return 'Aguardando';
+    }
+    
+    return 'Outro'; // Fallback
+};
 
 export function TrackingPage() {
   const { 
