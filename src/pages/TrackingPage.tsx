@@ -299,8 +299,8 @@ export function TrackingPage() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            {purchase.estimatedDelivery 
-                              ? new Date(purchase.estimatedDelivery).toLocaleDateString('pt-BR')
+                            {purchase.estimated_delivery 
+                              ? new Date(purchase.estimated_delivery).toLocaleDateString('pt-BR')
                               : 'N/A'}
                           </TableCell>
                           <TableCell>
@@ -456,8 +456,8 @@ export function TrackingPage() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            {returnItem.estimatedDelivery 
-                              ? new Date(returnItem.estimatedDelivery).toLocaleDateString('pt-BR')
+                            {returnItem.estimated_delivery 
+                              ? new Date(returnItem.estimated_delivery).toLocaleDateString('pt-BR')
                               : 'N/A'}
                           </TableCell>
                           <TableCell>
@@ -572,8 +572,8 @@ export function TrackingPage() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            {transfer.estimatedDelivery 
-                              ? new Date(transfer.estimatedDelivery).toLocaleDateString('pt-BR')
+                            {transfer.estimated_delivery 
+                              ? new Date(transfer.estimated_delivery).toLocaleDateString('pt-BR')
                               : 'N/A'}
                           </TableCell>
                           <TableCell>
