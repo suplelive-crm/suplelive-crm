@@ -301,7 +301,7 @@ export function TrackingPage() {
                           <TableCell>
                             {purchase.estimated_delivery 
                               ? new Date(purchase.estimated_delivery).toLocaleDateString('pt-BR')
-                              : 'N/A/1'}
+                              : 'N/A/2'}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
@@ -458,7 +458,7 @@ export function TrackingPage() {
                           <TableCell>
                             {returnItem.estimated_delivery 
                               ? new Date(returnItem.estimated_delivery).toLocaleDateString('pt-BR')
-                              : 'N/A'}
+                              : 'N/A/1'}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
@@ -574,7 +574,7 @@ export function TrackingPage() {
                           <TableCell>
                             {transfer.estimated_delivery 
                               ? new Date(transfer.estimated_delivery).toLocaleDateString('pt-BR')
-                              : 'N/A'}
+                              : 'N/A/3'}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
