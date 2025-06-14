@@ -80,10 +80,16 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
         if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
         
-        // Initialize Baselinker API with Supabase functions URL
+        // LOG DE DEPURAÇÃO: Verifica o valor da chave da Supabase
+        console.log(
+          "DEBUG (connect): Verificando chave da Supabase:", 
+          import.meta.env.VITE_SUPABASE_ANON_KEY
+        );
+        
+        // CORREÇÃO: Passa a chave da Supabase para a inicialização
         initializeBaselinker(
           import.meta.env.VITE_SUPABASE_URL,
-          import.meta.env.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xd3N0YW56dHFkaWV4Z3JwZHRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMzM3MjksImV4cCI6MjA2NDgwOTcyOX0.ocuapLtLjHNfy97hYx9a7pbW69bn58PTvhyQTqCgD_k // <-- ADICIONE A CHAVE AQUI
+          import.meta.env.VITE_SUPABASE_ANON_KEY 
         );
         
         // Save config to localStorage
@@ -131,8 +137,17 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
       try {
         console.log("Testing connection with API key:", apiKey);
         
-        // Create a temporary API instance for testing
-        const api = new BaselinkerAPI(import.meta.env.VITE_SUPABASE_URL);
+        // LOG DE DEPURAÇÃO: Verifica o valor da chave da Supabase
+        console.log(
+          "DEBUG (testConnection): Verificando chave da Supabase:", 
+          import.meta.env.VITE_SUPABASE_ANON_KEY
+        );
+        
+        // CORREÇÃO: Cria uma instância temporária com a chave da Supabase
+        const api = new BaselinkerAPI(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY
+        );
         const result = await api.testConnection(apiKey);
         
         console.log("Test connection result:", result);
@@ -160,7 +175,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         } catch (error: any) {
           console.error("Error fetching inventories:", error);
           
-          // Check for authentication errors
           if (error.message.includes('401') || error.message.includes('Unauthorized') || 
               error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
@@ -185,7 +199,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         } catch (error: any) {
           console.error("Error fetching order statuses:", error);
           
-          // Check for authentication errors
           if (error.message.includes('401') || error.message.includes('Unauthorized') || 
               error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
@@ -214,7 +227,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         } catch (error: any) {
           console.error("Error fetching products:", error);
           
-          // Check for authentication errors
           if (error.message.includes('401') || error.message.includes('Unauthorized') || 
               error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
@@ -238,7 +250,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         set({ syncInProgress: true });
         
         try {
-          // Get last sync time
           const { data: syncData } = await supabase
             .from('baselinker_sync')
             .select('last_orders_sync')
@@ -249,7 +260,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             ? new Date(syncData.last_orders_sync).getTime() / 1000 
             : 0;
           
-          // Get orders from Baselinker
           console.log("Syncing orders with API key:", config.apiKey);
           const response = await baselinker.getOrders(config.apiKey, {
             date_from: lastSyncTimestamp,
@@ -259,13 +269,10 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           const orders = response.data?.orders || [];
           console.log(`Found ${orders.length} orders to sync`);
           
-          // Process each order
           for (const order of orders) {
-            // Get detailed order info
             const orderDetails = await baselinker.getOrderDetails(config.apiKey, order.order_id);
             const orderData = orderDetails.data;
             
-            // Map Baselinker status to OmniCRM status
             let status = 'pending';
             if (['paid', 'ready_for_shipping'].includes(order.order_status_id)) {
               status = 'processing';
@@ -275,7 +282,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               status = 'cancelled';
             }
             
-            // Find or create client
             let clientId = null;
             if (orderData.email || orderData.phone) {
               const { data: existingClients } = await supabase
@@ -287,7 +293,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               if (existingClients && existingClients.length > 0) {
                 clientId = existingClients[0].id;
                 
-                // Update client info
                 await supabase
                   .from('clients')
                   .update({
@@ -307,7 +312,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                   })
                   .eq('id', clientId);
               } else {
-                // Create new client
                 const { data: newClient } = await supabase
                   .from('clients')
                   .insert({
@@ -335,14 +339,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             
             if (!clientId) continue;
             
-            // Check if order already exists
             const { data: existingOrders } = await supabase
               .from('orders')
               .select('id')
               .eq('external_id', order.order_id);
             
             if (existingOrders && existingOrders.length > 0) {
-              // Update existing order
               await supabase
                 .from('orders')
                 .update({
@@ -352,7 +354,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                 })
                 .eq('external_id', order.order_id);
             } else {
-              // Create new order
               await supabase
                 .from('orders')
                 .insert({
@@ -366,7 +367,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             }
           }
           
-          // Update last sync time
           await supabase
             .from('baselinker_sync')
             .upsert({
@@ -380,7 +380,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           
           set({ lastSyncTime: new Date() });
         } catch (error: any) {
-          // Check for authentication errors
           if (error.message.includes('401') || error.message.includes('Unauthorized') || 
               error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
@@ -406,10 +405,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         set({ syncInProgress: true });
         
         try {
-          // Since Baselinker doesn't have a dedicated customers API,
-          // we'll sync customers from orders
-          
-          // Get last sync time
           const { data: syncData } = await supabase
             .from('baselinker_sync')
             .select('last_customers_sync')
@@ -420,7 +415,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             ? new Date(syncData.last_customers_sync).getTime() / 1000 
             : 0;
           
-          // Get orders from Baselinker
           console.log("Syncing customers with API key:", config.apiKey);
           const response = await baselinker.getOrders(config.apiKey, {
             date_from: lastSyncTimestamp
@@ -429,15 +423,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           const orders = response.data?.orders || [];
           console.log(`Found ${orders.length} orders to extract customers from`);
           
-          // Process each order to extract customer data
           for (const order of orders) {
-            // Get detailed order info
             const orderDetails = await baselinker.getOrderDetails(config.apiKey, order.order_id);
             const orderData = orderDetails.data;
             
             if (!orderData.email && !orderData.phone) continue;
             
-            // Find or create client
             const { data: existingClients } = await supabase
               .from('clients')
               .select('id')
@@ -445,7 +436,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               .eq('workspace_id', currentWorkspace.id);
             
             if (existingClients && existingClients.length > 0) {
-              // Update client info
               await supabase
                 .from('clients')
                 .update({
@@ -465,7 +455,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                 })
                 .eq('id', existingClients[0].id);
             } else {
-              // Create new client
               await supabase
                 .from('clients')
                 .insert({
@@ -487,7 +476,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             }
           }
           
-          // Update last sync time
           await supabase
             .from('baselinker_sync')
             .upsert({
@@ -501,7 +489,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           
           set({ lastSyncTime: new Date() });
         } catch (error: any) {
-          // Check for authentication errors
           if (error.message.includes('401') || error.message.includes('Unauthorized') || 
               error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
@@ -527,7 +514,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         set({ syncInProgress: true });
         
         try {
-          // Get products from Baselinker
           console.log("Syncing inventory with API key:", config.apiKey, "and inventory ID:", config.inventoryId);
           let page = 1;
           let hasMore = true;
@@ -545,15 +531,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             hasMore = products.length > 0;
             page++;
             
-            // Limit to 100 products for safety
             if (page > 10) break;
           }
           
           console.log(`Found ${allProducts.length} products to sync`);
           
-          // Process each product
           for (const product of allProducts) {
-            // Get detailed product info
             const productDetails = await baselinker.getInventoryProductsData(config.apiKey, {
               inventory_id: config.inventoryId,
               products: [product.id]
@@ -563,7 +546,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             
             if (!productData) continue;
             
-            // Check if product already exists
             const { data: existingProducts } = await supabase
               .from('products')
               .select('id')
@@ -571,7 +553,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               .eq('workspace_id', currentWorkspace.id);
             
             if (existingProducts && existingProducts.length > 0) {
-              // Update existing product
               await supabase
                 .from('products')
                 .update({
@@ -587,7 +568,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                 })
                 .eq('id', existingProducts[0].id);
             } else {
-              // Create new product
               await supabase
                 .from('products')
                 .insert({
@@ -605,7 +585,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             }
           }
           
-          // Update last sync time
           await supabase
             .from('baselinker_sync')
             .upsert({
@@ -619,7 +598,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           
           set({ lastSyncTime: new Date() });
         } catch (error: any) {
-          // Check for authentication errors
           if (error.message.includes('401') || error.message.includes('Unauthorized') || 
               error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
@@ -641,7 +619,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           throw new Error('Configuração incompleta');
         }
         
-        // Update sync status to syncing
         await supabase
           .from('baselinker_sync')
           .upsert({
@@ -667,7 +644,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             await get().syncInventory();
           }
           
-          // Update sync status to idle
           await supabase
             .from('baselinker_sync')
             .upsert({
@@ -680,7 +656,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           
           set({ lastSyncTime: new Date() });
         } catch (error: any) {
-          // Update sync status to error
           await supabase
             .from('baselinker_sync')
             .upsert({
@@ -712,14 +687,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           };
         }
         
-        // Get last sync time
         const { data: syncData } = await supabase
           .from('baselinker_sync')
           .select('*')
           .eq('workspace_id', currentWorkspace.id)
           .maybeSingle();
         
-        // Get counts
         const [
           { count: ordersCount },
           { count: customersCount },
@@ -730,7 +703,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           supabase.from('products').select('*', { count: 'exact', head: true }).eq('workspace_id', currentWorkspace.id)
         ]);
         
-        // Determine last sync time
         let lastSync = null;
         if (syncData) {
           const times = [
@@ -762,10 +734,8 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
       const config = get().config;
       if (!config) return;
       
-      // Clear any existing interval
       get().stopSyncInterval();
       
-      // Set new interval
       syncIntervalId = window.setInterval(() => {
         get().syncAll();
       }, config.syncInterval * 60 * 1000);
