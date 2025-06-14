@@ -1,3 +1,5 @@
+// supabase/functions/baselinker-proxy/index.ts
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -23,134 +25,105 @@ serve(async (req) => {
 
     if (!apiKey || !method) {
       return new Response(
-        JSON.stringify({ 
-          status: 'ERROR', 
+        JSON.stringify({
+          status: 'ERROR',
           error_message: 'API key and method are required',
           error_code: 'MISSING_PARAMETERS'
         }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    console.log(`Making Baselinker API request: ${method}`, { parameters })
-
-    // Make request to Baselinker API using both header and token parameter
-    // This provides backward compatibility with their API
+    // Monta o formulário para a API da Baselinker
     const formData = new URLSearchParams();
-    formData.append('token', apiKey); // Include token in the body as fallback
     formData.append('method', method);
-    formData.append('parameters', JSON.stringify(parameters));
 
+    // Itera sobre os parâmetros e os adiciona ao formulário.
+    // Esta é a correção principal: cada parâmetro é enviado como um campo separado.
+    for (const key in parameters) {
+      // Verifica se a propriedade pertence ao objeto para evitar problemas de protótipo
+      if (Object.prototype.hasOwnProperty.call(parameters, key)) {
+        const value = parameters[key];
+        // A API da Baselinker espera que arrays e objetos sejam passados como uma string JSON
+        if (typeof value === 'object' && value !== null) {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, value.toString());
+        }
+      }
+    }
+
+    // Faz a chamada para a API da Baselinker
     const response = await fetch('https://api.baselinker.com/connector.php', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'X-BLToken': apiKey // Recommended header approach
+        'X-BLToken': apiKey // Header recomendado pela Baselinker para autenticação
       },
       body: formData.toString()
     })
 
+    // Trata erros de HTTP (ex: 401, 403, 429)
     if (!response.ok) {
-      console.error(`Baselinker API HTTP error: ${response.status} ${response.statusText}`)
-      
-      let errorMessage = `HTTP ${response.status}: ${response.statusText}`
-      
-      if (response.status === 401) {
-        errorMessage = 'Invalid API key or insufficient permissions'
-      } else if (response.status === 403) {
-        errorMessage = 'Access forbidden - check API key permissions'
-      } else if (response.status === 429) {
-        errorMessage = 'Rate limit exceeded - please wait before making more requests'
+      const errorText = await response.text();
+      let errorMessage = `HTTP error ${response.status}: ${errorText}`;
+      // Tenta extrair uma mensagem mais amigável se possível
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error_message || errorMessage;
+      } catch (e) {
+        // Ignora o erro de parse se a resposta não for JSON
       }
-
       return new Response(
-        JSON.stringify({ 
-          status: 'ERROR', 
+        JSON.stringify({
+          status: 'ERROR',
           error_message: errorMessage,
-          error_code: response.status === 401 ? 'ERROR_INVALID_API_KEY' : 'HTTP_ERROR'
+          error_code: `HTTP_${response.status}`
         }),
-        { 
-          status: response.status, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    const responseText = await response.text()
-    console.log('Baselinker API response:', responseText)
+    const result = await response.json();
 
-    let result
-    try {
-      result = JSON.parse(responseText)
-    } catch (parseError) {
-      console.error('Failed to parse Baselinker response as JSON:', parseError)
-      return new Response(
-        JSON.stringify({ 
-          status: 'ERROR', 
-          error_message: 'Invalid response format from Baselinker API',
-          error_code: 'INVALID_RESPONSE'
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Check if Baselinker returned an error
+    // Trata erros específicos retornados pela API da Baselinker
     if (result.status === 'ERROR') {
-      console.error('Baselinker API error:', result)
-      
-      // Map common Baselinker error codes to user-friendly messages
-      let errorMessage = result.error_message || 'Unknown error from Baselinker API'
-      
-      if (result.error_code === 'ERROR_INVALID_API_KEY') {
-        errorMessage = 'Invalid API key. Please check your Baselinker API token.'
-      } else if (result.error_code === 'ERROR_PERMISSION_DENIED') {
-        errorMessage = 'Permission denied. Your API key does not have the required permissions.'
-      } else if (result.error_code === 'ERROR_METHOD_NOT_EXISTS') {
-        errorMessage = 'Invalid API method. Please contact support.'
-      } else if (result.error_code === 'ERROR_INVALID_PARAMETERS') {
-        errorMessage = 'Invalid parameters provided to the API method.'
-      }
-
+      console.error('Baselinker API returned an error:', result);
       return new Response(
-        JSON.stringify({ 
-          status: 'ERROR', 
-          error_message: errorMessage,
-          error_code: result.error_code || 'BASELINKER_ERROR'
-        }),
-        { 
-          status: result.error_code === 'ERROR_INVALID_API_KEY' ? 401 : 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        JSON.stringify(result), // Repassa o erro original da Baselinker
+        {
+          status: 400, // Usa um status de erro genérico do cliente
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    // Return successful response
+    // Retorna a resposta de sucesso para o cliente
     return new Response(
       JSON.stringify(result),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
 
   } catch (error) {
-    console.error('Proxy function error:', error)
-    
+    console.error('An unexpected error occurred in the proxy function:', error)
     return new Response(
-      JSON.stringify({ 
-        status: 'ERROR', 
-        error_message: 'Internal server error in proxy function',
-        error_code: 'PROXY_ERROR'
+      JSON.stringify({
+        status: 'ERROR',
+        error_message: 'Internal Server Error: ' + error.message,
+        error_code: 'PROXY_INTERNAL_ERROR'
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }
