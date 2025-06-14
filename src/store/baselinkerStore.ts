@@ -26,30 +26,30 @@ interface BaselinkerState {
   loading: boolean;
   syncInProgress: boolean;
   lastSyncTime: Date | null;
-  
+
   // Connection methods
   isConnected: () => boolean;
   connect: (config: BaselinkerConfig) => Promise<void>;
   disconnect: () => Promise<void>;
   testConnection: (apiKey: string) => Promise<{ success: boolean; message?: string; data?: any }>;
-  
+
   // Data fetching methods
   getInventories: () => Promise<any[]>;
   getOrderStatuses: () => Promise<any[]>;
   getProducts: (inventoryId: string) => Promise<Product[]>;
-  
+
   // Sync methods
-  syncOrders: () => Promise<void>;
-  syncCustomers: () => Promise<void>;
+  syncOrders: (forceFullSync?: boolean) => Promise<void>;
+  syncCustomers: (forceFullSync?: boolean) => Promise<void>;
   syncInventory: () => Promise<void>;
-  syncAll: () => Promise<void>;
+  syncAll: (forceFullSync?: boolean) => Promise<void>;
   getSyncStats: () => Promise<{
     lastSync: Date | null;
     ordersCount: number;
     customersCount: number;
     productsCount: number;
   }>;
-  
+
   // Utility methods
   startSyncInterval: () => void;
   stopSyncInterval: () => void;
@@ -58,14 +58,14 @@ interface BaselinkerState {
 export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
   // Interval reference for cleanup
   let syncIntervalId: number | null = null;
-  
+
   return {
     config: null,
     products: [],
     loading: false,
     syncInProgress: false,
     lastSyncTime: null,
-    
+
     isConnected: () => {
       // Check if we have a config in localStorage
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
@@ -113,7 +113,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         get().startSyncInterval();
         
         // Do initial sync
-        await get().syncAll();
+        await get().syncAll(true); // Força sincronização completa na primeira conexão
       });
     },
     
@@ -237,7 +237,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
       }) || [];
     },
     
-    syncOrders: async () => {
+    syncOrders: async (forceFullSync = false) => {
       await ErrorHandler.handleAsync(async () => {
         const baselinker = getBaselinker();
         const config = get().config;
@@ -256,15 +256,18 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             .eq('workspace_id', currentWorkspace.id)
             .maybeSingle();
           
-          const lastSyncTimestamp = syncData?.last_orders_sync 
+          const lastSyncTimestamp = (syncData?.last_orders_sync && !forceFullSync)
             ? new Date(syncData.last_orders_sync).getTime() / 1000 
             : 0;
           
-          console.log("Syncing orders with API key:", config.apiKey);
-          const response = await baselinker.getOrders(config.apiKey, {
+          const parametersToSync = {
             date_from: lastSyncTimestamp,
             order_status_id: config.orderStatuses.join(',')
-          });
+          };
+
+          console.log("DEBUG: Parâmetros REAIS enviados para getOrders:", parametersToSync);
+          
+          const response = await baselinker.getOrders(config.apiKey, parametersToSync);
           
           const orders = response.data?.orders || [];
           console.log(`Found ${orders.length} orders to sync`);
@@ -392,7 +395,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
       });
     },
     
-    syncCustomers: async () => {
+    syncCustomers: async (forceFullSync = false) => {
       await ErrorHandler.handleAsync(async () => {
         const baselinker = getBaselinker();
         const config = get().config;
@@ -411,7 +414,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             .eq('workspace_id', currentWorkspace.id)
             .maybeSingle();
           
-          const lastSyncTimestamp = syncData?.last_customers_sync 
+          const lastSyncTimestamp = (syncData?.last_customers_sync && !forceFullSync) 
             ? new Date(syncData.last_customers_sync).getTime() / 1000 
             : 0;
           
@@ -610,7 +613,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
       });
     },
     
-    syncAll: async () => {
+    syncAll: async (forceFullSync = false) => {
       await ErrorHandler.handleAsync(async () => {
         const config = get().config;
         const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
@@ -633,11 +636,11 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         
         try {
           if (config.syncOrders) {
-            await get().syncOrders();
+            await get().syncOrders(forceFullSync);
           }
           
           if (config.syncCustomers) {
-            await get().syncCustomers();
+            await get().syncCustomers(forceFullSync);
           }
           
           if (config.syncInventory && config.inventoryId) {
