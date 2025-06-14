@@ -18,9 +18,11 @@ export interface BaselinkerResponse<T = any> {
 
 export class BaselinkerAPI {
   private proxyUrl: string;
+  private supabaseAnonKey: string;
 
-  constructor(supabaseFunctionsUrl: string) {
+  constructor(supabaseFunctionsUrl: string, supabaseAnonKey: string) {
     this.proxyUrl = `${supabaseFunctionsUrl}/functions/v1/baselinker-proxy`;
+    this.supabaseAnonKey = supabaseAnonKey;
   }
 
   private async makeRequest<T>(
@@ -30,11 +32,12 @@ export class BaselinkerAPI {
   ): Promise<T> {
     try {
       console.log(`Making Baselinker API request: ${method}`, { apiKey: apiKey.substring(0, 5) + '...', parameters });
-      
+
       const response = await fetch(this.proxyUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.supabaseAnonKey}`
         },
         body: JSON.stringify({
           apiKey,
@@ -44,48 +47,27 @@ export class BaselinkerAPI {
       });
 
       if (!response.ok) {
-        // Handle HTTP errors more specifically
         if (response.status === 401) {
-          throw new Error('HTTP error! status: 401 - Unauthorized. Please check your API key.');
+          throw new Error('HTTP error! status: 401 - Unauthorized. Verifique a chave anônima (anon key) da Supabase.');
         } else if (response.status === 403) {
-          throw new Error('HTTP error! status: 403 - Forbidden. Your API key does not have the required permissions.');
-        } else if (response.status === 429) {
-          throw new Error('HTTP error! status: 429 - Too Many Requests. Please wait before making more requests.');
+          throw new Error('HTTP error! status: 403 - Forbidden. Permissão negada para acessar a função da Supabase.');
         } else {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorText = await response.text();
+          throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
         }
       }
 
       const result = await response.json();
       console.log(`Baselinker API response for ${method}:`, result);
-      
+
       if (result.status === 'ERROR') {
-        // Handle Baselinker API errors
-        if (result.error_code === 'ERROR_INVALID_API_KEY') {
-          throw new Error('Invalid API key. Please check your Baselinker API key.');
-        } else if (result.error_code === 'ERROR_PERMISSION_DENIED') {
-          throw new Error('Permission denied. Your API key does not have the required permissions.');
-        } else {
-          throw new Error(result.error_message || 'Unknown Baselinker API error');
-        }
+        throw new Error(result.error_message || 'Unknown Baselinker API error');
       }
 
       return result;
     } catch (error: any) {
       console.error('Baselinker API request failed:', error);
-      
-      // Re-throw with more specific error messages
-      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        throw new Error('Baselinker API error: Authentication failed. Please verify your API key.');
-      } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
-        throw new Error('Baselinker API error: Access forbidden. Your API key may not have the required permissions.');
-      } else if (error.message.includes('429')) {
-        throw new Error('Baselinker API error: Rate limit exceeded. Please wait before making more requests.');
-      } else if (error.message.includes('fetch')) {
-        throw new Error('Baselinker API error: Network connection failed. Please check your internet connection.');
-      } else {
-        throw new Error(`Baselinker API error: ${error.message}`);
-      }
+      throw error;
     }
   }
 
@@ -93,13 +75,12 @@ export class BaselinkerAPI {
   async testConnection(apiKey: string): Promise<{ success: boolean; message?: string; data?: any }> {
     try {
       console.log("Testing connection with API key:", apiKey);
-      // Use a simple method to test the connection
-      const result = await this.makeRequest<BaselinkerResponse>(apiKey, 'getJournalList', { 
+      const result = await this.makeRequest<BaselinkerResponse>(apiKey, 'getJournalList', {
         last_log_id: 1,
-        logs_types: ['order', 'product', 'inventory'], // Array of event types as required
+        logs_types: ['order', 'product', 'inventory'],
         limit: 1
       });
-      
+
       console.log("Test connection result:", result);
       return {
         success: true,
@@ -279,7 +260,7 @@ export const getBaselinker = (): BaselinkerAPI | null => {
   return baselinkerInstance;
 };
 
-export const initializeBaselinker = (supabaseFunctionsUrl: string): BaselinkerAPI => {
-  baselinkerInstance = new BaselinkerAPI(supabaseFunctionsUrl);
+export const initializeBaselinker = (supabaseFunctionsUrl: string, supabaseAnonKey: string): BaselinkerAPI => {
+  baselinkerInstance = new BaselinkerAPI(supabaseFunctionsUrl, supabaseAnonKey);
   return baselinkerInstance;
 };
