@@ -83,7 +83,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         // Initialize Baselinker API with Supabase functions URL
         initializeBaselinker(
           import.meta.env.VITE_SUPABASE_URL,
-          import.meta.env.VITE_SUPABASE_ANON_KEY // <-- ADICIONE A CHAVE AQUI
+          import.meta.env.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xd3N0YW56dHFkaWV4Z3JwZHRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyMzM3MjksImV4cCI6MjA2NDgwOTcyOX0.ocuapLtLjHNfy97hYx9a7pbW69bn58PTvhyQTqCgD_k // <-- ADICIONE A CHAVE AQUI
         );
         
         // Save config to localStorage
