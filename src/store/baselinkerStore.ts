@@ -81,7 +81,10 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
         
         // Initialize Baselinker API with Supabase functions URL
-        initializeBaselinker(import.meta.env.VITE_SUPABASE_URL);
+        initializeBaselinker(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY // <-- ADICIONE A CHAVE AQUI
+        );
         
         // Save config to localStorage
         localStorage.setItem(`baselinker_config_${currentWorkspace.id}`, JSON.stringify(config));
