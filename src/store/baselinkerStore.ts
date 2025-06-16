@@ -26,18 +26,18 @@ interface BaselinkerState {
   loading: boolean;
   syncInProgress: boolean;
   lastSyncTime: Date | null;
-
+  
   // Connection methods
   isConnected: () => boolean;
   connect: (config: BaselinkerConfig) => Promise<void>;
   disconnect: () => Promise<void>;
   testConnection: (apiKey: string) => Promise<{ success: boolean; message?: string; data?: any }>;
-
+  
   // Data fetching methods
   getInventories: () => Promise<any[]>;
   getOrderStatuses: () => Promise<any[]>;
   getProducts: (inventoryId: string) => Promise<Product[]>;
-
+  
   // Sync methods
   syncOrders: (forceFullSync?: boolean) => Promise<void>;
   syncCustomers: (forceFullSync?: boolean) => Promise<void>;
@@ -49,7 +49,7 @@ interface BaselinkerState {
     customersCount: number;
     productsCount: number;
   }>;
-
+  
   // Utility methods
   startSyncInterval: () => void;
   stopSyncInterval: () => void;
@@ -58,19 +58,17 @@ interface BaselinkerState {
 export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
   // Interval reference for cleanup
   let syncIntervalId: number | null = null;
-
+  
   return {
     config: null,
     products: [],
     loading: false,
     syncInProgress: false,
     lastSyncTime: null,
-
+    
     isConnected: () => {
-      // Check if we have a config in localStorage
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) return false;
-      
       const savedConfig = localStorage.getItem(`baselinker_config_${currentWorkspace.id}`);
       return !!savedConfig && !!JSON.parse(savedConfig).apiKey;
     },
@@ -80,25 +78,16 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
         if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
         
-        // LOG DE DEPURAÇÃO: Verifica o valor da chave da Supabase
-        console.log(
-          "DEBUG (connect): Verificando chave da Supabase:", 
-          import.meta.env.VITE_SUPABASE_ANON_KEY
-        );
+        console.log("DEBUG (connect): Verificando chave da Supabase:", import.meta.env.VITE_SUPABASE_ANON_KEY);
         
-        // CORREÇÃO: Passa a chave da Supabase para a inicialização
         initializeBaselinker(
           import.meta.env.VITE_SUPABASE_URL,
           import.meta.env.VITE_SUPABASE_ANON_KEY 
         );
         
-        // Save config to localStorage
         localStorage.setItem(`baselinker_config_${currentWorkspace.id}`, JSON.stringify(config));
-        
-        // Save config to state
         set({ config });
         
-        // Create or update baselinker_sync record
         await supabase
           .from('baselinker_sync')
           .upsert({
@@ -109,11 +98,8 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             onConflict: 'workspace_id'
           });
         
-        // Start sync interval
         get().startSyncInterval();
-        
-        // Do initial sync
-        await get().syncAll(true); // Força sincronização completa na primeira conexão
+        await get().syncAll(true);
       });
     },
     
@@ -122,13 +108,8 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
         const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
         if (!currentWorkspace) return;
         
-        // Remove config from localStorage
         localStorage.removeItem(`baselinker_config_${currentWorkspace.id}`);
-        
-        // Stop sync interval
         get().stopSyncInterval();
-        
-        // Clear config
         set({ config: null });
       });
     },
@@ -137,13 +118,8 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
       try {
         console.log("Testing connection with API key:", apiKey);
         
-        // LOG DE DEPURAÇÃO: Verifica o valor da chave da Supabase
-        console.log(
-          "DEBUG (testConnection): Verificando chave da Supabase:", 
-          import.meta.env.VITE_SUPABASE_ANON_KEY
-        );
+        console.log("DEBUG (testConnection): Verificando chave da Supabase:", import.meta.env.VITE_SUPABASE_ANON_KEY);
         
-        // CORREÇÃO: Cria uma instância temporária com a chave da Supabase
         const api = new BaselinkerAPI(
           import.meta.env.VITE_SUPABASE_URL,
           import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -259,22 +235,29 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           const lastSyncTimestamp = (syncData?.last_orders_sync && !forceFullSync)
             ? new Date(syncData.last_orders_sync).getTime() / 1000 
             : 0;
-          
+
+          // CORREÇÃO DE LÓGICA: Buscar IDs dos status antes de fazer a chamada principal
+          const statusListResponse = await baselinker.getOrderStatusList(config.apiKey);
+          const allStatusesFromBaselinker = statusListResponse.statuses || [];
+          const statusNamesToSync = config.orderStatuses;
+          const statusIdsToSync = allStatusesFromBaselinker
+            .filter(statusInfo => statusNamesToSync.includes(statusInfo.name.toLowerCase().replace(/\s+/g, '_')))
+            .map(statusInfo => statusInfo.id);
+
           const parametersToSync = {
             date_from: lastSyncTimestamp,
-            order_status_id: config.orderStatuses.join(',')
+            status_id: statusIdsToSync.join(',') // Usando o nome e valor corretos
           };
-
-          console.log("DEBUG: Parâmetros REAIS enviados para getOrders:", parametersToSync);
           
+          console.log("DEBUG: Parâmetros REAIS enviados para getOrders:", parametersToSync);
           const response = await baselinker.getOrders(config.apiKey, parametersToSync);
           
-          const orders = response.data?.orders || [];
+          const orders = response.orders || [];
           console.log(`Found ${orders.length} orders to sync`);
           
           for (const order of orders) {
             const orderDetails = await baselinker.getOrderDetails(config.apiKey, order.order_id);
-            const orderData = orderDetails.data;
+            const orderData = orderDetails;
             
             let status = 'pending';
             if (['paid', 'ready_for_shipping'].includes(order.order_status_id)) {
@@ -414,7 +397,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             .eq('workspace_id', currentWorkspace.id)
             .maybeSingle();
           
-          const lastSyncTimestamp = (syncData?.last_customers_sync && !forceFullSync) 
+          const lastSyncTimestamp = (syncData?.last_customers_sync && !forceFullSync)
             ? new Date(syncData.last_customers_sync).getTime() / 1000 
             : 0;
           
@@ -423,12 +406,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             date_from: lastSyncTimestamp
           });
           
-          const orders = response.data?.orders || [];
+          const orders = response.orders || [];
           console.log(`Found ${orders.length} orders to extract customers from`);
           
           for (const order of orders) {
             const orderDetails = await baselinker.getOrderDetails(config.apiKey, order.order_id);
-            const orderData = orderDetails.data;
+            const orderData = orderDetails;
             
             if (!orderData.email && !orderData.phone) continue;
             
@@ -528,7 +511,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               page
             });
             
-            const products = response.data?.products || [];
+            const products = response.products || [];
             allProducts.push(...products);
             
             hasMore = products.length > 0;
@@ -545,7 +528,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               products: [product.id]
             });
             
-            const productData = productDetails.data?.products?.[product.id];
+            const productData = productDetails.products?.[product.id];
             
             if (!productData) continue;
             
