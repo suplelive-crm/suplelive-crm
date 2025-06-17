@@ -92,7 +92,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .from('purchases')
         .select(`
           *,
-          products:purchase_products(*)
+          products:purchase(*)
         `)
         .eq('workspace_id', currentWorkspace.id)
         .order('date', { ascending: false });
@@ -220,7 +220,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       console.log("Creating products:", productsWithPurchaseId);
 
       const { error: productsError } = await supabase
-        .from('purchase_products')
+        .from('purchase')
         .insert(productsWithPurchaseId);
 
       if (productsError) {
@@ -305,7 +305,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     await ErrorHandler.handleAsync(async () => {
       // 1. Atualiza o produto como verificado no Supabase
       const { error } = await supabase
-        .from('purchase_products')
+        .from('purchase')
         .update({
           is_verified: true,
           updated_at: new Date().toISOString() // Adicionado updated_at
@@ -334,7 +334,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       // 3. Verifica se TODOS os produtos da compra estão verificados
       const { data: products, error: fetchProductsError } = await supabase
-        .from('purchase_products')
+        .from('purchase')
         .select('is_verified')
         .eq('purchase_id', purchaseId);
 
@@ -369,7 +369,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     await ErrorHandler.handleAsync(async () => {
       // 1. Atualiza o produto como "em estoque" no Supabase
       const { error } = await supabase
-        .from('purchase_products')
+        .from('purchase')
         .update({
           is_in_stock: true,
           updated_at: new Date().toISOString()
@@ -398,7 +398,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       // 3. Verifica se TODOS os produtos da compra estão agora em estoque
       const { data: products, error: fetchProductsError } = await supabase
-        .from('purchase_products')
+        .from('purchase')
         .select('is_in_stock')
         .eq('purchase_id', purchaseId);
 
@@ -436,7 +436,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       // 1. Marca todos os produtos da compra como 'em estoque'
       const { error: productsUpdateError } = await supabase
-        .from('purchase_products')
+        .from('purchase')
         .update({
           is_in_stock: true,
           updated_at: new Date().toISOString()
@@ -819,7 +819,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .from('purchases')
         .select(`
           *,
-          products:purchase_products(*)
+          products:purchase(*)
         `)
         .eq('workspace_id', currentWorkspace.id)
         .eq('tracking_code', trackingCode) // Corrigido para snake_case
