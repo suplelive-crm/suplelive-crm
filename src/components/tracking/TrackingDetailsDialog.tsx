@@ -455,7 +455,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-1">
             <TabsTrigger value="details">Detalhes</TabsTrigger>
             {/*<TabsTrigger value="tracking">Rastreamento</TabsTrigger>*/}
           </TabsList>
