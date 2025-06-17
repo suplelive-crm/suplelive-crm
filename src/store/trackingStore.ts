@@ -31,12 +31,12 @@ interface TrackingState {
     storeName: string;
     customerName?: string;
     trackingCode: string;
-    deliveryFee: number;
+    deliveryFee: number; // deliveryFee como está no formulário
   },
     products: {
       name: string;
       quantity: number;
-      cost: number;
+      cost: number; // cost como está no formulário (custo original)
       sku: string;
       vencimento?: string;
     }[]) => Promise<void>;
@@ -137,41 +137,38 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .order('date', { ascending: false });
 
       if (!get().showArchived) {
-        query = query.eq('is_archived', false); // Nome da coluna conforme imagem do DB
+        query = query.eq('is_archived', false);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      // Mapeamento explícito de nomes de coluna do DB para o tipo TS do front-end
       const formattedData: Purchase[] = (data || []).map((purchase: any) => ({
-        // Campos da tabela purchases (Mistura de camelCase e snake_case)
         id: purchase.id,
         date: purchase.date,
         carrier: purchase.carrier,
         storeName: purchase.storeName,
-        customer_name: purchase.customer_name, // Snake_case no DB
+        customer_name: purchase.customer_name,
         trackingCode: purchase.trackingCode,
-        delivery_fee: purchase.delivery_fee,   // Snake_case no DB
+        delivery_fee: purchase.delivery_fee,
         status: purchase.status,
-        estimated_delivery: purchase.estimated_delivery, // Snake_case no DB
-        is_archived: purchase.is_archived,     // Snake_case no DB
-        created_at: purchase.created_at,       // Snake_case no DB
-        updated_at: purchase.updated_at,       // Snake_case no DB
-        workspace_id: purchase.workspace_id,   // Snake_case no DB
-        // Produtos aninhados (mapeamento para o tipo PurchaseProduct)
+        estimated_delivery: purchase.estimated_delivery,
+        is_archived: purchase.is_archived,
+        created_at: purchase.created_at,
+        updated_at: purchase.updated_at,
+        workspace_id: purchase.workspace_id,
         products: (purchase.products || []).map((product: any) => ({
           id: product.id,
-          purchase_id: product.purchase_id,   // Snake_case no DB
+          purchase_id: product.purchase_id,
           name: product.name,
           quantity: product.quantity,
-          cost: product.cost,
-          total_cost: product.total_cost,     // Snake_case no DB
-          is_verified: product.is_verified,   // Snake_case no DB
-          is_in_stock: product.is_in_stock,   // Snake_case no DB
-          vencimento: product.vencimento,     // CamelCase no DB
-          SKU: product.SKU,                   // UPPERCASE no DB
+          cost: product.cost, // Este custo já deve incluir a taxa de entrega se foi salva assim
+          total_cost: product.total_cost,
+          is_verified: product.is_verified,
+          is_in_stock: product.is_in_stock,
+          vencimento: product.vencimento,
+          SKU: product.SKU,
         }))
       }));
 
@@ -194,27 +191,26 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .order('date', { ascending: false });
 
       if (!get().showArchived) {
-        query = query.eq('is_archived', false); // Nome da coluna conforme imagem do DB
+        query = query.eq('is_archived', false);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      // Mapeamento explícito para retorno (mesmo que só alguns campos sejam snake_case)
       const formattedData: Return[] = (data || []).map((item: any) => ({
         id: item.id,
         date: item.date,
         carrier: item.carrier,
         storeName: item.storeName,
-        customer_name: item.customer_name, // Snake_case no DB
+        customer_name: item.customer_name,
         trackingCode: item.trackingCode,
         status: item.status,
-        estimated_delivery: item.estimated_delivery, // Snake_case no DB
-        is_archived: item.is_archived,       // Snake_case no DB
-        created_at: item.created_at,         // Snake_case no DB
-        updated_at: item.updated_at,         // Snake_case no DB
-        workspace_id: item.workspace_id,     // Snake_case no DB
+        estimated_delivery: item.estimated_delivery,
+        is_archived: item.is_archived,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        workspace_id: item.workspace_id,
       }));
 
       set({ returns: formattedData || [], loading: false });
@@ -235,27 +231,26 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .order('date', { ascending: false });
 
       if (!get().showArchived) {
-        query = query.eq('is_archived', false); // Nome da coluna conforme imagem do DB
+        query = query.eq('is_archived', false);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      // Mapeamento explícito para retorno
       const formattedData: Transfer[] = (data || []).map((item: any) => ({
         id: item.id,
         date: item.date,
         carrier: item.carrier,
         storeName: item.storeName,
-        customer_name: item.customer_name, // Snake_case no DB
+        customer_name: item.customer_name,
         trackingCode: item.trackingCode,
         status: item.status,
-        estimated_delivery: item.estimated_delivery, // Snake_case no DB
-        is_archived: item.is_archived,       // Snake_case no DB
-        created_at: item.created_at,         // Snake_case no DB
-        updated_at: item.updated_at,         // Snake_case no DB
-        workspace_id: item.workspace_id,     // Snake_case no DB
+        estimated_delivery: item.estimated_delivery,
+        is_archived: item.is_archived,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        workspace_id: item.workspace_id,
       }));
 
 
@@ -272,13 +267,13 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const dbPurchaseData = {
         date: purchaseData.date,
         carrier: purchaseData.carrier,
-        storeName: purchaseData.storeName,       // storeName (camelCase)
-        customer_name: purchaseData.customerName || null, // customer_name (snake_case)
-        trackingCode: purchaseData.trackingCode, // trackingCode (camelCase)
-        delivery_fee: purchaseData.deliveryFee,   // delivery_fee (snake_case)
+        storeName: purchaseData.storeName,
+        customer_name: purchaseData.customerName || null,
+        trackingCode: purchaseData.trackingCode,
+        delivery_fee: purchaseData.deliveryFee,
         status: 'Aguardando rastreamento',
-        is_archived: false,                       // is_archived (snake_case)
-        workspace_id: currentWorkspace.id         // workspace_id (snake_case)
+        is_archived: false,
+        workspace_id: currentWorkspace.id
       };
 
       console.log("Creating purchase with data:", dbPurchaseData);
@@ -296,16 +291,25 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       console.log("Purchase created:", purchase);
 
+      // --- NOVA LÓGICA DE CÁLCULO DE CUSTO UNITÁRIO COM TAXA DE ENTREGA ---
+      const totalQuantity = products.reduce((sum, p) => sum + p.quantity, 0);
+      let deliveryFeePerUnit = 0;
+      if (totalQuantity > 0) {
+        deliveryFeePerUnit = purchaseData.deliveryFee / totalQuantity;
+      }
+
       // Campos dos produtos - Usando os nomes EXATOS das colunas do seu DB
       const productsWithPurchaseId = products.map(product => ({
         name: product.name,
         quantity: product.quantity,
-        cost: product.cost,
-        SKU: product.sku,                       // SKU (UPPERCASE) -> Aqui que faltou a conexão!
-        purchase_id: purchase.id,               // purchase_id (snake_case)
-        is_verified: false,                     // is_verified (snake_case)
-        is_in_stock: false,                     // is_in_stock (snake_case)
-        vencimento: product.vencimento || null, // vencimento (camelCase)
+        // Custo unitário ajustado: custo original + (taxa_por_unidade * quantidade_do_produto)
+        // Isso assume que o `cost` na tabela é o custo unitário.
+        cost: parseFloat((product.cost + deliveryFeePerUnit).toFixed(2)), // Arredonda para 2 casas decimais
+        SKU: product.sku,
+        purchase_id: purchase.id,
+        is_verified: false,
+        is_in_stock: false,
+        vencimento: product.vencimento || null,
       }));
 
       console.log("Creating products:", productsWithPurchaseId);
@@ -320,7 +324,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       }
 
       try {
-        // Atualiza o status da compra, usando o trackingCode do formulário
         await get().updateTrackingStatus('purchase', purchase.id);
       } catch (error) {
         console.warn("Could not update tracking status for new purchase:", error);
@@ -334,26 +337,19 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updatePurchase: async (id, updates) => {
     await ErrorHandler.handleAsync(async () => {
-      // Campos da compra para atualização - Usando os nomes EXATOS das colunas do seu DB
       const dbUpdates: any = {
-        updated_at: new Date().toISOString() // updated_at (snake_case)
+        updated_at: new Date().toISOString()
       };
 
-      // Mapeando do Partial<Purchase> (input camelCase) para o DB (nomes mistos)
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      // customer_name (snake_case)
-      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
-      // trackingCode (camelCase)
+      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName; // customer_name (snake_case)
       if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
-      // delivery_fee (snake_case)
-      if (updates.delivery_fee !== undefined) dbUpdates.delivery_fee = updates.delivery_fee;
+      if (updates.deliveryFee !== undefined) dbUpdates.delivery_fee = updates.deliveryFee; // delivery_fee (snake_case)
       if (updates.status !== undefined) dbUpdates.status = updates.status;
-      // estimated_delivery (snake_case)
-      if (updates.estimated_delivery !== undefined) dbUpdates.estimated_delivery = updates.estimated_delivery;
-      // is_archived (snake_case)
-      if (updates.is_archived !== undefined) dbUpdates.is_archived = updates.is_archived;
+      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
+      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
 
 
       console.log("Updating purchase with data:", dbUpdates);
@@ -380,8 +376,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const { error } = await supabase
         .from('purchases')
         .update({
-          is_archived: true, // is_archived (snake_case)
-          updated_at: new Date().toISOString() // updated_at (snake_case)
+          is_archived: true,
+          updated_at: new Date().toISOString()
         })
         .eq('id', id);
 
@@ -397,59 +393,56 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   verifyPurchaseProduct: async (purchaseId, productId, vencimento) => {
     await ErrorHandler.handleAsync(async () => {
-      // Campos do produto para atualização - Usando os nomes EXATOS das colunas do seu DB
-      const updates: { is_verified: boolean; updated_at: string; vencimento?: string | null } = { // snake_case
-        is_verified: true, // is_verified (snake_case)
-        updated_at: new Date().toISOString() // updated_at (snake_case)
+      const updates: { is_verified: boolean; updated_at: string; vencimento?: string | null } = {
+        is_verified: true,
+        updated_at: new Date().toISOString()
       };
       if (vencimento !== undefined) {
-        updates.vencimento = vencimento; // vencimento (camelCase)
+        updates.vencimento = vencimento;
       }
 
       const { error } = await supabase
         .from('purchase_products')
         .update(updates)
         .eq('id', productId)
-        .eq('purchase_id', purchaseId); // purchase_id (snake_case)
+        .eq('purchase_id', purchaseId);
 
       if (error) {
         console.error("Erro ao verificar produto:", error);
         throw error;
       }
 
-      // Atualiza o estado local IMEDIATAMENTE - Usa os nomes EXATOS dos campos do DB para evitar incompatibilidade
       set((state) => ({
         purchases: state.purchases.map((purchase) =>
           purchase.id === purchaseId
             ? {
                 ...purchase,
                 products: (purchase.products || []).map((p) =>
-                  p.id === productId ? { ...p, is_verified: true, vencimento: vencimento || p.vencimento } : p // is_verified (snake_case)
+                  p.id === productId ? { ...p, is_verified: true, vencimento: vencimento || p.vencimento } : p
                 ),
               }
             : purchase
         ),
       }));
 
-      // Verifica se TODOS os produtos da compra estão verificados
       const { data: products, error: fetchProductsError } = await supabase
         .from('purchase_products')
-        .select('is_verified') // is_verified (snake_case)
-        .eq('purchase_id', purchaseId); // purchase_id (snake_case)
+        .select('is_verified')
+        .eq('purchase_id', purchaseId);
 
       if (fetchProductsError) {
         console.error("Erro ao buscar produtos para verificação total:", fetchProductsError);
         throw fetchProductsError;
       }
 
-      const allVerified = (products || []).every(product => product.is_verified); // is_verified (snake_case)
+      const allVerified = (products || []).every(product => product.is_verified);
 
       if (allVerified) {
         await supabase
           .from('purchases')
           .update({
             status: 'Produto entregue e conferido',
-            updated_at: new Date().toISOString() // updated_at (snake_case)
+            updated_at: new Date().toISOString()
           })
           .eq('id', purchaseId);
       }
@@ -460,29 +453,27 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateProductStatusToInStock: async (purchaseId, productId) => {
     await ErrorHandler.handleAsync(async () => {
-      // Campos do produto para atualização - Usando os nomes EXATOS das colunas do seu DB
       const { error } = await supabase
         .from('purchase_products')
         .update({
-          is_in_stock: true, // is_in_stock (snake_case)
-          updated_at: new Date().toISOString() // updated_at (snake_case)
+          is_in_stock: true,
+          updated_at: new Date().toISOString()
         })
         .eq('id', productId)
-        .eq('purchase_id', purchaseId); // purchase_id (snake_case)
+        .eq('purchase_id', purchaseId);
 
       if (error) {
         console.error("Erro ao adicionar produto ao estoque:", error);
         throw error;
       }
 
-      // Atualiza o estado local IMEDIATAMENTE - Usa os nomes EXATOS dos campos do DB para evitar incompatibilidade
       set((state) => ({
         purchases: state.purchases.map((purchase) =>
           purchase.id === purchaseId
             ? {
                 ...purchase,
                 products: (purchase.products || []).map((p) =>
-                  p.id === productId ? { ...p, is_in_stock: true } : p // is_in_stock (snake_case)
+                  p.id === productId ? { ...p, is_in_stock: true } : p
                 ),
               }
             : purchase
@@ -491,23 +482,23 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       const { data: products, error: fetchProductsError } = await supabase
         .from('purchase_products')
-        .select('is_in_stock') // is_in_stock (snake_case)
-        .eq('purchase_id', purchaseId); // purchase_id (snake_case)
+        .select('is_in_stock')
+        .eq('purchase_id', purchaseId);
 
       if (fetchProductsError) {
         console.error("Erro ao buscar produtos para verificação de estoque total:", fetchProductsError);
         throw fetchProductsError;
       }
 
-      const allInStock = (products || []).every(product => product.is_in_stock); // is_in_stock (snake_case)
+      const allInStock = (products || []).every(product => product.is_in_stock);
 
       if (allInStock) {
         await supabase
           .from('purchases')
           .update({
             status: 'Adicionado ao estoque',
-            is_archived: true, // is_archived (snake_case)
-            updated_at: new Date().toISOString() // updated_at (snake_case)
+            is_archived: true,
+            updated_at: new Date().toISOString()
           })
           .eq('id', purchaseId);
       }
@@ -520,27 +511,25 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     await ErrorHandler.handleAsync(async () => {
       console.log("Adicionando compra ao estoque:", purchaseId);
 
-      // Campos do produto para atualização - Usando os nomes EXATOS das colunas do seu DB
       const { error: productsUpdateError } = await supabase
         .from('purchase_products')
         .update({
-          is_in_stock: true, // is_in_stock (snake_case)
-          updated_at: new Date().toISOString() // updated_at (snake_case)
+          is_in_stock: true,
+          updated_at: new Date().toISOString()
         })
-        .eq('purchase_id', purchaseId); // purchase_id (snake_case)
+        .eq('purchase_id', purchaseId);
 
       if (productsUpdateError) {
         console.error("Erro ao atualizar produtos para 'em estoque':", productsUpdateError);
         throw productsUpdateError;
       }
 
-      // Campos da compra para atualização - Usando os nomes EXATOS das colunas do seu DB
       const { error: purchaseUpdateError } = await supabase
         .from('purchases')
         .update({
-          is_archived: true, // is_archived (snake_case)
+          is_archived: true,
           status: 'Adicionado ao estoque',
-          updated_at: new Date().toISOString() // updated_at (snake_case)
+          updated_at: new Date().toISOString()
         })
         .eq('id', purchaseId);
 
@@ -559,16 +548,15 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
 
-      // Campos da devolução - Usando os nomes EXATOS das colunas do seu DB
       const dbReturnData = {
         date: returnData.date,
         carrier: returnData.carrier,
-        storeName: returnData.storeName,       // storeName (camelCase)
-        customer_name: returnData.customerName, // customer_name (snake_case)
-        trackingCode: returnData.trackingCode,   // trackingCode (camelCase)
+        storeName: returnData.storeName,
+        customer_name: returnData.customerName,
+        trackingCode: returnData.trackingCode,
         status: 'Aguardando rastreamento',
-        is_archived: false,                       // is_archived (snake_case)
-        workspace_id: currentWorkspace.id         // workspace_id (snake_case)
+        is_archived: false,
+        workspace_id: currentWorkspace.id
       };
 
       console.log("Creating return with data:", dbReturnData);
@@ -599,20 +587,18 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateReturn: async (id, updates) => {
     await ErrorHandler.handleAsync(async () => {
-      // Campos da devolução para atualização - Usando os nomes EXATOS das colunas do seu DB
       const dbUpdates: any = {
-        updated_at: new Date().toISOString() // updated_at (snake_case)
+        updated_at: new Date().toISOString()
       };
 
-      // Mapeando do Partial<Return> (input camelCase) para o DB (nomes mistos)
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name; // customer_name (snake_case)
+      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
       if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
-      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery; // estimated_delivery (snake_case)
-      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived; // is_archived (snake_case)
+      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
+      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
 
       const { error } = await supabase
         .from('returns')
@@ -633,8 +619,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const { error } = await supabase
         .from('returns')
         .update({
-          is_archived: true, // is_archived (snake_case)
-          updated_at: new Date().toISOString() // updated_at (snake_case)
+          is_archived: true,
+          updated_at: new Date().toISOString()
         })
         .eq('id', id);
 
@@ -653,16 +639,15 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
 
-      // Campos da transferência - Usando os nomes EXATOS das colunas do seu DB
       const dbTransferData = {
         date: transferData.date,
         carrier: transferData.carrier,
-        storeName: transferData.storeName,       // storeName (camelCase)
-        customer_name: transferData.customerName, // customer_name (snake_case)
-        trackingCode: transferData.trackingCode,   // trackingCode (camelCase)
+        storeName: transferData.storeName,
+        customer_name: transferData.customerName,
+        trackingCode: transferData.trackingCode,
         status: 'Aguardando rastreamento',
-        is_archived: false,                       // is_archived (snake_case)
-        workspace_id: currentWorkspace.id         // workspace_id (snake_case)
+        is_archived: false,
+        workspace_id: currentWorkspace.id
       };
 
       console.log("Creating transfer with data:", dbTransferData);
@@ -693,20 +678,18 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateTransfer: async (id, updates) => {
     await ErrorHandler.handleAsync(async () => {
-      // Campos da transferência para atualização - Usando os nomes EXATOS das colunas do seu DB
       const dbUpdates: any = {
-        updated_at: new Date().toISOString() // updated_at (snake_case)
+        updated_at: new Date().toISOString()
       };
 
-      // Mapeando do Partial<Transfer> (input camelCase) para o DB (nomes mistos)
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name; // customer_name (snake_case)
+      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
       if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
-      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery; // estimated_delivery (snake_case)
-      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived; // is_archived (snake_case)
+      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
+      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
 
       const { error } = await supabase
         .from('transfers')
@@ -727,8 +710,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const { error } = await supabase
         .from('transfers')
         .update({
-          is_archived: true, // snake_case
-          updated_at: new Date().toISOString() // snake_case
+          is_archived: true,
+          updated_at: new Date().toISOString()
         })
         .eq('id', id);
 
@@ -861,7 +844,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       console.log(`Tracking data for ${trackingCode}:`, trackingData);
 
       if (trackingData.success) {
-        // estimatedDelivery aqui virá da API externa no formato camelCase
         const parsedData = parseTrackingResponse(carrier, trackingData);
         return {
           success: true,
