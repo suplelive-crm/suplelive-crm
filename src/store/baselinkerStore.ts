@@ -147,15 +147,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           console.log("Getting inventories with API key:", config.apiKey);
           const response = await baselinker.getInventories(config.apiKey);
           console.log("Inventories response:", response);
-          return response.data || [];
+          return response.inventories || [];
         } catch (error: any) {
           console.error("Error fetching inventories:", error);
-          
-          if (error.message.includes('401') || error.message.includes('Unauthorized') || 
-              error.message.includes('Invalid API key')) {
+          if (error.message.includes('401') || error.message.includes('Unauthorized') || error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
           }
-          
           throw error;
         }
       }) || [];
@@ -171,15 +168,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           console.log("Getting order statuses with API key:", config.apiKey);
           const response = await baselinker.getOrderStatusList(config.apiKey);
           console.log("Order statuses response:", response);
-          return response.data || [];
+          return response.statuses || [];
         } catch (error: any) {
           console.error("Error fetching order statuses:", error);
-          
-          if (error.message.includes('401') || error.message.includes('Unauthorized') || 
-              error.message.includes('Invalid API key')) {
+          if (error.message.includes('401') || error.message.includes('Unauthorized') || error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
           }
-          
           throw error;
         }
       }) || [];
@@ -199,15 +193,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           });
           
           console.log("Products response:", response);
-          return response.data?.products || [];
+          return response.products || [];
         } catch (error: any) {
           console.error("Error fetching products:", error);
-          
-          if (error.message.includes('401') || error.message.includes('Unauthorized') || 
-              error.message.includes('Invalid API key')) {
+          if (error.message.includes('401') || error.message.includes('Unauthorized') || error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
           }
-          
           throw error;
         }
       }) || [];
@@ -236,19 +227,18 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             ? new Date(syncData.last_orders_sync).getTime() / 1000 
             : 0;
 
-          // CORREÇÃO DE LÓGICA: Buscar IDs dos status antes de fazer a chamada principal
           const statusListResponse = await baselinker.getOrderStatusList(config.apiKey);
           const allStatusesFromBaselinker = statusListResponse.statuses || [];
           const statusNamesToSync = config.orderStatuses;
           const statusIdsToSync = allStatusesFromBaselinker
             .filter(statusInfo => statusNamesToSync.includes(statusInfo.name.toLowerCase().replace(/\s+/g, '_')))
             .map(statusInfo => statusInfo.id);
-
+          
           const parametersToSync = {
             date_from: lastSyncTimestamp,
-            status_id: statusIdsToSync.join(',') // Usando o nome e valor corretos
+            status_id: statusIdsToSync.join(',')
           };
-          
+
           console.log("DEBUG: Parâmetros REAIS enviados para getOrders:", parametersToSync);
           const response = await baselinker.getOrders(config.apiKey, parametersToSync);
           
@@ -370,7 +360,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
           }
-          
           throw error;
         } finally {
           set({ syncInProgress: false });
@@ -402,6 +391,8 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             : 0;
           
           console.log("Syncing customers with API key:", config.apiKey);
+          
+          // CORREÇÃO: Assegurando que a chamada de API está correta
           const response = await baselinker.getOrders(config.apiKey, {
             date_from: lastSyncTimestamp
           });
@@ -410,6 +401,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           console.log(`Found ${orders.length} orders to extract customers from`);
           
           for (const order of orders) {
+            // CORREÇÃO: Assegurando que a chamada de API está correta
             const orderDetails = await baselinker.getOrderDetails(config.apiKey, order.order_id);
             const orderData = orderDetails;
             
@@ -479,7 +471,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
           }
-          
           throw error;
         } finally {
           set({ syncInProgress: false });
@@ -588,7 +579,6 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               error.message.includes('Invalid API key')) {
             throw new Error('Chave da API inválida ou sem permissões necessárias. Verifique sua chave da API no painel Baselinker.');
           }
-          
           throw error;
         } finally {
           set({ syncInProgress: false });
