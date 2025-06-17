@@ -5,19 +5,6 @@ import { ErrorHandler } from '@/lib/error-handler';
 import { Purchase, PurchaseProduct, Return, Transfer, TrackingResponse } from '@/types/tracking';
 import { trackPackage, parseTrackingResponse, getTrackingUrl } from '@/lib/tracking-api';
 
-// IMPORTANTE: Certifique-se que seu tipo PurchaseProduct em '@/types/tracking'
-// inclui as propriedades 'isVerified: boolean;' e 'isInStock?: boolean;'.
-// Exemplo:
-// export interface PurchaseProduct {
-//   id: string;
-//   name: string;
-//   quantity: number;
-//   cost: number;
-//   totalCost?: number;
-//   isVerified: boolean; // ADICIONE ISSO
-//   isInStock?: boolean; // ADICIONE ISSO
-//   purchaseId: string;
-// }
 
 interface TrackingState {
   // Data
@@ -40,12 +27,13 @@ interface TrackingState {
   fetchTransfers: () => Promise<void>;
 
   createPurchase: (purchase: Omit<Purchase, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'estimatedDelivery' | 'isArchived' | 'workspace_id'>,
-                   products: Omit<PurchaseProduct, 'id' | 'purchaseId' | 'totalCost' | 'isVerified' | 'isInStock'>[]) => Promise<void>; // Adicionado isInStock no Omit
+                   products: Omit<PurchaseProduct, 'id' | 'purchaseId' | 'totalCost' | 'isVerified' | 'isInStock' | 'vencimento'>[]) => Promise<void>; // Adicionado 'vencimento' no Omit
   updatePurchase: (id: string, updates: Partial<Purchase>) => Promise<void>;
   archivePurchase: (id: string) => Promise<void>;
-  verifyPurchaseProduct: (purchaseId: string, productId: string) => Promise<void>;
+  // MODIFICADO: verifyPurchaseProduct agora aceita vencimento
+  verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string) => Promise<void>;
   addProductToInventory: (purchaseId: string) => Promise<void>; // Para a compra inteira
-  updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>; // NOVO: Para produtos individuais
+  updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>; // Para produtos individuais
 
   createReturn: (returnData: Omit<Return, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'estimatedDelivery' | 'isArchived' | 'workspace_id'>) => Promise<void>;
   updateReturn: (id: string, updates: Partial<Return>) => Promise<void>;
@@ -65,7 +53,6 @@ interface TrackingState {
 export const useTrackingStore = create<TrackingState>((set, get) => ({
   purchases: [],
   returns: [],
-  oldPurchases: [], // Added for debugging in some cases, remove if not needed
   transfers: [],
   viewMode: 'table',
   showArchived: false,
@@ -74,7 +61,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
   setShowArchived: (show) => {
     set({ showArchived: show });
-    // Refresh data when toggling archived items
     const { fetchPurchases, fetchReturns, fetchTransfers } = get();
     fetchPurchases();
     fetchReturns();
@@ -87,7 +73,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) return;
 
-      // Query to get purchases with their products
       let query = supabase
         .from('purchases')
         .select(`
@@ -97,7 +82,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .eq('workspace_id', currentWorkspace.id)
         .order('date', { ascending: false });
 
-      // Filter by archived status if not showing archived
       if (!get().showArchived) {
         query = query.eq('is_archived', false);
       }
@@ -106,16 +90,15 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       if (error) throw error;
 
-      // Ensure 'isVerified' and 'isInStock' are booleans from 'is_verified' and 'is_in_stock'
       const formattedData: Purchase[] = (data || []).map(purchase => ({
         ...purchase,
         products: purchase.products?.map((product: any) => ({
           ...product,
-          isVerified: product.is_verified, // Mapeia de snake_case para camelCase
-          isInStock: product.is_in_stock,   // Mapeia de snake_case para camelCase
+          isVerified: product.is_verified,
+          isInStock: product.is_in_stock,
+          vencimento: product.vencimento, // Mapeia vencimento também
         }))
       }));
-
 
       set({ purchases: formattedData || [], loading: false });
     });
@@ -134,7 +117,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .eq('workspace_id', currentWorkspace.id)
         .order('date', { ascending: false });
 
-      // Filter by archived status if not showing archived
       if (!get().showArchived) {
         query = query.eq('is_archived', false);
       }
@@ -160,7 +142,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .eq('workspace_id', currentWorkspace.id)
         .order('date', { ascending: false });
 
-      // Filter by archived status if not showing archived
       if (!get().showArchived) {
         query = query.eq('is_archived', false);
       }
@@ -178,13 +159,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
 
-      // Convert camelCase to snake_case for database fields
       const dbPurchaseData = {
         date: purchaseData.date,
         carrier: purchaseData.carrier,
-        storeName: purchaseData.storeName,
+        store_name: purchaseData.storeName,
         customer_name: purchaseData.customerName || null,
-        trackingCode: purchaseData.trackingCode,
+        tracking_code: purchaseData.trackingCode,
         delivery_fee: purchaseData.deliveryFee,
         status: 'Aguardando rastreamento',
         is_archived: false,
@@ -193,7 +173,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       console.log("Creating purchase with data:", dbPurchaseData);
 
-      // Create purchase record
       const { data: purchase, error: purchaseError } = await supabase
         .from('purchases')
         .insert(dbPurchaseData)
@@ -207,14 +186,14 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       console.log("Purchase created:", purchase);
 
-      // Create product records - remove total_cost as it's a generated column
       const productsWithPurchaseId = products.map(product => ({
         name: product.name,
         quantity: product.quantity,
         cost: product.cost,
         purchase_id: purchase.id,
-        is_verified: false, // Inicia como não verificado
-        is_in_stock: false // Inicia como não em estoque
+        is_verified: false,
+        is_in_stock: false,
+        vencimento: product.vencimento || null, // Adiciona vencimento, pode ser null
       }));
 
       console.log("Creating products:", productsWithPurchaseId);
@@ -228,15 +207,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         throw productsError;
       }
 
-      // Try to update tracking status, but don't fail if it doesn't work
       try {
         await get().updateTrackingStatus('purchase', purchase.id);
       } catch (error) {
         console.warn("Could not update tracking status for new purchase:", error);
-        // Don't throw the error, just log it
       }
 
-      // Refresh data
       get().fetchPurchases();
 
       ErrorHandler.showSuccess('Compra criada com sucesso!');
@@ -245,17 +221,15 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updatePurchase: async (id, updates) => {
     await ErrorHandler.handleAsync(async () => {
-      // Convert camelCase to snake_case for database fields
       const dbUpdates: any = {};
 
-      if (updates.storeName !== undefined) dbUpdates.store_name = updates.storeName; // Corrigido para snake_case
+      if (updates.storeName !== undefined) dbUpdates.store_name = updates.storeName;
       if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
-      if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode; // Corrigido para snake_case
+      if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode;
       if (updates.deliveryFee !== undefined) dbUpdates.delivery_fee = updates.deliveryFee;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
       if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
 
-      // Copy other fields that don't need conversion
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
@@ -301,15 +275,29 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  verifyPurchaseProduct: async (purchaseId, productId) => {
+  // MODIFICADO: verifyPurchaseProduct agora aceita 'vencimento'
+  verifyPurchaseProduct: async (purchaseId, productId, vencimento) => {
     await ErrorHandler.handleAsync(async () => {
-      // 1. Atualiza o produto como verificado no Supabase
+      // 1. Prepara os updates para o produto, incluindo vencimento
+      const updates: { is_verified: boolean; updated_at: string; vencimento?: string | null } = {
+        is_verified: true,
+        updated_at: new Date().toISOString()
+      };
+      // Adiciona vencimento se fornecido, senão null para limpar ou manter
+      if (vencimento !== undefined) {
+        updates.vencimento = vencimento;
+      } else {
+        // Se vencimento não for fornecido, você pode decidir se quer manter o valor existente,
+        // ou explicitamente setar como null se a intenção for 'limpar'
+        // Por agora, se for undefined, não o incluímos na atualização para manter o valor existente.
+        // Se for explicitamente null, ele será definido como null no banco.
+      }
+
+
+      // 2. Atualiza o produto como verificado no Supabase, incluindo a data de vencimento
       const { error } = await supabase
         .from('purchase_products')
-        .update({
-          is_verified: true,
-          updated_at: new Date().toISOString() // Adicionado updated_at
-        })
+        .update(updates)
         .eq('id', productId)
         .eq('purchase_id', purchaseId);
 
@@ -318,21 +306,21 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         throw error;
       }
 
-      // 2. Atualiza o estado local IMEDIATAMENTE para feedback visual rápido
+      // 3. Atualiza o estado local IMEDIATAMENTE para feedback visual rápido
       set((state) => ({
         purchases: state.purchases.map((purchase) =>
           purchase.id === purchaseId
             ? {
                 ...purchase,
                 products: purchase.products?.map((p) =>
-                  p.id === productId ? { ...p, isVerified: true } : p // Atualiza isVerified no estado local
+                  p.id === productId ? { ...p, isVerified: true, vencimento: vencimento || p.vencimento } : p // Atualiza vencimento no estado local
                 ),
               }
             : purchase
         ),
       }));
 
-      // 3. Verifica se TODOS os produtos da compra estão verificados
+      // 4. Verifica se TODOS os produtos da compra estão verificados
       const { data: products, error: fetchProductsError } = await supabase
         .from('purchase_products')
         .select('is_verified')
@@ -346,7 +334,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const allVerified = products?.every(product => product.is_verified);
 
       if (allVerified) {
-        // Se todos os produtos estiverem verificados, atualiza o status da compra
         await supabase
           .from('purchases')
           .update({
@@ -356,18 +343,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           .eq('id', purchaseId);
       }
 
-      // 4. Força uma nova busca para garantir a consistência de todos os dados
-      // (Isso também atualiza o status da compra se ele mudou acima)
       get().fetchPurchases();
-      // O toast já é exibido pelo TrackingDetailsDialog, pode remover aqui se preferir
-      // ErrorHandler.showSuccess('Produto verificado com sucesso!');
     });
   },
 
-  // NOVO: Ação para adicionar um produto individualmente ao estoque
   updateProductStatusToInStock: async (purchaseId, productId) => {
     await ErrorHandler.handleAsync(async () => {
-      // 1. Atualiza o produto como "em estoque" no Supabase
       const { error } = await supabase
         .from('purchase_products')
         .update({
@@ -382,21 +363,19 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         throw error;
       }
 
-      // 2. Atualiza o estado local IMEDIATAMENTE para feedback visual rápido
       set((state) => ({
         purchases: state.purchases.map((purchase) =>
           purchase.id === purchaseId
             ? {
                 ...purchase,
                 products: purchase.products?.map((p) =>
-                  p.id === productId ? { ...p, isInStock: true } : p // Atualiza isInStock no estado local
+                  p.id === productId ? { ...p, isInStock: true } : p
                 ),
               }
             : purchase
         ),
       }));
 
-      // 3. Verifica se TODOS os produtos da compra estão agora em estoque
       const { data: products, error: fetchProductsError } = await supabase
         .from('purchase_products')
         .select('is_in_stock')
@@ -410,31 +389,24 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const allInStock = products?.every(product => product.is_in_stock);
 
       if (allInStock) {
-        // Se todos os produtos estiverem em estoque, atualiza o status da compra principal
         await supabase
           .from('purchases')
           .update({
-            status: 'Adicionado ao estoque', // Define o status da compra como "Adicionado ao estoque"
-            is_archived: true, // E também pode arquivar a compra principal
+            status: 'Adicionado ao estoque',
+            is_archived: true,
             updated_at: new Date().toISOString()
           })
           .eq('id', purchaseId);
       }
 
-      // 4. Força uma nova busca para garantir a consistência de todos os dados (incluindo a compra principal)
       get().fetchPurchases();
-      // O toast já é exibido pelo TrackingDetailsDialog, pode remover aqui se preferir
-      // ErrorHandler.showSuccess('Produto adicionado ao estoque com sucesso!');
     });
   },
 
-  // Refinado: Esta função agora lida com o lançamento da COMPRA INTEIRA.
-  // Ela também garante que todos os produtos associados sejam marcados como em estoque.
   addProductToInventory: async (purchaseId) => {
     await ErrorHandler.handleAsync(async () => {
       console.log("Adicionando compra ao estoque:", purchaseId);
 
-      // 1. Marca todos os produtos da compra como 'em estoque'
       const { error: productsUpdateError } = await supabase
         .from('purchase_products')
         .update({
@@ -448,7 +420,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         throw productsUpdateError;
       }
 
-      // 2. Atualiza o status da compra principal e a arquiva
       const { error: purchaseUpdateError } = await supabase
         .from('purchases')
         .update({
@@ -473,13 +444,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
 
-      // Convert camelCase to snake_case for database fields
       const dbReturnData = {
         date: returnData.date,
         carrier: returnData.carrier,
-        store_name: returnData.storeName, // Corrigido para snake_case
+        store_name: returnData.storeName,
         customer_name: returnData.customerName,
-        tracking_code: returnData.trackingCode, // Corrigido para snake_case
+        tracking_code: returnData.trackingCode,
         status: 'Aguardando rastreamento',
         is_archived: false,
         workspace_id: currentWorkspace.id
@@ -498,14 +468,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         throw error;
       }
 
-      // Try to update tracking status, but don't fail if it doesn't work
       try {
         if (newReturn) {
           await get().updateTrackingStatus('return', newReturn.id);
         }
       } catch (error) {
         console.warn("Could not update tracking status for new return:", error);
-        // Don't throw the error, just log it
       }
 
       get().fetchReturns();
@@ -515,16 +483,14 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateReturn: async (id, updates) => {
     await ErrorHandler.handleAsync(async () => {
-      // Convert camelCase to snake_case for database fields
       const dbUpdates: any = {};
 
-      if (updates.storeName !== undefined) dbUpdates.store_name = updates.storeName; // Corrigido para snake_case
+      if (updates.storeName !== undefined) dbUpdates.store_name = updates.storeName;
       if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
-      if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode; // Corrigido para snake_case
+      if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
       if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
 
-      // Copy other fields that don't need conversion
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
@@ -570,13 +536,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
 
-      // Convert camelCase to snake_case for database fields
       const dbTransferData = {
         date: transferData.date,
         carrier: transferData.carrier,
-        store_name: transferData.storeName, // Corrigido para snake_case
+        store_name: transferData.storeName,
         customer_name: transferData.customerName,
-        tracking_code: transferData.trackingCode, // Corrigido para snake_case
+        tracking_code: transferData.trackingCode,
         status: 'Aguardando rastreamento',
         is_archived: false,
         workspace_id: currentWorkspace.id
@@ -595,14 +560,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         throw error;
       }
 
-      // Try to update tracking status, but don't fail if it doesn't work
       try {
         if (newTransfer) {
           await get().updateTrackingStatus('transfer', newTransfer.id);
         }
       } catch (error) {
         console.warn("Could not update tracking status for new transfer:", error);
-        // Don't throw the error, just log it
       }
 
       get().fetchTransfers();
@@ -612,16 +575,14 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateTransfer: async (id, updates) => {
     await ErrorHandler.handleAsync(async () => {
-      // Convert camelCase to snake_case for database fields
       const dbUpdates: any = {};
 
-      if (updates.storeName !== undefined) dbUpdates.store_name = updates.storeName; // Corrigido para snake_case
+      if (updates.storeName !== undefined) dbUpdates.store_name = updates.storeName;
       if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
-      if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode; // Corrigido para snake_case
+      if (updates.trackingCode !== undefined) dbUpdates.tracking_code = updates.trackingCode;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
       if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
 
-      // Copy other fields that don't need conversion
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
@@ -664,10 +625,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateTrackingStatus: async (type, id) => {
     await ErrorHandler.handleAsync(async () => {
-      // Get the item
       const { data: item } = await supabase
         .from(type === 'purchase' ? 'purchases' : type === 'return' ? 'returns' : 'transfers')
-        .select('tracking_code, carrier') // Seleciona tracking_code (snake_case)
+        .select('tracking_code, carrier')
         .eq('id', id)
         .single();
 
@@ -676,7 +636,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         return;
       }
 
-      if (!item.tracking_code) { // Usa tracking_code (snake_case)
+      if (!item.tracking_code) {
         console.error(`No tracking code for ${type} ${id}`);
         return;
       }
@@ -684,8 +644,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       console.log(`Updating tracking for ${type} ${id}:`, item);
 
       try {
-        // Get tracking info using our tracking API
-        // Certifique-se que getTrackingInfo espera camelCase ou trate a conversão lá
         const trackingInfo = await get().getTrackingInfo(item.carrier, item.tracking_code);
 
         if (!trackingInfo.success || !trackingInfo.data) {
@@ -695,7 +653,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
         console.log(`Got tracking info for ${type} ${id}:`, trackingInfo);
 
-        // Update status
         await supabase
           .from(type === 'purchase' ? 'purchases' : type === 'return' ? 'returns' : 'transfers')
           .update({
@@ -705,10 +662,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           })
           .eq('id', id);
 
-        // Refresh data
         if (type === 'purchase') get().fetchPurchases();
         else if (type === 'return') get().fetchReturns();
-        else if (type === 'transfer') get().fetchTransfers(); // Adicionado para transfers
+        else if (type === 'transfer') get().fetchTransfers();
 
         ErrorHandler.showSuccess('Status de rastreamento atualizado com sucesso!');
       } catch (error) {
@@ -727,7 +683,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       let successCount = 0;
       let failureCount = 0;
 
-      // Update purchases
       for (const purchase of purchases) {
         try {
           await get().updateTrackingStatus('purchase', purchase.id);
@@ -738,7 +693,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         }
       }
 
-      // Update returns
       for (const returnItem of returns) {
         try {
           await get().updateTrackingStatus('return', returnItem.id);
@@ -749,7 +703,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         }
       }
 
-      // Update transfers
       for (const transfer of transfers) {
         try {
           await get().updateTrackingStatus('transfer', transfer.id);
@@ -781,7 +734,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       console.log(`Getting tracking info for ${carrier} ${trackingCode}`);
 
-      // Use our tracking API
       const trackingData = await trackPackage(carrier, trackingCode);
 
       console.log(`Tracking data for ${trackingCode}:`, trackingData);
@@ -814,7 +766,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) return null;
 
-      // Search in purchases
       const { data: purchaseData } = await supabase
         .from('purchases')
         .select(`
@@ -822,40 +773,38 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           products:purchase_products(*)
         `)
         .eq('workspace_id', currentWorkspace.id)
-        .eq('tracking_code', trackingCode) // Corrigido para snake_case
+        .eq('tracking_code', trackingCode)
         .maybeSingle();
 
       if (purchaseData) {
-        // Mapeia products para camelCase ao retornar
         const formattedPurchaseData = {
           ...purchaseData,
           products: purchaseData.products?.map((product: any) => ({
             ...product,
             isVerified: product.is_verified,
             isInStock: product.is_in_stock,
+            vencimento: product.vencimento, // Mapeia vencimento também
           }))
         };
         return { type: 'purchase' as const, item: formattedPurchaseData };
       }
 
-      // Search in returns
       const { data: returnData } = await supabase
         .from('returns')
         .select('*')
         .eq('workspace_id', currentWorkspace.id)
-        .eq('tracking_code', trackingCode) // Corrigido para snake_case
+        .eq('tracking_code', trackingCode)
         .maybeSingle();
 
       if (returnData) {
         return { type: 'return' as const, item: returnData };
       }
 
-      // Search in transfers
       const { data: transferData } = await supabase
         .from('transfers')
         .select('*')
         .eq('workspace_id', currentWorkspace.id)
-        .eq('tracking_code', trackingCode) // Corrigido para snake_case
+        .eq('tracking_code', trackingCode)
         .maybeSingle();
 
       if (transferData) {
