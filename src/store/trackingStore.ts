@@ -25,8 +25,7 @@ interface TrackingState {
   fetchReturns: () => Promise<void>;
   fetchTransfers: () => Promise<void>;
 
-  // createPurchase: Adaptação para passar os dados como o DB espera, embora o input do form seja camelCase.
-  createPurchase: (purchase: { // Usamos um tipo auxiliar aqui para refletir o input do formulário
+  createPurchase: (purchase: {
     date: string;
     carrier: string;
     storeName: string;
@@ -34,12 +33,12 @@ interface TrackingState {
     trackingCode: string;
     deliveryFee: number;
   },
-    products: { // Usamos um tipo auxiliar aqui para refletir o input do formulário
+    products: {
       name: string;
       quantity: number;
       cost: number;
-      sku: string; // SKU como está no formulário/tipo local
-      vencimento?: string; // Vencimento como está no formulário/tipo local
+      sku: string;
+      vencimento?: string;
     }[]) => Promise<void>;
 
 
@@ -202,7 +201,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       if (error) throw error;
 
-      // Mapeamento explícito de nomes de coluna do DB para o tipo TS do front-end
+      // Mapeamento explícito para retorno (mesmo que só alguns campos sejam snake_case)
       const formattedData: Return[] = (data || []).map((item: any) => ({
         id: item.id,
         date: item.date,
@@ -243,7 +242,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       if (error) throw error;
 
-      // Mapeamento explícito de nomes de coluna do DB para o tipo TS do front-end
+      // Mapeamento explícito para retorno
       const formattedData: Transfer[] = (data || []).map((item: any) => ({
         id: item.id,
         date: item.date,
@@ -302,7 +301,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         name: product.name,
         quantity: product.quantity,
         cost: product.cost,
-        SKU: product.SKU,                       // SKU (UPPERCASE)
+        SKU: product.sku,                       // SKU (UPPERCASE) -> Aqui que faltou a conexão!
         purchase_id: purchase.id,               // purchase_id (snake_case)
         is_verified: false,                     // is_verified (snake_case)
         is_in_stock: false,                     // is_in_stock (snake_case)
@@ -344,12 +343,17 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName; // customer_name (snake_case)
+      // customer_name (snake_case)
+      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
+      // trackingCode (camelCase)
       if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
-      if (updates.deliveryFee !== undefined) dbUpdates.delivery_fee = updates.deliveryFee; // delivery_fee (snake_case)
+      // delivery_fee (snake_case)
+      if (updates.delivery_fee !== undefined) dbUpdates.delivery_fee = updates.delivery_fee;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
-      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery; // estimated_delivery (snake_case)
-      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived; // is_archived (snake_case)
+      // estimated_delivery (snake_case)
+      if (updates.estimated_delivery !== undefined) dbUpdates.estimated_delivery = updates.estimated_delivery;
+      // is_archived (snake_case)
+      if (updates.is_archived !== undefined) dbUpdates.is_archived = updates.is_archived;
 
 
       console.log("Updating purchase with data:", dbUpdates);
@@ -394,7 +398,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
   verifyPurchaseProduct: async (purchaseId, productId, vencimento) => {
     await ErrorHandler.handleAsync(async () => {
       // Campos do produto para atualização - Usando os nomes EXATOS das colunas do seu DB
-      const updates: { is_verified: boolean; updated_at: string; vencimento?: string | null } = {
+      const updates: { is_verified: boolean; updated_at: string; vencimento?: string | null } = { // snake_case
         is_verified: true, // is_verified (snake_case)
         updated_at: new Date().toISOString() // updated_at (snake_case)
       };
@@ -561,7 +565,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         carrier: returnData.carrier,
         storeName: returnData.storeName,       // storeName (camelCase)
         customer_name: returnData.customerName, // customer_name (snake_case)
-        trackingCode: returnData.trackingCode, // trackingCode (camelCase)
+        trackingCode: returnData.trackingCode,   // trackingCode (camelCase)
         status: 'Aguardando rastreamento',
         is_archived: false,                       // is_archived (snake_case)
         workspace_id: currentWorkspace.id         // workspace_id (snake_case)
@@ -604,7 +608,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
+      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name; // customer_name (snake_case)
       if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery; // estimated_delivery (snake_case)
@@ -653,12 +657,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const dbTransferData = {
         date: transferData.date,
         carrier: transferData.carrier,
-        storeName: transferData.storeName,       // camelCase
-        customer_name: transferData.customerName, // snake_case
-        trackingCode: transferData.trackingCode,   // camelCase
+        storeName: transferData.storeName,       // storeName (camelCase)
+        customer_name: transferData.customerName, // customer_name (snake_case)
+        trackingCode: transferData.trackingCode,   // trackingCode (camelCase)
         status: 'Aguardando rastreamento',
-        is_archived: false,                       // snake_case
-        workspace_id: currentWorkspace.id         // snake_case
+        is_archived: false,                       // is_archived (snake_case)
+        workspace_id: currentWorkspace.id         // workspace_id (snake_case)
       };
 
       console.log("Creating transfer with data:", dbTransferData);
@@ -698,11 +702,11 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
+      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name; // customer_name (snake_case)
       if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
-      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery; // snake_case
-      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived; // snake_case
+      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery; // estimated_delivery (snake_case)
+      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived; // is_archived (snake_case)
 
       const { error } = await supabase
         .from('transfers')
