@@ -23,6 +23,8 @@ export interface PurchaseProduct {
   cost: number;
   totalCost?: number; // Calculated field
   isVerified: boolean;
+  isInStock?: boolean; // ADICIONADO: Para controlar se o produto individual está no estoque
+  vencimento?: string; // ADICIONADO: Para a data de vencimento do produto (formato ISO string)
 }
 
 export interface Return {
