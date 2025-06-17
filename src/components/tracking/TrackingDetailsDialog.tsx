@@ -22,7 +22,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   const [refreshing, setRefreshing] = useState(false);
   const {
     verifyPurchaseProduct,
-    addProductToInventory, // This function will be modified/reused for individual products
+    addProductToInventory, // Esta é a função para lançar a COMPRA/DEVOLUÇÃO/TRANSFERÊNCIA inteira no estoque
+    updateProductStatusToInStock, // Esta é a nova função para lançar um PRODUTO individual no estoque (você precisará implementá-la em trackingStore.ts)
     updateTrackingStatus,
     archivePurchase,
     archiveReturn,
@@ -32,7 +33,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
 
   useEffect(() => {
     if (open && item && type) {
-      // Refresh tracking status when dialog opens
+      // Atualiza o status de rastreio quando o diálogo abre
       handleRefreshTracking();
     }
   }, [open, item, type]);
@@ -41,25 +42,28 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
 
   const handleVerifyProduct = async (purchaseId: string, productId: string) => {
     await verifyPurchaseProduct(purchaseId, productId);
-  };
-
-  // Modified function to handle adding a single product to inventory
-  const handleAddProductToInventory = async (purchaseId: string, productId: string) => {
-    // You'll need to implement this in your trackingStore.ts
-    // This function should update the specific product's status to 'in stock' or similar
-    // and potentially mark it as archived at the product level if your schema supports it.
-    console.log(`Lançando produto ${productId} da compra ${purchaseId} no estoque.`);
-    // Example: await updateProductStatusToInStock(purchaseId, productId);
     toast({
-      title: "Produto Lançado",
-      description: "O produto foi lançado no estoque com sucesso."
+      title: "Produto Conferido",
+      description: "O produto foi marcado como conferido com sucesso."
     });
-    // This will trigger a re-render and update the UI
+    // Força uma atualização do item para refletir a mudança imediatamente
     if (item && type) {
       updateTrackingStatus(type, item.id);
     }
   };
 
+  const handleAddIndividualProductToInventory = async (purchaseId: string, productId: string) => {
+    // Chama a nova função da store para atualizar o status de estoque do produto
+    await updateProductStatusToInStock(purchaseId, productId);
+    toast({
+      title: "Produto Lançado",
+      description: "O produto foi lançado no estoque com sucesso."
+    });
+    // Força uma atualização do item para refletir a mudança imediatamente
+    if (item && type) {
+      updateTrackingStatus(type, item.id);
+    }
+  };
 
   const handleArchiveItem = async (id: string, itemType: 'purchase' | 'return' | 'transfer') => {
     if (itemType === 'purchase') {
@@ -69,6 +73,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     } else {
       await archiveTransfer(id);
     }
+    toast({
+      title: "Lançamento Arquivado",
+      description: "O item foi movido para os arquivados."
+    });
     onOpenChange(false);
   };
 
@@ -79,14 +87,14 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     try {
       await updateTrackingStatus(type, item.id);
       toast({
-        title: "Status atualizado",
-        description: "Informações de rastreio atualizadas com sucesso"
+        title: "Status Atualizado",
+        description: "Informações de rastreio atualizadas com sucesso."
       });
     } catch (error) {
-      console.error("Error refreshing tracking:", error);
+      console.error("Erro ao atualizar rastreio:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar o status de rastreio",
+        description: "Não foi possível atualizar o status de rastreio.",
         variant: "destructive"
       });
     } finally {
@@ -95,13 +103,14 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   };
 
   const getStatusColor = (status: string) => {
-    if (status.includes('entregue') || status.includes('conferido') || status.includes('estoque')) {
+    const lowerStatus = status.toLowerCase();
+    if (lowerStatus.includes('entregue') || lowerStatus.includes('conferido') || lowerStatus.includes('estoque')) {
       return 'bg-green-100 text-green-800';
-    } else if (status.includes('trânsito')) {
+    } else if (lowerStatus.includes('trânsito') || lowerStatus.includes('processamento')) {
       return 'bg-blue-100 text-blue-800';
-    } else if (status.includes('aguardando')) {
+    } else if (lowerStatus.includes('aguardando') || lowerStatus.includes('pendente')) {
       return 'bg-yellow-100 text-yellow-800';
-    } else if (status.includes('problema') || status.includes('extraviado')) {
+    } else if (lowerStatus.includes('problema') || lowerStatus.includes('extraviado') || lowerStatus.includes('cancelado')) {
       return 'bg-red-100 text-red-800';
     } else {
       return 'bg-gray-100 text-gray-800';
@@ -109,7 +118,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   };
 
   const renderPurchaseDetails = (purchase: Purchase) => {
-    // Calculate total cost safely
     const calculateTotalCost = () => {
       let productTotal = 0;
       if (purchase.products && purchase.products.length > 0) {
@@ -119,16 +127,15 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           return sum + (cost * quantity);
         }, 0);
       }
-
       const deliveryFee = typeof purchase.deliveryFee === 'number' ? purchase.deliveryFee : 0;
       return productTotal + deliveryFee;
     };
 
-    // Check if all products are verified
     const allProductsVerified = purchase.products?.every(p => p.isVerified) || false;
+    const allProductsInStock = purchase.products?.every(p => p.isInStock) || false; // Novo: Verifica se TODOS os produtos estão no estoque
 
-    // Check if purchase is already in inventory
-    const isInInventory = purchase.status?.toLowerCase().includes('estoque') || false;
+    // O status da compra "No Estoque" deve ser baseado se TODOS os produtos estão no estoque
+    const purchaseInInventory = purchase.status?.toLowerCase().includes('estoque') || allProductsInStock;
 
     return (
       <div className="space-y-6">
@@ -183,6 +190,12 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                     const url = getTrackingUrl(purchase.carrier, purchase.trackingCode);
                     if (url) {
                       window.open(url, '_blank');
+                    } else {
+                      toast({
+                        title: "URL de Rastreio Não Disponível",
+                        description: "Não foi possível gerar a URL de rastreio para esta transportadora.",
+                        variant: "destructive"
+                      });
                     }
                   }}
                 >
@@ -222,6 +235,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             {purchase.products?.map((product) => (
               <div
                 key={product.id}
+                // Aplica classes de fundo e borda baseadas nos status do produto
                 className={`p-4 border rounded-lg ${product.isVerified ? 'bg-blue-50 border-blue-200' : ''} ${product.isInStock ? 'bg-green-50 border-green-200' : ''}`}
               >
                 <div className="flex items-center justify-between">
@@ -241,7 +255,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2"> {/* Container for the buttons/badges */}
+                  <div className="flex items-center gap-2"> {/* Container para os botões/badges */}
                     {!product.isVerified ? (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -269,11 +283,13 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                       </AlertDialog>
                     ) : (
                       <>
+                        {/* Badge de "Conferido" para o produto */}
                         <Badge className="bg-blue-100 text-blue-800">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Conferido
                         </Badge>
-                        {!product.isInStock ? ( // Show "Lançar no Estoque" only if not already in stock
+                        {/* Botão "Lançar no Estoque" aparece apenas se o produto estiver conferido e não estiver no estoque */}
+                        {!product.isInStock ? (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="outline" size="sm">
@@ -291,7 +307,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => handleAddProductToInventory(purchase.id, product.id)}
+                                  onClick={() => handleAddIndividualProductToInventory(purchase.id, product.id)}
                                 >
                                   Confirmar
                                 </AlertDialogAction>
@@ -299,6 +315,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                             </AlertDialogContent>
                           </AlertDialog>
                         ) : (
+                          // Badge "No Estoque" para o produto
                           <Badge className="bg-green-100 text-green-800">
                             <Database className="h-3 w-3 mr-1" />
                             No Estoque
@@ -309,7 +326,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                   </div>
                 </div>
               </div>
-            )))}
+            ))}
           </div>
 
           <div className="flex justify-between items-center pt-4 border-t">
@@ -323,7 +340,9 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             </div>
 
             <div className="flex gap-2">
-              {allProductsVerified && !isInInventory && ( // This is for the *entire purchase* to inventory
+              {/* Botão "Lançar Compra no Estoque" para a compra inteira, aparece se todos os produtos foram conferidos
+                  E se a compra ainda não está marcada como 'no estoque' (para evitar duplicidade) */}
+              {allProductsVerified && !purchaseInInventory && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="default">
@@ -341,7 +360,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={() => addProductToInventory(purchase.id)} // This one adds the whole purchase
+                        onClick={() => addProductToInventory(purchase.id)} // Função da store para a compra inteira
                       >
                         Confirmar
                       </AlertDialogAction>
@@ -350,6 +369,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                 </AlertDialog>
               )}
 
+              {/* Badge "Conferido (Total)" para a compra inteira, se todos os produtos foram conferidos */}
               {allProductsVerified && (
                 <Badge className="bg-blue-100 text-blue-800 py-2 px-3">
                   <CheckCircle className="h-4 w-4 mr-2" />
@@ -357,7 +377,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                 </Badge>
               )}
 
-              {isInInventory && (
+              {/* Badge "Compra no Estoque" para a compra inteira, se ela já foi lançada no estoque */}
+              {purchaseInInventory && (
                 <Badge className="bg-green-100 text-green-800 py-2 px-3">
                   <Database className="h-4 w-4 mr-2" />
                   Compra no Estoque
@@ -421,6 +442,12 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                   const url = getTrackingUrl(item.carrier, item.trackingCode);
                   if (url) {
                     window.open(url, '_blank');
+                  } else {
+                    toast({
+                      title: "URL de Rastreio Não Disponível",
+                      description: "Não foi possível gerar a URL de rastreio para esta transportadora.",
+                      variant: "destructive"
+                    });
                   }
                 }}
               >
