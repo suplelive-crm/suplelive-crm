@@ -5,10 +5,16 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Purchase, Return, Transfer } from '@/types/tracking';
+import { Purchase, Return, Transfer, PurchaseProduct } from '@/types/tracking'; // Importe PurchaseProduct
 import { useTrackingStore } from '@/store/trackingStore';
 import { useToast } from '@/hooks/use-toast';
 import { getTrackingUrl } from '@/lib/tracking-api';
+
+// Se você tiver um componente DatePicker do shadcn/ui, importe-o aqui:
+// import { Calendar as CalendarIcon } from "lucide-react";
+// import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+// import { format } from "date-fns";
+// import { Calendar } from "@/components/ui/calendar"; // O componente de calendário shadcn
 
 interface TrackingDetailsDialogProps {
   open: boolean;
@@ -20,10 +26,16 @@ interface TrackingDetailsDialogProps {
 export function TrackingDetailsDialog({ open, onOpenChange, item, type }: TrackingDetailsDialogProps) {
   const [activeTab, setActiveTab] = useState('details');
   const [refreshing, setRefreshing] = useState(false);
+  // NOVO ESTADO: Para a data de vencimento
+  const [vencimentoDate, setVencimentoDate] = useState<Date | undefined>(undefined);
+  // NOVO ESTADO: Para guardar o produto que está sendo conferido (temporariamente)
+  const [productToVerify, setProductToVerify] = useState<PurchaseProduct | null>(null);
+
+
   const {
     verifyPurchaseProduct,
-    addProductToInventory, // Esta é a função para lançar a COMPRA/DEVOLUÇÃO/TRANSFERÊNCIA inteira no estoque
-    updateProductStatusToInStock, // Esta é a nova função para lançar um PRODUTO individual no estoque (você precisará implementá-la em trackingStore.ts)
+    addProductToInventory,
+    updateProductStatusToInStock,
     updateTrackingStatus,
     archivePurchase,
     archiveReturn,
@@ -33,15 +45,21 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
 
   useEffect(() => {
     if (open && item && type) {
-      // Atualiza o status de rastreio quando o diálogo abre
+      // Refresh tracking status when dialog opens
       handleRefreshTracking();
+      // Resetar o estado da data de vencimento ao abrir o dialog
+      setVencimentoDate(undefined);
+      setProductToVerify(null);
     }
   }, [open, item, type]);
 
   if (!item || !type) return null;
 
-  const handleVerifyProduct = async (purchaseId: string, productId: string) => {
-    await verifyPurchaseProduct(purchaseId, productId);
+  // Modificada para aceitar a data de vencimento
+  const handleVerifyProduct = async (purchaseId: string, productId: string, vencimento: Date | undefined) => {
+    // Converte a data para string ISO para salvar no banco de dados
+    const vencimentoISO = vencimento ? vencimento.toISOString() : undefined;
+    await verifyPurchaseProduct(purchaseId, productId, vencimentoISO); // Passa a data
     toast({
       title: "Produto Conferido",
       description: "O produto foi marcado como conferido com sucesso."
@@ -50,16 +68,16 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     if (item && type) {
       updateTrackingStatus(type, item.id);
     }
+    setVencimentoDate(undefined); // Limpa o estado da data após a ação
+    setProductToVerify(null);
   };
 
   const handleAddIndividualProductToInventory = async (purchaseId: string, productId: string) => {
-    // Chama a nova função da store para atualizar o status de estoque do produto
     await updateProductStatusToInStock(purchaseId, productId);
     toast({
       title: "Produto Lançado",
       description: "O produto foi lançado no estoque com sucesso."
     });
-    // Força uma atualização do item para refletir a mudança imediatamente
     if (item && type) {
       updateTrackingStatus(type, item.id);
     }
@@ -132,9 +150,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     };
 
     const allProductsVerified = purchase.products?.every(p => p.isVerified) || false;
-    const allProductsInStock = purchase.products?.every(p => p.isInStock) || false; // Novo: Verifica se TODOS os produtos estão no estoque
+    const allProductsInStock = purchase.products?.every(p => p.isInStock) || false;
 
-    // O status da compra "No Estoque" deve ser baseado se TODOS os produtos estão no estoque
     const purchaseInInventory = purchase.status?.toLowerCase().includes('estoque') || allProductsInStock;
 
     return (
@@ -235,7 +252,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             {purchase.products?.map((product) => (
               <div
                 key={product.id}
-                // Aplica classes de fundo e borda baseadas nos status do produto
                 className={`p-4 border rounded-lg ${product.isVerified ? 'bg-blue-50 border-blue-200' : ''} ${product.isInStock ? 'bg-green-50 border-green-200' : ''}`}
               >
                 <div className="flex items-center justify-between">
@@ -252,12 +268,32 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                           : ((typeof product.cost === 'number' ? product.cost : 0) *
                             (typeof product.quantity === 'number' ? product.quantity : 0)).toFixed(2)}
                       </p>
+                      {product.vencimento && (
+                        <p className="text-sm text-gray-600">
+                          Vencimento: {new Date(product.vencimento).toLocaleDateString('pt-BR')}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2"> {/* Container para os botões/badges */}
+                  <div className="flex items-center gap-2">
                     {!product.isVerified ? (
-                      <AlertDialog>
+                      <AlertDialog
+                        onOpenChange={(open) => {
+                          if (!open) {
+                            setVencimentoDate(undefined); // Limpa a data ao fechar o dialog
+                            setProductToVerify(null);
+                          } else {
+                            setProductToVerify(product); // Define qual produto estamos verificando
+                            // Opcional: pré-preencher a data se já existir no produto
+                            if (product.vencimento) {
+                                setVencimentoDate(new Date(product.vencimento));
+                            } else {
+                                setVencimentoDate(undefined);
+                            }
+                          }
+                        }}
+                      >
                         <AlertDialogTrigger asChild>
                           <Button variant="outline" size="sm">
                             <CheckSquare className="h-4 w-4 mr-2" />
@@ -266,15 +302,68 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Confirmar Produto</AlertDialogTitle>
+                            <AlertDialogTitle>Confirmar Produto: {productToVerify?.name}</AlertDialogTitle>
                             <AlertDialogDescription>
                               Tem certeza que deseja marcar este produto como conferido?
+                              Se aplicável, insira a data de vencimento.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
+                          {/* NOVO: Campo de input para data de vencimento */}
+                          <div className="space-y-2">
+                            <label htmlFor="vencimento-date" className="text-sm font-medium">
+                              Data de Vencimento (Opcional):
+                            </label>
+                            {/* Você pode usar um DatePicker do shadcn/ui aqui se tiver configurado */}
+                            {/* Exemplo com input HTML padrão: */}
+                            <input
+                              id="vencimento-date"
+                              type="date"
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              value={vencimentoDate ? vencimentoDate.toISOString().split('T')[0] : ''}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  setVencimentoDate(new Date(e.target.value + 'T00:00:00')); // Adiciona T00:00:00 para evitar problemas de fuso horário
+                                } else {
+                                  setVencimentoDate(undefined);
+                                }
+                              }}
+                            />
+                            {/* Exemplo com Shadcn UI DatePicker (se você tiver o componente):
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-[240px] justify-start text-left font-normal",
+                                    !vencimentoDate && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {vencimentoDate ? format(vencimentoDate, "PPP") : <span>Escolha uma data</span>}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                  mode="single"
+                                  selected={vencimentoDate}
+                                  onSelect={setVencimentoDate}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            */}
+                          </div>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogCancel onClick={() => {
+                                setVencimentoDate(undefined);
+                                setProductToVerify(null);
+                            }}>Cancelar</AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => handleVerifyProduct(purchase.id, product.id)}
+                              onClick={() => {
+                                if (productToVerify) {
+                                  handleVerifyProduct(purchase.id, productToVerify.id, vencimentoDate);
+                                }
+                              }}
                             >
                               Confirmar
                             </AlertDialogAction>
@@ -283,12 +372,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                       </AlertDialog>
                     ) : (
                       <>
-                        {/* Badge de "Conferido" para o produto */}
                         <Badge className="bg-blue-100 text-blue-800">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Conferido
                         </Badge>
-                        {/* Botão "Lançar no Estoque" aparece apenas se o produto estiver conferido e não estiver no estoque */}
                         {!product.isInStock ? (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -315,7 +402,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                             </AlertDialogContent>
                           </AlertDialog>
                         ) : (
-                          // Badge "No Estoque" para o produto
                           <Badge className="bg-green-100 text-green-800">
                             <Database className="h-3 w-3 mr-1" />
                             No Estoque
@@ -340,8 +426,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             </div>
 
             <div className="flex gap-2">
-              {/* Botão "Lançar Compra no Estoque" para a compra inteira, aparece se todos os produtos foram conferidos
-                  E se a compra ainda não está marcada como 'no estoque' (para evitar duplicidade) */}
               {allProductsVerified && !purchaseInInventory && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -360,7 +444,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={() => addProductToInventory(purchase.id)} // Função da store para a compra inteira
+                        onClick={() => addProductToInventory(purchase.id)}
                       >
                         Confirmar
                       </AlertDialogAction>
@@ -369,7 +453,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                 </AlertDialog>
               )}
 
-              {/* Badge "Conferido (Total)" para a compra inteira, se todos os produtos foram conferidos */}
               {allProductsVerified && (
                 <Badge className="bg-blue-100 text-blue-800 py-2 px-3">
                   <CheckCircle className="h-4 w-4 mr-2" />
@@ -377,7 +460,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                 </Badge>
               )}
 
-              {/* Badge "Compra no Estoque" para a compra inteira, se ela já foi lançada no estoque */}
               {purchaseInInventory && (
                 <Badge className="bg-green-100 text-green-800 py-2 px-3">
                   <Database className="h-4 w-4 mr-2" />
@@ -499,7 +581,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => addProductToInventory(item.id)} // This is for the whole return/transfer
+                  onClick={() => addProductToInventory(item.id)}
                 >
                   Confirmar
                 </AlertDialogAction>
