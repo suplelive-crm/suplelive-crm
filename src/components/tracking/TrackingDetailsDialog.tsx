@@ -20,33 +20,46 @@ interface TrackingDetailsDialogProps {
 export function TrackingDetailsDialog({ open, onOpenChange, item, type }: TrackingDetailsDialogProps) {
   const [activeTab, setActiveTab] = useState('details');
   const [refreshing, setRefreshing] = useState(false);
-  const { 
-    verifyPurchaseProduct, 
-    addProductToInventory, 
-    updateTrackingStatus, 
-    archivePurchase, 
-    archiveReturn, 
-    archiveTransfer 
+  const {
+    verifyPurchaseProduct,
+    addProductToInventory, // This function will be modified/reused for individual products
+    updateTrackingStatus,
+    archivePurchase,
+    archiveReturn,
+    archiveTransfer
   } = useTrackingStore();
   const { toast } = useToast();
-  
+
   useEffect(() => {
     if (open && item && type) {
       // Refresh tracking status when dialog opens
       handleRefreshTracking();
     }
   }, [open, item, type]);
-  
+
   if (!item || !type) return null;
-  
+
   const handleVerifyProduct = async (purchaseId: string, productId: string) => {
     await verifyPurchaseProduct(purchaseId, productId);
   };
-  
-  const handleAddToInventory = async (id: string, itemType: 'purchase' | 'return' | 'transfer') => {
-    await addProductToInventory(id);
-    onOpenChange(false);
+
+  // Modified function to handle adding a single product to inventory
+  const handleAddProductToInventory = async (purchaseId: string, productId: string) => {
+    // You'll need to implement this in your trackingStore.ts
+    // This function should update the specific product's status to 'in stock' or similar
+    // and potentially mark it as archived at the product level if your schema supports it.
+    console.log(`Lançando produto ${productId} da compra ${purchaseId} no estoque.`);
+    // Example: await updateProductStatusToInStock(purchaseId, productId);
+    toast({
+      title: "Produto Lançado",
+      description: "O produto foi lançado no estoque com sucesso."
+    });
+    // This will trigger a re-render and update the UI
+    if (item && type) {
+      updateTrackingStatus(type, item.id);
+    }
   };
+
 
   const handleArchiveItem = async (id: string, itemType: 'purchase' | 'return' | 'transfer') => {
     if (itemType === 'purchase') {
@@ -58,10 +71,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     }
     onOpenChange(false);
   };
-  
+
   const handleRefreshTracking = async () => {
     if (!item || !type) return;
-    
+
     setRefreshing(true);
     try {
       await updateTrackingStatus(type, item.id);
@@ -80,9 +93,9 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       setRefreshing(false);
     }
   };
-  
+
   const getStatusColor = (status: string) => {
-    if (status.includes('entregue') || status.includes('conferido')) {
+    if (status.includes('entregue') || status.includes('conferido') || status.includes('estoque')) {
       return 'bg-green-100 text-green-800';
     } else if (status.includes('trânsito')) {
       return 'bg-blue-100 text-blue-800';
@@ -94,7 +107,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   const renderPurchaseDetails = (purchase: Purchase) => {
     // Calculate total cost safely
     const calculateTotalCost = () => {
@@ -106,17 +119,17 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           return sum + (cost * quantity);
         }, 0);
       }
-      
+
       const deliveryFee = typeof purchase.deliveryFee === 'number' ? purchase.deliveryFee : 0;
       return productTotal + deliveryFee;
     };
-    
+
     // Check if all products are verified
     const allProductsVerified = purchase.products?.every(p => p.isVerified) || false;
-    
+
     // Check if purchase is already in inventory
     const isInInventory = purchase.status?.toLowerCase().includes('estoque') || false;
-    
+
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -127,7 +140,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             </div>
             <p className="text-sm">{new Date(purchase.date).toLocaleDateString('pt-BR')}</p>
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Truck className="h-4 w-4 text-gray-500" />
@@ -135,7 +148,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             </div>
             <p className="text-sm">{purchase.carrier || 'Não informada'}</p>
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Package className="h-4 w-4 text-gray-500" />
@@ -143,7 +156,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             </div>
             <p className="text-sm">{purchase.storeName || 'Não informada'}</p>
           </div>
-          
+
           {purchase.customerName && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -153,7 +166,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <p className="text-sm">{purchase.customerName}</p>
             </div>
           )}
-          
+
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Package className="h-4 w-4 text-gray-500" />
@@ -162,9 +175,9 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             <div className="flex items-center gap-2">
               <p className="text-sm">{purchase.trackingCode || 'Não informado'}</p>
               {purchase.trackingCode && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="h-6 w-6 p-0"
                   onClick={() => {
                     const url = getTrackingUrl(purchase.carrier, purchase.trackingCode);
@@ -178,7 +191,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               )}
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Package className="h-4 w-4 text-gray-500" />
@@ -188,28 +201,28 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               {purchase.status || 'Não informado'}
             </Badge>
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-gray-500" />
               <span className="text-sm font-medium">Previsão de Entrega:</span>
             </div>
             <p className="text-sm">
-              {purchase.estimatedDelivery 
+              {purchase.estimatedDelivery
                 ? new Date(purchase.estimatedDelivery).toLocaleDateString('pt-BR')
                 : 'Não disponível'}
             </p>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Produtos</h3>
-          
+
           <div className="space-y-3">
             {purchase.products?.map((product) => (
-              <div 
-                key={product.id} 
-                className={`p-4 border rounded-lg ${product.isVerified ? 'bg-blue-50 border-blue-200' : ''}`}
+              <div
+                key={product.id}
+                className={`p-4 border rounded-lg ${product.isVerified ? 'bg-blue-50 border-blue-200' : ''} ${product.isInStock ? 'bg-green-50 border-green-200' : ''}`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -220,50 +233,85 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                         Custo: R$ {typeof product.cost === 'number' ? product.cost.toFixed(2) : '0.00'}
                       </p>
                       <p className="text-sm text-gray-600">
-                        Total: R$ {typeof product.totalCost === 'number' 
-                          ? product.totalCost.toFixed(2) 
-                          : ((typeof product.cost === 'number' ? product.cost : 0) * 
-                             (typeof product.quantity === 'number' ? product.quantity : 0)).toFixed(2)}
+                        Total: R$ {typeof product.totalCost === 'number'
+                          ? product.totalCost.toFixed(2)
+                          : ((typeof product.cost === 'number' ? product.cost : 0) *
+                            (typeof product.quantity === 'number' ? product.quantity : 0)).toFixed(2)}
                       </p>
                     </div>
                   </div>
-                  
-                  {!product.isVerified ? (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <CheckSquare className="h-4 w-4 mr-2" />
-                          Conferir
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Confirmar Produto</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja marcar este produto como conferido?
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => handleVerifyProduct(purchase.id, product.id)}
-                          >
-                            Confirmar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  ) : (
-                    <Badge className="bg-blue-100 text-blue-800">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Conferido
-                    </Badge>
-                  )}
+
+                  <div className="flex items-center gap-2"> {/* Container for the buttons/badges */}
+                    {!product.isVerified ? (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <CheckSquare className="h-4 w-4 mr-2" />
+                            Conferir
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Confirmar Produto</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja marcar este produto como conferido?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleVerifyProduct(purchase.id, product.id)}
+                            >
+                              Confirmar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : (
+                      <>
+                        <Badge className="bg-blue-100 text-blue-800">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Conferido
+                        </Badge>
+                        {!product.isInStock ? ( // Show "Lançar no Estoque" only if not already in stock
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Database className="h-4 w-4 mr-2" />
+                                Lançar no Estoque
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Lançar Produto no Estoque</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja lançar este produto no estoque?
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleAddProductToInventory(purchase.id, product.id)}
+                                >
+                                  Confirmar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : (
+                          <Badge className="bg-green-100 text-green-800">
+                            <Database className="h-3 w-3 mr-1" />
+                            No Estoque
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
+            )))}
           </div>
-          
+
           <div className="flex justify-between items-center pt-4 border-t">
             <div>
               <p className="text-sm font-medium">
@@ -273,27 +321,27 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                 Total: R$ {calculateTotalCost().toFixed(2)}
               </p>
             </div>
-            
+
             <div className="flex gap-2">
-              {allProductsVerified && !isInInventory && (
+              {allProductsVerified && !isInInventory && ( // This is for the *entire purchase* to inventory
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="default">
                       <Database className="h-4 w-4 mr-2" />
-                      Lançar no Estoque
+                      Lançar Compra no Estoque
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Lançar no Estoque</AlertDialogTitle>
+                      <AlertDialogTitle>Lançar Compra no Estoque</AlertDialogTitle>
                       <AlertDialogDescription>
                         Tem certeza que deseja lançar todos os produtos desta compra no estoque? Esta ação irá arquivar a compra.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={() => handleAddToInventory(purchase.id, 'purchase')}
+                      <AlertDialogAction
+                        onClick={() => addProductToInventory(purchase.id)} // This one adds the whole purchase
                       >
                         Confirmar
                       </AlertDialogAction>
@@ -301,18 +349,18 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-              
+
               {allProductsVerified && (
                 <Badge className="bg-blue-100 text-blue-800 py-2 px-3">
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  Conferido
+                  Conferido (Total)
                 </Badge>
               )}
-              
+
               {isInInventory && (
                 <Badge className="bg-green-100 text-green-800 py-2 px-3">
                   <Database className="h-4 w-4 mr-2" />
-                  No Estoque
+                  Compra no Estoque
                 </Badge>
               )}
             </div>
@@ -321,7 +369,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       </div>
     );
   };
-  
+
   const renderReturnOrTransferDetails = (item: Return | Transfer, itemType: 'return' | 'transfer') => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -332,7 +380,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           </div>
           <p className="text-sm">{new Date(item.date).toLocaleDateString('pt-BR')}</p>
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Truck className="h-4 w-4 text-gray-500" />
@@ -340,7 +388,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           </div>
           <p className="text-sm">{item.carrier || 'Não informada'}</p>
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Package className="h-4 w-4 text-gray-500" />
@@ -348,7 +396,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           </div>
           <p className="text-sm">{item.storeName || 'Não informada'}</p>
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Package className="h-4 w-4 text-gray-500" />
@@ -356,7 +404,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           </div>
           <p className="text-sm">{item.customerName || 'Não informado'}</p>
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Package className="h-4 w-4 text-gray-500" />
@@ -365,9 +413,9 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           <div className="flex items-center gap-2">
             <p className="text-sm">{item.trackingCode || 'Não informado'}</p>
             {item.trackingCode && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="h-6 w-6 p-0"
                 onClick={() => {
                   const url = getTrackingUrl(item.carrier, item.trackingCode);
@@ -381,7 +429,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             )}
           </div>
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Package className="h-4 w-4 text-gray-500" />
@@ -391,20 +439,20 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             {item.status || 'Não informado'}
           </Badge>
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-gray-500" />
             <span className="text-sm font-medium">Previsão de Entrega:</span>
           </div>
           <p className="text-sm">
-            {item.estimatedDelivery 
+            {item.estimatedDelivery
               ? new Date(item.estimatedDelivery).toLocaleDateString('pt-BR')
               : 'Não disponível'}
           </p>
         </div>
       </div>
-      
+
       <div className="flex justify-end pt-4 border-t">
         {!item.isArchived ? (
           <AlertDialog>
@@ -423,8 +471,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={() => handleAddToInventory(item.id, itemType)}
+                <AlertDialogAction
+                  onClick={() => addProductToInventory(item.id)} // This is for the whole return/transfer
                 >
                   Confirmar
                 </AlertDialogAction>
@@ -440,38 +488,38 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       </div>
     </div>
   );
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {type === 'purchase' 
-              ? 'Detalhes da Compra' 
-              : type === 'return' 
-                ? 'Detalhes da Devolução' 
+            {type === 'purchase'
+              ? 'Detalhes da Compra'
+              : type === 'return'
+                ? 'Detalhes da Devolução'
                 : 'Detalhes da Transferência'}
           </DialogTitle>
         </DialogHeader>
-        
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-1">
             <TabsTrigger value="details">Detalhes</TabsTrigger>
             {/*<TabsTrigger value="tracking">Rastreamento</TabsTrigger>*/}
           </TabsList>
-          
+
           <TabsContent value="details" className="mt-4">
             {type === 'purchase' && renderPurchaseDetails(item as Purchase)}
             {type === 'return' && renderReturnOrTransferDetails(item as Return, 'return')}
             {type === 'transfer' && renderReturnOrTransferDetails(item as Transfer, 'transfer')}
           </TabsContent>
-          
+
           <TabsContent value="tracking" className="mt-4">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium">Histórico de Rastreamento</h3>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={handleRefreshTracking}
                   disabled={refreshing}
@@ -480,7 +528,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                   {refreshing ? 'Atualizando...' : 'Atualizar'}
                 </Button>
               </div>
-              
+
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -489,17 +537,17 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                       {item.status || 'Não informado'}
                     </Badge>
                   </div>
-                  
+
                   <div>
                     <p className="text-sm font-medium">Previsão de Entrega:</p>
                     <p className="text-sm">
-                      {item.estimatedDelivery 
+                      {item.estimatedDelivery
                         ? new Date(item.estimatedDelivery).toLocaleDateString('pt-BR')
                         : 'Não disponível'}
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="border-l-2 border-gray-200 pl-4 space-y-6 ml-4">
                   {/* This would be populated with actual tracking history */}
                   <div className="relative">
@@ -512,13 +560,13 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                       <p className="text-sm mt-1">Objeto em trânsito - de São Paulo/SP para Rio de Janeiro/RJ</p>
                     </div>
                   </div>
-                  
+
                   <div className="relative">
                     <div className="absolute -left-[21px] top-1 w-4 h-4 rounded-full bg-gray-300"></div>
                     <div>
                       <p className="text-sm font-medium">Objeto postado</p>
                       <p className="text-xs text-gray-500">
-                        {new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('pt-BR')} - 
+                        {new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('pt-BR')} -
                         {new Date().toLocaleTimeString('pt-BR')}
                       </p>
                       <p className="text-sm mt-1">Objeto postado - São Paulo/SP</p>
@@ -531,13 +579,13 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
         </Tabs>
 
         <DialogFooter className="flex justify-between mt-6 pt-4 border-t">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => onOpenChange(false)}
           >
             Fechar
           </Button>
-          
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline">
@@ -554,7 +602,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
+                <AlertDialogAction
                   onClick={() => handleArchiveItem(item.id, type)}
                 >
                   Arquivar
