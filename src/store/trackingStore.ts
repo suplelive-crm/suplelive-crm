@@ -5,12 +5,6 @@ import { ErrorHandler } from '@/lib/error-handler';
 import { Purchase, PurchaseProduct, Return, Transfer, TrackingResponse } from '@/types/tracking';
 import { trackPackage, parseTrackingResponse, getTrackingUrl } from '@/lib/tracking-api';
 
-// IMPORTANTE: Certifique-se que seu tipo PurchaseProduct em '@/types/tracking'
-// inclui as propriedades 'isVerified: boolean;', 'isInStock?: boolean;' e 'vencimento?: string;'.
-// E que seu banco de dados Supabase usa os nomes de coluna EXATOS como
-// 'storeName', 'customerName', 'trackingCode', 'deliveryFee', 'estimatedDelivery', 'isArchived',
-// 'isVerified', 'isInStock', 'vencimento', 'sku'.
-
 interface TrackingState {
   // Data
   purchases: Purchase[];
@@ -31,27 +25,84 @@ interface TrackingState {
   fetchReturns: () => Promise<void>;
   fetchTransfers: () => Promise<void>;
 
-  createPurchase: (purchase: Omit<Purchase, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'estimatedDelivery' | 'isArchived' | 'workspace_id'>,
-                   products: Omit<PurchaseProduct, 'id' | 'purchaseId' | 'totalCost' | 'isVerified' | 'isInStock' | 'vencimento'>[]) => Promise<void>;
-  updatePurchase: (id: string, updates: Partial<Purchase>) => Promise<void>;
+  // createPurchase: Adaptação para passar os dados como o DB espera, embora o input do form seja camelCase.
+  createPurchase: (purchase: { // Usamos um tipo auxiliar aqui para refletir o input do formulário
+    date: string;
+    carrier: string;
+    storeName: string;
+    customerName?: string;
+    trackingCode: string;
+    deliveryFee: number;
+  },
+    products: { // Usamos um tipo auxiliar aqui para refletir o input do formulário
+      name: string;
+      quantity: number;
+      cost: number;
+      sku: string; // SKU como está no formulário/tipo local
+      vencimento?: string; // Vencimento como está no formulário/tipo local
+    }[]) => Promise<void>;
+
+
+  updatePurchase: (id: string, updates: Partial<{
+    date: string;
+    carrier: string;
+    storeName: string;
+    customerName?: string;
+    trackingCode: string;
+    deliveryFee: number;
+    status: string;
+    estimatedDelivery?: string;
+    isArchived: boolean;
+  }>) => Promise<void>;
   archivePurchase: (id: string) => Promise<void>;
+
   verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string) => Promise<void>;
   addProductToInventory: (purchaseId: string) => Promise<void>;
   updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>;
 
-  createReturn: (returnData: Omit<Return, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'estimatedDelivery' | 'isArchived' | 'workspace_id'>) => Promise<void>;
-  updateReturn: (id: string, updates: Partial<Return>) => Promise<void>;
+  createReturn: (returnData: {
+    date: string;
+    carrier: string;
+    storeName: string;
+    customerName: string;
+    trackingCode: string;
+  }) => Promise<void>;
+  updateReturn: (id: string, updates: Partial<{
+    date: string;
+    carrier: string;
+    storeName: string;
+    customerName: string;
+    trackingCode: string;
+    status: string;
+    estimatedDelivery?: string;
+    isArchived: boolean;
+  }>) => Promise<void>;
   archiveReturn: (id: string) => Promise<void>;
 
-  createTransfer: (transfer: Omit<Transfer, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'estimatedDelivery' | 'isArchived' | 'workspace_id'>) => Promise<void>;
-  updateTransfer: (id: string, updates: Partial<Transfer>) => Promise<void>;
+  createTransfer: (transfer: {
+    date: string;
+    carrier: string;
+    storeName: string;
+    customerName: string;
+    trackingCode: string;
+  }) => Promise<void>;
+  updateTransfer: (id: string, updates: Partial<{
+    date: string;
+    carrier: string;
+    storeName: string;
+    customerName: string;
+    trackingCode: string;
+    status: string;
+    estimatedDelivery?: string;
+    isArchived: boolean;
+  }>) => Promise<void>;
   archiveTransfer: (id: string) => Promise<void>;
 
   // Tracking operations
   updateTrackingStatus: (type: 'purchase' | 'return' | 'transfer', id: string) => Promise<void>;
   updateAllTrackingStatuses: () => Promise<void>;
   getTrackingInfo: (carrier: string, trackingCode: string) => Promise<TrackingResponse>;
-  findItemByTrackingCode: (trackingCode: string) => Promise<{type: 'purchase' | 'return' | 'transfer', item: Purchase | Return | Transfer} | null>;
+  findItemByTrackingCode: (trackingCode: string) => Promise<{ type: 'purchase' | 'return' | 'transfer', item: Purchase | Return | Transfer } | null>;
 }
 
 export const useTrackingStore = create<TrackingState>((set, get) => ({
@@ -79,10 +130,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       let query = supabase
         .from('purchases')
-        // Ao usar *, o Supabase geralmente retorna os nomes de coluna como estão no DB.
-        // Se as colunas já estão em camelCase no DB, o mapeamento manual abaixo
-        // não seria estritamente necessário para 'isVerified', 'isInStock', 'vencimento'
-        // mas o mantive para garantir robustez caso haja alguma inconsistência.
         .select(`
           *,
           products:purchase_products(*)
@@ -91,25 +138,41 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .order('date', { ascending: false });
 
       if (!get().showArchived) {
-        query = query.eq('isArchived', false); // Usando 'isArchived' em camelCase para o filtro
+        query = query.eq('is_archived', false); // Nome da coluna conforme imagem do DB
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      // Mapeamento explícito para garantir que as propriedades camelCase
-      // estejam presentes mesmo que o Supabase retorne snake_case padrão para aliases.
-      // Se seu DB já está 100% camelCase, este mapeamento serve como redundância segura.
+      // Mapeamento explícito de nomes de coluna do DB para o tipo TS do front-end
       const formattedData: Purchase[] = (data || []).map((purchase: any) => ({
-        ...purchase,
-        isArchived: purchase.isArchived, // Garante que isArchived seja mapeado corretamente
+        // Campos da tabela purchases (Mistura de camelCase e snake_case)
+        id: purchase.id,
+        date: purchase.date,
+        carrier: purchase.carrier,
+        storeName: purchase.storeName,
+        customer_name: purchase.customer_name, // Snake_case no DB
+        trackingCode: purchase.trackingCode,
+        delivery_fee: purchase.delivery_fee,   // Snake_case no DB
+        status: purchase.status,
+        estimated_delivery: purchase.estimated_delivery, // Snake_case no DB
+        is_archived: purchase.is_archived,     // Snake_case no DB
+        created_at: purchase.created_at,       // Snake_case no DB
+        updated_at: purchase.updated_at,       // Snake_case no DB
+        workspace_id: purchase.workspace_id,   // Snake_case no DB
+        // Produtos aninhados (mapeamento para o tipo PurchaseProduct)
         products: (purchase.products || []).map((product: any) => ({
-          ...product,
-          isVerified: product.isVerified, // Confirma mapeamento (se vier como is_verified)
-          isInStock: product.isInStock,   // Confirma mapeamento (se vier como is_in_stock)
-          vencimento: product.vencimento, // Confirma mapeamento
-          sku: product.sku // Confirma mapeamento
+          id: product.id,
+          purchase_id: product.purchase_id,   // Snake_case no DB
+          name: product.name,
+          quantity: product.quantity,
+          cost: product.cost,
+          total_cost: product.total_cost,     // Snake_case no DB
+          is_verified: product.is_verified,   // Snake_case no DB
+          is_in_stock: product.is_in_stock,   // Snake_case no DB
+          vencimento: product.vencimento,     // CamelCase no DB
+          SKU: product.SKU,                   // UPPERCASE no DB
         }))
       }));
 
@@ -132,14 +195,30 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .order('date', { ascending: false });
 
       if (!get().showArchived) {
-        query = query.eq('isArchived', false); // Usando 'isArchived' em camelCase para o filtro
+        query = query.eq('is_archived', false); // Nome da coluna conforme imagem do DB
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      set({ returns: data || [], loading: false });
+      // Mapeamento explícito de nomes de coluna do DB para o tipo TS do front-end
+      const formattedData: Return[] = (data || []).map((item: any) => ({
+        id: item.id,
+        date: item.date,
+        carrier: item.carrier,
+        storeName: item.storeName,
+        customer_name: item.customer_name, // Snake_case no DB
+        trackingCode: item.trackingCode,
+        status: item.status,
+        estimated_delivery: item.estimated_delivery, // Snake_case no DB
+        is_archived: item.is_archived,       // Snake_case no DB
+        created_at: item.created_at,         // Snake_case no DB
+        updated_at: item.updated_at,         // Snake_case no DB
+        workspace_id: item.workspace_id,     // Snake_case no DB
+      }));
+
+      set({ returns: formattedData || [], loading: false });
     });
   },
 
@@ -157,14 +236,31 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .order('date', { ascending: false });
 
       if (!get().showArchived) {
-        query = query.eq('isArchived', false); // Usando 'isArchived' em camelCase para o filtro
+        query = query.eq('is_archived', false); // Nome da coluna conforme imagem do DB
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      set({ transfers: data || [], loading: false });
+      // Mapeamento explícito de nomes de coluna do DB para o tipo TS do front-end
+      const formattedData: Transfer[] = (data || []).map((item: any) => ({
+        id: item.id,
+        date: item.date,
+        carrier: item.carrier,
+        storeName: item.storeName,
+        customer_name: item.customer_name, // Snake_case no DB
+        trackingCode: item.trackingCode,
+        status: item.status,
+        estimated_delivery: item.estimated_delivery, // Snake_case no DB
+        is_archived: item.is_archived,       // Snake_case no DB
+        created_at: item.created_at,         // Snake_case no DB
+        updated_at: item.updated_at,         // Snake_case no DB
+        workspace_id: item.workspace_id,     // Snake_case no DB
+      }));
+
+
+      set({ transfers: formattedData || [], loading: false });
     });
   },
 
@@ -173,17 +269,17 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
 
-      // Usando camelCase para os nomes das colunas, como no seu DB
+      // Campos da compra - Usando os nomes EXATOS das colunas do seu DB
       const dbPurchaseData = {
         date: purchaseData.date,
         carrier: purchaseData.carrier,
-        storeName: purchaseData.storeName, // Usando camelCase
-        customerName: purchaseData.customerName || null, // Usando camelCase
-        trackingCode: purchaseData.trackingCode, // Usando camelCase
-        deliveryFee: purchaseData.deliveryFee, // Usando camelCase
+        storeName: purchaseData.storeName,       // storeName (camelCase)
+        customer_name: purchaseData.customerName || null, // customer_name (snake_case)
+        trackingCode: purchaseData.trackingCode, // trackingCode (camelCase)
+        delivery_fee: purchaseData.deliveryFee,   // delivery_fee (snake_case)
         status: 'Aguardando rastreamento',
-        isArchived: false, // Usando camelCase
-        workspace_id: currentWorkspace.id
+        is_archived: false,                       // is_archived (snake_case)
+        workspace_id: currentWorkspace.id         // workspace_id (snake_case)
       };
 
       console.log("Creating purchase with data:", dbPurchaseData);
@@ -201,16 +297,16 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       console.log("Purchase created:", purchase);
 
-      // Usando camelCase para os nomes das colunas de produto
+      // Campos dos produtos - Usando os nomes EXATOS das colunas do seu DB
       const productsWithPurchaseId = products.map(product => ({
         name: product.name,
         quantity: product.quantity,
         cost: product.cost,
-        sku: product.sku, // Usando camelCase
-        purchaseId: purchase.id, // Usando camelCase
-        isVerified: false, // Usando camelCase
-        isInStock: false, // Usando camelCase
-        vencimento: product.vencimento || null, // Usando camelCase
+        SKU: product.SKU,                       // SKU (UPPERCASE)
+        purchase_id: purchase.id,               // purchase_id (snake_case)
+        is_verified: false,                     // is_verified (snake_case)
+        is_in_stock: false,                     // is_in_stock (snake_case)
+        vencimento: product.vencimento || null, // vencimento (camelCase)
       }));
 
       console.log("Creating products:", productsWithPurchaseId);
@@ -225,6 +321,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       }
 
       try {
+        // Atualiza o status da compra, usando o trackingCode do formulário
         await get().updateTrackingStatus('purchase', purchase.id);
       } catch (error) {
         console.warn("Could not update tracking status for new purchase:", error);
@@ -238,21 +335,21 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updatePurchase: async (id, updates) => {
     await ErrorHandler.handleAsync(async () => {
-      // Usando camelCase para os nomes das colunas
+      // Campos da compra para atualização - Usando os nomes EXATOS das colunas do seu DB
       const dbUpdates: any = {
-        updatedAt: new Date().toISOString() // Usando camelCase
+        updated_at: new Date().toISOString() // updated_at (snake_case)
       };
 
-      if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customerName !== undefined) dbUpdates.customerName = updates.customerName;
-      if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
-      if (updates.deliveryFee !== undefined) dbUpdates.deliveryFee = updates.deliveryFee;
-      if (updates.estimatedDelivery !== undefined) dbUpdates.estimatedDelivery = updates.estimatedDelivery;
-      if (updates.isArchived !== undefined) dbUpdates.isArchived = updates.isArchived;
-
+      // Mapeando do Partial<Purchase> (input camelCase) para o DB (nomes mistos)
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
+      if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
+      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName; // customer_name (snake_case)
+      if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
+      if (updates.deliveryFee !== undefined) dbUpdates.delivery_fee = updates.deliveryFee; // delivery_fee (snake_case)
       if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery; // estimated_delivery (snake_case)
+      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived; // is_archived (snake_case)
 
 
       console.log("Updating purchase with data:", dbUpdates);
@@ -279,8 +376,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const { error } = await supabase
         .from('purchases')
         .update({
-          isArchived: true, // Usando camelCase
-          updatedAt: new Date().toISOString() // Usando camelCase
+          is_archived: true, // is_archived (snake_case)
+          updated_at: new Date().toISOString() // updated_at (snake_case)
         })
         .eq('id', id);
 
@@ -296,56 +393,59 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   verifyPurchaseProduct: async (purchaseId, productId, vencimento) => {
     await ErrorHandler.handleAsync(async () => {
-      const updates: { isVerified: boolean; updatedAt: string; vencimento?: string | null } = { // Usando camelCase
-        isVerified: true, // Usando camelCase
-        updatedAt: new Date().toISOString() // Usando camelCase
+      // Campos do produto para atualização - Usando os nomes EXATOS das colunas do seu DB
+      const updates: { is_verified: boolean; updated_at: string; vencimento?: string | null } = {
+        is_verified: true, // is_verified (snake_case)
+        updated_at: new Date().toISOString() // updated_at (snake_case)
       };
       if (vencimento !== undefined) {
-        updates.vencimento = vencimento;
+        updates.vencimento = vencimento; // vencimento (camelCase)
       }
 
       const { error } = await supabase
         .from('purchase_products')
         .update(updates)
         .eq('id', productId)
-        .eq('purchaseId', purchaseId); // Usando camelCase
+        .eq('purchase_id', purchaseId); // purchase_id (snake_case)
 
       if (error) {
         console.error("Erro ao verificar produto:", error);
         throw error;
       }
 
+      // Atualiza o estado local IMEDIATAMENTE - Usa os nomes EXATOS dos campos do DB para evitar incompatibilidade
       set((state) => ({
         purchases: state.purchases.map((purchase) =>
           purchase.id === purchaseId
             ? {
                 ...purchase,
-                products: purchase.products?.map((p) =>
-                  p.id === productId ? { ...p, isVerified: true, vencimento: vencimento || p.vencimento } : p
+                products: (purchase.products || []).map((p) =>
+                  p.id === productId ? { ...p, is_verified: true, vencimento: vencimento || p.vencimento } : p // is_verified (snake_case)
                 ),
               }
             : purchase
         ),
       }));
 
+      // Verifica se TODOS os produtos da compra estão verificados
       const { data: products, error: fetchProductsError } = await supabase
         .from('purchase_products')
-        .select('isVerified') // Usando camelCase
-        .eq('purchaseId', purchaseId); // Usando camelCase
+        .select('is_verified') // is_verified (snake_case)
+        .eq('purchase_id', purchaseId); // purchase_id (snake_case)
 
       if (fetchProductsError) {
         console.error("Erro ao buscar produtos para verificação total:", fetchProductsError);
         throw fetchProductsError;
       }
 
-      const allVerified = products?.every(product => product.isVerified); // Usando camelCase
+      const allVerified = (products || []).every(product => product.is_verified); // is_verified (snake_case)
 
       if (allVerified) {
         await supabase
           .from('purchases')
           .update({
             status: 'Produto entregue e conferido',
-            updatedAt: new Date().toISOString() // Usando camelCase
+            updated_at: new Date().toISOString() // updated_at (snake_case)
           })
           .eq('id', purchaseId);
       }
@@ -356,27 +456,29 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateProductStatusToInStock: async (purchaseId, productId) => {
     await ErrorHandler.handleAsync(async () => {
+      // Campos do produto para atualização - Usando os nomes EXATOS das colunas do seu DB
       const { error } = await supabase
         .from('purchase_products')
         .update({
-          isInStock: true, // Usando camelCase
-          updatedAt: new Date().toISOString() // Usando camelCase
+          is_in_stock: true, // is_in_stock (snake_case)
+          updated_at: new Date().toISOString() // updated_at (snake_case)
         })
         .eq('id', productId)
-        .eq('purchaseId', purchaseId); // Usando camelCase
+        .eq('purchase_id', purchaseId); // purchase_id (snake_case)
 
       if (error) {
         console.error("Erro ao adicionar produto ao estoque:", error);
         throw error;
       }
 
+      // Atualiza o estado local IMEDIATAMENTE - Usa os nomes EXATOS dos campos do DB para evitar incompatibilidade
       set((state) => ({
         purchases: state.purchases.map((purchase) =>
           purchase.id === purchaseId
             ? {
                 ...purchase,
-                products: purchase.products?.map((p) =>
-                  p.id === productId ? { ...p, isInStock: true } : p
+                products: (purchase.products || []).map((p) =>
+                  p.id === productId ? { ...p, is_in_stock: true } : p // is_in_stock (snake_case)
                 ),
               }
             : purchase
@@ -385,23 +487,23 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       const { data: products, error: fetchProductsError } = await supabase
         .from('purchase_products')
-        .select('isInStock') // Usando camelCase
-        .eq('purchaseId', purchaseId); // Usando camelCase
+        .select('is_in_stock') // is_in_stock (snake_case)
+        .eq('purchase_id', purchaseId); // purchase_id (snake_case)
 
       if (fetchProductsError) {
         console.error("Erro ao buscar produtos para verificação de estoque total:", fetchProductsError);
         throw fetchProductsError;
       }
 
-      const allInStock = products?.every(product => product.isInStock); // Usando camelCase
+      const allInStock = (products || []).every(product => product.is_in_stock); // is_in_stock (snake_case)
 
       if (allInStock) {
         await supabase
           .from('purchases')
           .update({
             status: 'Adicionado ao estoque',
-            isArchived: true, // Usando camelCase
-            updatedAt: new Date().toISOString() // Usando camelCase
+            is_archived: true, // is_archived (snake_case)
+            updated_at: new Date().toISOString() // updated_at (snake_case)
           })
           .eq('id', purchaseId);
       }
@@ -414,25 +516,27 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     await ErrorHandler.handleAsync(async () => {
       console.log("Adicionando compra ao estoque:", purchaseId);
 
+      // Campos do produto para atualização - Usando os nomes EXATOS das colunas do seu DB
       const { error: productsUpdateError } = await supabase
         .from('purchase_products')
         .update({
-          isInStock: true, // Usando camelCase
-          updatedAt: new Date().toISOString() // Usando camelCase
+          is_in_stock: true, // is_in_stock (snake_case)
+          updated_at: new Date().toISOString() // updated_at (snake_case)
         })
-        .eq('purchaseId', purchaseId); // Usando camelCase
+        .eq('purchase_id', purchaseId); // purchase_id (snake_case)
 
       if (productsUpdateError) {
         console.error("Erro ao atualizar produtos para 'em estoque':", productsUpdateError);
         throw productsUpdateError;
       }
 
+      // Campos da compra para atualização - Usando os nomes EXATOS das colunas do seu DB
       const { error: purchaseUpdateError } = await supabase
         .from('purchases')
         .update({
-          isArchived: true, // Usando camelCase
+          is_archived: true, // is_archived (snake_case)
           status: 'Adicionado ao estoque',
-          updatedAt: new Date().toISOString() // Usando camelCase
+          updated_at: new Date().toISOString() // updated_at (snake_case)
         })
         .eq('id', purchaseId);
 
@@ -451,15 +555,16 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
 
+      // Campos da devolução - Usando os nomes EXATOS das colunas do seu DB
       const dbReturnData = {
         date: returnData.date,
         carrier: returnData.carrier,
-        storeName: returnData.storeName, // Usando camelCase
-        customerName: returnData.customerName, // Usando camelCase
-        trackingCode: returnData.trackingCode, // Usando camelCase
+        storeName: returnData.storeName,       // storeName (camelCase)
+        customer_name: returnData.customerName, // customer_name (snake_case)
+        trackingCode: returnData.trackingCode, // trackingCode (camelCase)
         status: 'Aguardando rastreamento',
-        isArchived: false, // Usando camelCase
-        workspace_id: currentWorkspace.id
+        is_archived: false,                       // is_archived (snake_case)
+        workspace_id: currentWorkspace.id         // workspace_id (snake_case)
       };
 
       console.log("Creating return with data:", dbReturnData);
@@ -490,19 +595,20 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateReturn: async (id, updates) => {
     await ErrorHandler.handleAsync(async () => {
+      // Campos da devolução para atualização - Usando os nomes EXATOS das colunas do seu DB
       const dbUpdates: any = {
-        updatedAt: new Date().toISOString() // Usando camelCase
+        updated_at: new Date().toISOString() // updated_at (snake_case)
       };
 
-      if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customerName !== undefined) dbUpdates.customerName = updates.customerName;
-      if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
-      if (updates.estimatedDelivery !== undefined) dbUpdates.estimatedDelivery = updates.estimatedDelivery;
-      if (updates.isArchived !== undefined) dbUpdates.isArchived = updates.isArchived;
-
+      // Mapeando do Partial<Return> (input camelCase) para o DB (nomes mistos)
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
+      if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
+      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
+      if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery; // estimated_delivery (snake_case)
+      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived; // is_archived (snake_case)
 
       const { error } = await supabase
         .from('returns')
@@ -523,8 +629,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const { error } = await supabase
         .from('returns')
         .update({
-          isArchived: true, // Usando camelCase
-          updatedAt: new Date().toISOString() // Usando camelCase
+          is_archived: true, // is_archived (snake_case)
+          updated_at: new Date().toISOString() // updated_at (snake_case)
         })
         .eq('id', id);
 
@@ -543,15 +649,16 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
 
+      // Campos da transferência - Usando os nomes EXATOS das colunas do seu DB
       const dbTransferData = {
         date: transferData.date,
         carrier: transferData.carrier,
-        storeName: transferData.storeName, // Usando camelCase
-        customerName: transferData.customerName, // Usando camelCase
-        trackingCode: transferData.trackingCode, // Usando camelCase
+        storeName: transferData.storeName,       // camelCase
+        customer_name: transferData.customerName, // snake_case
+        trackingCode: transferData.trackingCode,   // camelCase
         status: 'Aguardando rastreamento',
-        isArchived: false, // Usando camelCase
-        workspace_id: currentWorkspace.id
+        is_archived: false,                       // snake_case
+        workspace_id: currentWorkspace.id         // snake_case
       };
 
       console.log("Creating transfer with data:", dbTransferData);
@@ -582,19 +689,20 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateTransfer: async (id, updates) => {
     await ErrorHandler.handleAsync(async () => {
+      // Campos da transferência para atualização - Usando os nomes EXATOS das colunas do seu DB
       const dbUpdates: any = {
-        updatedAt: new Date().toISOString() // Usando camelCase
+        updated_at: new Date().toISOString() // updated_at (snake_case)
       };
 
-      if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customerName !== undefined) dbUpdates.customerName = updates.customerName;
-      if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
-      if (updates.estimatedDelivery !== undefined) dbUpdates.estimatedDelivery = updates.estimatedDelivery;
-      if (updates.isArchived !== undefined) dbUpdates.isArchived = updates.isArchived;
-
+      // Mapeando do Partial<Transfer> (input camelCase) para o DB (nomes mistos)
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
+      if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
+      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
+      if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery; // snake_case
+      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived; // snake_case
 
       const { error } = await supabase
         .from('transfers')
@@ -615,8 +723,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const { error } = await supabase
         .from('transfers')
         .update({
-          isArchived: true, // Usando camelCase
-          updatedAt: new Date().toISOString() // Usando camelCase
+          is_archived: true, // snake_case
+          updated_at: new Date().toISOString() // snake_case
         })
         .eq('id', id);
 
@@ -632,9 +740,10 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateTrackingStatus: async (type, id) => {
     await ErrorHandler.handleAsync(async () => {
+      // Select com o nome da coluna conforme o DB
       const { data: item } = await supabase
         .from(type === 'purchase' ? 'purchases' : type === 'return' ? 'returns' : 'transfers')
-        .select('trackingCode, carrier') // Usando camelCase
+        .select('trackingCode, carrier') // trackingCode (camelCase)
         .eq('id', id)
         .single();
 
@@ -643,7 +752,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         return;
       }
 
-      if (!item.trackingCode) { // Usando camelCase
+      if (!item.trackingCode) { // trackingCode (camelCase)
         console.error(`No tracking code for ${type} ${id}`);
         return;
       }
@@ -651,7 +760,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       console.log(`Updating tracking for ${type} ${id}:`, item);
 
       try {
-        const trackingInfo = await get().getTrackingInfo(item.carrier, item.trackingCode); // Usando camelCase
+        const trackingInfo = await get().getTrackingInfo(item.carrier, item.trackingCode); // trackingCode (camelCase)
 
         if (!trackingInfo.success || !trackingInfo.data) {
           console.warn(`Failed to update tracking for ${type} ${id}:`, trackingInfo.error);
@@ -660,12 +769,13 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
         console.log(`Got tracking info for ${type} ${id}:`, trackingInfo);
 
+        // Update com nomes de coluna conforme o DB
         await supabase
           .from(type === 'purchase' ? 'purchases' : type === 'return' ? 'returns' : 'transfers')
           .update({
             status: trackingInfo.data.status,
-            estimatedDelivery: trackingInfo.data.estimatedDelivery, // Usando camelCase
-            updatedAt: new Date().toISOString() // Usando camelCase
+            estimated_delivery: trackingInfo.data.estimatedDelivery, // estimated_delivery (snake_case)
+            updated_at: new Date().toISOString()                      // updated_at (snake_case)
           })
           .eq('id', id);
 
@@ -683,9 +793,10 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateAllTrackingStatuses: async () => {
     await ErrorHandler.handleAsync(async () => {
-      const purchases = get().purchases.filter(p => !p.isArchived);
-      const returns = get().returns.filter(r => !r.isArchived);
-      const transfers = get().transfers.filter(t => !t.isArchived);
+      // Filtrando com o nome da coluna conforme o DB
+      const purchases = get().purchases.filter(p => !p.is_archived); // is_archived (snake_case)
+      const returns = get().returns.filter(r => !r.is_archived);     // is_archived (snake_case)
+      const transfers = get().transfers.filter(t => !t.is_archived); // is_archived (snake_case)
 
       let successCount = 0;
       let failureCount = 0;
@@ -746,6 +857,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       console.log(`Tracking data for ${trackingCode}:`, trackingData);
 
       if (trackingData.success) {
+        // estimatedDelivery aqui virá da API externa no formato camelCase
         const parsedData = parseTrackingResponse(carrier, trackingData);
         return {
           success: true,
@@ -780,43 +892,89 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           products:purchase_products(*)
         `)
         .eq('workspace_id', currentWorkspace.id)
-        .eq('trackingCode', trackingCode) // Usando camelCase
+        .eq('trackingCode', trackingCode) // trackingCode (camelCase)
         .maybeSingle();
 
       if (purchaseData) {
-        const formattedPurchaseData = {
-          ...purchaseData,
+        // Mapeamento explícito de nomes de coluna do DB para o tipo TS do front-end
+        const mappedPurchaseData: Purchase = {
+          id: purchaseData.id,
+          date: purchaseData.date,
+          carrier: purchaseData.carrier,
+          storeName: purchaseData.storeName,
+          customer_name: purchaseData.customer_name, // snake_case
+          trackingCode: purchaseData.trackingCode,
+          delivery_fee: purchaseData.delivery_fee,   // snake_case
+          status: purchaseData.status,
+          estimated_delivery: purchaseData.estimated_delivery, // snake_case
+          is_archived: purchaseData.is_archived,     // snake_case
+          created_at: purchaseData.created_at,       // snake_case
+          updated_at: purchaseData.updated_at,       // snake_case
+          workspace_id: purchaseData.workspace_id,   // snake_case
           products: (purchaseData.products || []).map((product: any) => ({
-            ...product,
-            isVerified: product.isVerified,
-            isInStock: product.isInStock,
+            id: product.id,
+            purchase_id: product.purchase_id,
+            name: product.name,
+            quantity: product.quantity,
+            cost: product.cost,
+            total_cost: product.total_cost,
+            is_verified: product.is_verified,
+            is_in_stock: product.is_in_stock,
             vencimento: product.vencimento,
-            sku: product.sku // Mapeia SKU
+            SKU: product.SKU,
           }))
         };
-        return { type: 'purchase' as const, item: formattedPurchaseData };
+        return { type: 'purchase' as const, item: mappedPurchaseData };
       }
 
       const { data: returnData } = await supabase
         .from('returns')
         .select('*')
         .eq('workspace_id', currentWorkspace.id)
-        .eq('trackingCode', trackingCode) // Usando camelCase
+        .eq('trackingCode', trackingCode) // trackingCode (camelCase)
         .maybeSingle();
 
       if (returnData) {
-        return { type: 'return' as const, item: returnData };
+        const mappedReturnData: Return = {
+          id: returnData.id,
+          date: returnData.date,
+          carrier: returnData.carrier,
+          storeName: returnData.storeName,
+          customer_name: returnData.customer_name, // snake_case
+          trackingCode: returnData.trackingCode,
+          status: returnData.status,
+          estimated_delivery: returnData.estimated_delivery, // snake_case
+          is_archived: returnData.is_archived,       // snake_case
+          created_at: returnData.created_at,         // snake_case
+          updated_at: returnData.updated_at,         // snake_case
+          workspace_id: returnData.workspace_id,     // snake_case
+        };
+        return { type: 'return' as const, item: mappedReturnData };
       }
 
       const { data: transferData } = await supabase
         .from('transfers')
         .select('*')
         .eq('workspace_id', currentWorkspace.id)
-        .eq('trackingCode', trackingCode) // Usando camelCase
+        .eq('trackingCode', trackingCode) // trackingCode (camelCase)
         .maybeSingle();
 
       if (transferData) {
-        return { type: 'transfer' as const, item: transferData };
+        const mappedTransferData: Transfer = {
+          id: transferData.id,
+          date: transferData.date,
+          carrier: transferData.carrier,
+          storeName: transferData.storeName,
+          customer_name: transferData.customer_name, // snake_case
+          trackingCode: transferData.trackingCode,
+          status: transferData.status,
+          estimated_delivery: transferData.estimated_delivery, // snake_case
+          is_archived: transferData.is_archived,       // snake_case
+          created_at: transferData.created_at,         // snake_case
+          updated_at: transferData.updated_at,         // snake_case
+          workspace_id: transferData.workspace_id,     // snake_case
+        };
+        return { type: 'transfer' as const, item: mappedTransferData };
       }
 
       return null;
