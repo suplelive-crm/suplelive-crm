@@ -751,13 +751,15 @@ export function TrackingPage() {
               <p className="text-gray-600 mt-2">Gerencie compras, devoluções e transferências</p>
             </div>
             
-            <div className="flex items-center gap-2">
+            {/*<div className="flex items-center gap-2">
               <Button 
                 variant="outline" 
                 onClick={handleRefreshTracking}
                 disabled={loading}
               >
-
+                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Atualizar Status
+              </Button> */}
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
