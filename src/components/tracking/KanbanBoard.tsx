@@ -27,35 +27,34 @@ const getItemKanbanColumn = (item: Purchase | Return | Transfer): KanbanColumn =
     const statusLower = (item.status || '').toLowerCase();
 
     // 1. Concluído (Prioridade máxima): item já processado e lançado no estoque.
-    if (statusLower.includes('estoque')) {
+    if (statusLower.toLowerCase().includes('estoque')) {
         return 'Concluído';
     }
 
     // 2. Entregue: Objeto entregue ou conferido, mas ainda não lançado no estoque.
-    if (statusLower.includes('entregue') || statusLower.includes('conferido')) {
+    if (statusLower.toLowerCase().includes('entregue') || statusLower.toLowerCase().includes('conferido')) {
         return 'Entregue';
     }
 
     // 3. Com problemas: Agrega vários status problemáticos.
     if (
-        statusLower.includes('problema') ||
-        statusLower.includes('PROBLEMA') ||
-        statusLower.includes('não autorizada') ||
-        statusLower.includes('necessidade de apresentar') ||
-        statusLower.includes('extraviado') ||
-        statusLower.includes('pausado')
+        statusLower.toLowerCase().includes('problema') ||
+        statusLower.toLowerCase().includes('não autorizada') ||
+        statusLower.toLowerCase().includes('necessidade de apresentar') ||
+        statusLower.toLowerCase().includes('extraviado') ||
+        statusLower.toLowerCase().includes('pausado')
     ) {
         return 'Com problemas';
     }
     
     // 4. Atrasado: Deve ser verificado antes de "Em Trânsito".
-    const isFinalStatus = statusLower.includes('entregue') || statusLower.includes('conferido') || statusLower.includes('estoque');
+    const isFinalStatus =statusLower.toLowerCase().includes('entregue') || statusLower.toLowerCase().includes('conferido') || statusLower.toLowerCase().includes('estoque');
     if (!isFinalStatus && item.estimated_delivery && new Date(item.estimated_delivery) < new Date()) {
         return 'Atrasado';
     }
 
     // 5. Em Trânsito: Itens em movimento.
-    if (statusLower.includes('trânsito') || statusLower.includes('transferência')) {
+    if (statusLower.toLowerCase().includes('trânsito') || statusLower.toLowerCase().includes('transferência')) {
         return 'Em Trânsito';
     }
 
