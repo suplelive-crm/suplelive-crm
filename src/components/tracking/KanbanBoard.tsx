@@ -39,6 +39,7 @@ const getItemKanbanColumn = (item: Purchase | Return | Transfer): KanbanColumn =
     // 3. Com problemas: Agrega vários status problemáticos.
     if (
         statusLower.includes('problema') ||
+        statusLower.includes('PROBLEMA') ||
         statusLower.includes('não autorizada') ||
         statusLower.includes('necessidade de apresentar') ||
         statusLower.includes('extraviado') ||
