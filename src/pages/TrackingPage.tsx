@@ -367,7 +367,7 @@ export function TrackingPage() {
                       const allProductsVerified = purchase.products?.every(p => p.isVerified) || false;
                       
                       // Check if purchase is already in inventory
-                      const isInInventory = purchase.status?.toLowerCase().includes('Lançado no Estoque') || false;
+                      const isInInventory = purchase.status?.toLowerCase().includes('lançado no estoque') || false;
                       
                       return (
                         <TableRow key={purchase.id}>
