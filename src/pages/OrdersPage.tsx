@@ -137,9 +137,9 @@ export function OrdersPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredOrders.map((order) => (
-                    <TableRow key={order.order_id_base}>
+                    <TableRow key={order.id}>
                       <TableCell className="font-medium">
-                        {order.order_id_base.slice(0, 8)}
+                        {order.id.slice(0, 8)}
                       </TableCell>
                       <TableCell>{order.client?.name || 'Unknown Client'}</TableCell>
                       <TableCell>${order.total_amount.toFixed(2)}</TableCell>
