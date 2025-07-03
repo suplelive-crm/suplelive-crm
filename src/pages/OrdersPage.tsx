@@ -137,7 +137,7 @@ export function OrdersPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
+                    <TableRow key={order.order_id_base}>
                       <TableCell className="font-medium">
                         {order.order_id_base.slice(0, 8)}
                       </TableCell>
