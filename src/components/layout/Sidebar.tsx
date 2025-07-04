@@ -36,15 +36,15 @@ import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Inbox', href: '/inbox', icon: Inbox, badge: 3 },
+  { name: 'Inbox', href: 'https://chat.suplelive.com.br/app/accounts/1/inbox/1', icon: Inbox, badge: 3 },
   { name: 'Clientes', href: '/clients', icon: Users },
   { name: 'Kanban', href: '/kanban', icon: Kanban },
   { name: 'Pedidos', href: '/orders', icon: ShoppingCart },
-  { name: 'Mensagens', href: '/messages', icon: MessageSquare },
+  /*{ name: 'Mensagens', href: '/messages', icon: MessageSquare },*/
   { name: 'Campanhas', href: '/campaigns', icon: Target },
   { name: 'Automação', href: '/automation', icon: Bot },
-  { name: 'Integrações', href: '/integrations', icon: Zap },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+  /*{ name: 'Integrações', href: '/integrations', icon: Zap },*/
+  /*{ name: 'Analytics', href: '/analytics', icon: BarChart3 },*/
   { name: 'Acompanhamento', href: '/tracking', icon: Truck },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
