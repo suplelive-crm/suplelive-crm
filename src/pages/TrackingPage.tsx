@@ -372,14 +372,7 @@ export function TrackingPage() {
                       return (
                         <TableRow key={purchase.id}>
                           <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR')}</TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{purchase.storeName || 'Não informado'}</div>
-                              {purchase.customerName && (
-                                <div className="text-xs text-gray-500">{purchase.customerName}</div>
-                              )}
-                            </div>
-                          </TableCell>
+                          <TableCell>{returnItem.customerName || 'Não informado'}</TableCell>
                           <TableCell>{purchase.carrier || 'Não informado'}</TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-1">
