@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Lead, Client, Order, Message, Campaign, DashboardStats, RFMAnalysis } from '@/types';
+import { Lead, Client, Order, Message, Campaign, DashboardStats, RFMAnalysis, Product } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useWorkspaceStore } from './workspaceStore';
 import { ErrorHandler } from '@/lib/error-handler';
@@ -8,6 +8,7 @@ interface CrmState {
   // Data
   leads: Lead[];
   clients: Client[];
+  products: Product[];
   orders: Order[];
   messages: Message[];
   campaigns: Campaign[];
@@ -20,6 +21,7 @@ interface CrmState {
   fetchStats: () => Promise<void>;
   fetchLeads: () => Promise<void>;
   fetchClients: () => Promise<void>;
+  fetchProducts: () => Promise<void>;
   fetchOrders: () => Promise<void>;
   fetchMessages: () => Promise<void>;
   fetchCampaigns: () => Promise<void>;
@@ -77,6 +79,7 @@ const getRFMCategory = (rfmScore: string): RFMAnalysis['category'] => {
 export const useCrmStore = create<CrmState>((set, get) => ({
   leads: [],
   clients: [],
+  products: [],
   orders: [],
   messages: [],
   campaigns: [],
@@ -185,6 +188,22 @@ export const useCrmStore = create<CrmState>((set, get) => ({
       });
 
       set({ clients: clientsWithStats });
+    });
+  },
+
+  fetchProducts: async () => {
+    await ErrorHandler.handleAsync(async () => {
+      const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
+      if (!currentWorkspace) return;
+
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('workspace_id', currentWorkspace.id)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      set({ products: data || [] });
     });
   },
 
