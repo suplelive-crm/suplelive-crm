@@ -8,12 +8,22 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useTrackingStore } from '@/store/trackingStore';
 import { useCrmStore } from '@/store/crmStore';
 import { useToast } from '@/hooks/use-toast';
-import ProductCombobox from './ProductCombobox'; // NOVO: Importe o novo componente
+import { ProductAutocomplete } from './ProductAutocomplete'; // Importando o novo componente de autocomplete
 
 interface CreatePurchaseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+// O tipo do produto no formulário agora é Partial (parcial), 
+// pois o usuário pode estar no meio da digitação do nome.
+type FormProduct = Partial<{
+    id: string | number;
+    name: string;
+    sku: string;
+    quantity: number;
+    cost: number;
+}>
 
 export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialogProps) {
   const [formData, setFormData] = useState({
@@ -25,13 +35,10 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     deliveryFee: 0,
   });
 
-  const [products, setProducts] = useState([
+  const [products, setProducts] = useState<FormProduct[]>([
     { name: '', quantity: 1, cost: 0, sku: '' }
   ]);
   
-  // REMOVIDO: O estado dos popovers agora é gerenciado pelo componente filho.
-  // const [openPopovers, setOpenPopovers] = useState<boolean[]>([]);
-
   const [loading, setLoading] = useState(false);
   const { createPurchase } = useTrackingStore();
   const { products: dbProducts, fetchProducts } = useCrmStore();
@@ -51,22 +58,26 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     setProducts(products.filter((_, i) => i !== index));
   };
 
-  const handleProductChange = (index: number, field: string, value: string | number) => {
+  // Função genérica para atualizar qualquer campo de um produto (nome, quantidade, custo)
+  const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => {
     const newProducts = [...products];
-    newProducts[index] = {
-      ...newProducts[index],
-      [field]: field === 'quantity' || field === 'cost' ? Number(value) : value
-    };
-    setProducts(newProducts);
+    const product = newProducts[index];
+    if (product) {
+      // Usamos 'as any' para atribuir dinamicamente a propriedade ao objeto
+      (product as any)[field] = value;
+      setProducts(newProducts);
+    }
   };
   
-  // ALTERADO: A função de seleção está mais simples.
-  const handleProductSelect = (index: number, product: any) => {
+  // Função chamada quando um produto é SELECIONADO da lista de autocomplete
+  const handleProductSelect = (index: number, selectedProduct: any) => {
     const newProducts = [...products];
+    // Preenche a linha do formulário com os dados completos do produto selecionado
     newProducts[index] = {
-      ...newProducts[index], // Mantém a quantidade e custo digitados
-      name: product.name,
-      sku: product.sku || '',
+      ...newProducts[index], // Mantém a quantidade e custo que o usuário já possa ter digitado
+      id: selectedProduct.id,
+      name: selectedProduct.name,
+      sku: selectedProduct.sku || '',
     };
     setProducts(newProducts);
   };
@@ -79,14 +90,16 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
       return;
     }
 
-    if (products.length === 0 || products.some(p => !p.name || p.quantity <= 0 || p.cost < 0 || !p.sku)) {
+    // A verificação de 'cost' precisa garantir que não é undefined
+    if (products.length === 0 || products.some(p => !p.name || !p.sku || (p.quantity ?? 0) <= 0 || (p.cost ?? -1) < 0)) {
       toast({ title: 'Erro', description: 'Por favor, preencha corretamente todos os produtos (Nome, SKU, Quantidade e Custo)', variant: 'destructive' });
       return;
     }
 
     setLoading(true);
     try {
-      await createPurchase(formData, products);
+      // Passando os produtos para a função de criar compra
+      await createPurchase(formData, products as any);
 
       setFormData({ date: new Date().toISOString().split('T')[0], carrier: '', storeName: '', customerName: '', trackingCode: '', deliveryFee: 0 });
       setProducts([{ name: '', quantity: 1, cost: 0, sku: '' }]);
@@ -109,56 +122,54 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* O formulário principal permanece o mesmo */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             {/* ... Seus campos de data, transportadora, etc. ... */}
-             <div className="space-y-2">
-              <Label htmlFor="date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
-                Data de Compra *
-              </Label>
-              <Input id="date" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} required />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="carrier" className="flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
-                </Label>
-                <Select value={formData.carrier} onValueChange={(value) => setFormData({ ...formData, carrier: value })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a transportadora" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Correios">Correios</SelectItem>
-                        <SelectItem value="Jadlog">Jadlog</SelectItem>
-                        <SelectItem value="Total Express">Total Express</SelectItem>
-                        <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
-                        <SelectItem value="Braspress">Braspress</SelectItem>
-                        <SelectItem value="Outra">Outra</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="storeName" className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-gray-500" /> Nome da Loja *
-                </Label>
-                <Input id="storeName" value={formData.storeName} onChange={(e) => setFormData({ ...formData, storeName: e.target.value })} placeholder="Ex: Mercado Livre" required />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="customerName" className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-gray-500" /> Nome do Cliente (Opcional)
-                </Label>
-                <Input id="customerName" value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} placeholder="Ex: João Silva"/>
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="trackingCode" className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-gray-500" /> Código de Rastreio *
-                </Label>
-                <Input id="trackingCode" value={formData.trackingCode} onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })} placeholder="Ex: AA123456789BR" required/>
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="deliveryFee" className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
-                </Label>
-                <Input id="deliveryFee" type="number" min="0" step="0.01" value={formData.deliveryFee} onChange={(e) => setFormData({ ...formData, deliveryFee: parseFloat(e.target.value) })} required/>
-            </div>
+            <div className="space-y-2">
+              <Label htmlFor="date" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                Data de Compra *
+              </Label>
+              <Input id="date" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="carrier" className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
+                </Label>
+                <Select value={formData.carrier} onValueChange={(value) => setFormData({ ...formData, carrier: value })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a transportadora" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Correios">Correios</SelectItem>
+                        <SelectItem value="Jadlog">Jadlog</SelectItem>
+                        <SelectItem value="Total Express">Total Express</SelectItem>
+                        <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
+                        <SelectItem value="Braspress">Braspress</SelectItem>
+                        <SelectItem value="Outra">Outra</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="storeName" className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-gray-500" /> Nome da Loja *
+                </Label>
+                <Input id="storeName" value={formData.storeName} onChange={(e) => setFormData({ ...formData, storeName: e.target.value })} placeholder="Ex: Mercado Livre" required />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="customerName" className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-gray-500" /> Nome do Cliente (Opcional)
+                </Label>
+                <Input id="customerName" value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} placeholder="Ex: João Silva"/>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="trackingCode" className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-gray-500" /> Código de Rastreio *
+                </Label>
+                <Input id="trackingCode" value={formData.trackingCode} onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })} placeholder="Ex: AA123456789BR" required/>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="deliveryFee" className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
+                </Label>
+                <Input id="deliveryFee" type="number" min="0" step="0.01" value={formData.deliveryFee} onChange={(e) => setFormData({ ...formData, deliveryFee: parseFloat(e.target.value) || 0 })} required/>
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -171,60 +182,46 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
 
             {products.map((product, index) => (
               <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg items-end">
-                {/* ALTERADO: Usando o novo componente ProductCombobox */}
                 <div className="md:col-span-2 space-y-2">
-                  <Label htmlFor={`product-${index}-name`}>Nome do Produto *</Label>
-                  <ProductCombobox
+                  <Label>Nome do Produto *</Label>
+                  <ProductAutocomplete
                     products={dbProducts}
                     value={product}
                     onSelect={(selectedProduct) => handleProductSelect(index, selectedProduct)}
+                    onInputChange={(text) => handleProductFieldChange(index, 'name', text)}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor={`product-${index}-sku`}>SKU *</Label>
-                  <Input
-                    id={`product-${index}-sku`}
-                    value={product.sku}
-                    placeholder="Selecione um produto"
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed"
-                    required
-                  />
+                  <Label>SKU *</Label>
+                  <Input value={product.sku || ''} placeholder="Selecione um produto" readOnly className="bg-gray-100 cursor-not-allowed"/>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor={`product-${index}-quantity`}>Quantidade *</Label>
+                  <Label>Quantidade *</Label>
                   <Input
-                    id={`product-${index}-quantity`}
                     type="number"
                     min="1"
-                    value={product.quantity}
-                    onChange={(e) => handleProductChange(index, 'quantity', parseInt(e.target.value) || 1)}
+                    value={product.quantity || 1}
+                    onChange={(e) => handleProductFieldChange(index, 'quantity', parseInt(e.target.value) || 1)}
                     required
                   />
                 </div>
 
                 <div className="space-y-2 flex items-end gap-2">
                   <div className="flex-1">
-                    <Label htmlFor={`product-${index}-cost`}>Custo Unitário *</Label>
+                    <Label>Custo Unitário *</Label>
                     <Input
-                      id={`product-${index}-cost`}
                       type="number"
                       min="0"
                       step="0.01"
-                      value={product.cost}
-                      onChange={(e) => handleProductChange(index, 'cost', parseFloat(e.target.value) || 0)}
+                      value={product.cost || 0}
+                      onChange={(e) => handleProductFieldChange(index, 'cost', parseFloat(e.target.value) || 0)}
                       required
                     />
                   </div>
                   {products.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => handleRemoveProduct(index)}
-                    >
+                    <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveProduct(index)} >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   )}

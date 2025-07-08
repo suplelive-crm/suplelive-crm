@@ -5,7 +5,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Definindo as interfaces para as props do nosso componente
 interface Product {
   id: string | number;
   name: string;
@@ -18,7 +17,8 @@ interface ProductComboboxProps {
   onSelect: (product: Product) => void;
 }
 
-export default function ProductCombobox({ products, value, onSelect }: ProductComboboxProps) {
+// Usando exportação nomeada para consistência
+export function ProductCombobox({ products, value, onSelect }: ProductComboboxProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -28,25 +28,32 @@ export default function ProductCombobox({ products, value, onSelect }: ProductCo
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between font-normal"
+          className="w-full justify-between font-normal text-left" // Adicionado text-left para nomes longos
         >
-          {value?.name || "Selecione um produto..."}
+          {value?.name ? (
+            <span className="truncate">{value.name}</span> // Evita que o nome quebre a linha no botão
+          ) : (
+            "Selecione um produto..."
+          )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        {/* REMOVIDO o filter customizado para usar o padrão da biblioteca */}
         <Command>
           <CommandInput placeholder="Buscar produto..." />
-          <CommandList>
+          {/* A CommandList agora tem altura máxima e rolagem */}
+          <CommandList className="max-h-[300px] overflow-y-auto">
             <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
             <CommandGroup>
               {products.map((product) => (
                 <CommandItem
                   key={product.id}
-                  value={product.name}
+                  // Garantimos que o value é sempre uma string para o filtro funcionar
+                  value={product.name || ''} 
                   onSelect={() => {
                     onSelect(product);
-                    setOpen(false); // Fecha o popover após a seleção
+                    setOpen(false);
                   }}
                 >
                   <Check
@@ -55,7 +62,7 @@ export default function ProductCombobox({ products, value, onSelect }: ProductCo
                       value?.name === product.name ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {product.name}
+                  <span>{product.name}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
