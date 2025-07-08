@@ -14,27 +14,48 @@ interface ProductAutocompleteProps {
   products: Product[];
   value: Partial<Product> | null;
   onSelect: (product: Product) => void;
-  // Nova prop para lidar com a digitação direta
   onInputChange: (value: string) => void;
 }
 
 export function ProductAutocomplete({ products, value, onSelect, onInputChange }: ProductAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   
-  // O valor do input é controlado diretamente pelo estado do formulário principal
   const inputValue = value?.name || '';
 
-  // Filtra os produtos com base no que foi digitado
+  // LÓGICA DE FILTRAGEM COM PRIORIZAÇÃO DE SABOR
   const filteredProducts = useMemo(() => {
     if (!inputValue) {
-      // Se o campo estiver vazio, podemos optar por não mostrar nada ou mostrar alguns itens recentes.
-      // Por enquanto, não mostraremos nada para uma UI mais limpa.
       return []; 
     }
+
     const lowercasedInput = inputValue.toLowerCase();
-    return products.filter(p => 
+    
+    // Passo 1: Faz a busca inicial e geral com o texto digitado.
+    const initialResults = products.filter(p => 
       p.name?.toLowerCase().includes(lowercasedInput)
     );
+
+    // Se a busca inicial não retornou nada, não há mais o que fazer.
+    if (initialResults.length === 0) {
+      return [];
+    }
+
+    // Passo 2: Analisa os resultados iniciais para ver se existem variações com "sabor".
+    const hasFlavorVariantInResults = initialResults.some(p => 
+      p.name?.toLowerCase().includes('sabor')
+    );
+
+    // Passo 3: Aplica a regra de negócio.
+    if (hasFlavorVariantInResults) {
+      // Se existem opções de sabor nos resultados, filtre novamente para mostrar APENAS elas.
+      return initialResults.filter(p => 
+        p.name?.toLowerCase().includes('sabor')
+      );
+    } else {
+      // Se não há opções de sabor, retorne os resultados iniciais como estão.
+      return initialResults;
+    }
+
   }, [inputValue, products]);
 
   // Abre a lista quando o input tem foco e texto
@@ -46,9 +67,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
     }
   }, [inputValue, filteredProducts.length]);
 
-
   return (
-    // PopoverAnchor faz o PopoverContent se alinhar a este Input
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverAnchor asChild>
         <Input
@@ -60,7 +79,6 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
             if (inputValue) setIsOpen(true);
           }}
           onBlur={() => {
-            // Pequeno delay para permitir o clique no item da lista antes de fechar
             setTimeout(() => setIsOpen(false), 150);
           }}
           className="w-full"
@@ -69,7 +87,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
 
       <PopoverContent 
         className="w-[--radix-popover-anchor-width] p-0" 
-        onOpenAutoFocus={(e) => e.preventDefault()} // Impede que o popover roube o foco do input
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <Command>
           <CommandList className="max-h-[300px] overflow-y-auto">
