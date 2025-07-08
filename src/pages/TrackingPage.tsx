@@ -339,7 +339,7 @@ export function TrackingPage() {
                           <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR')}</TableCell>
                           <TableCell>{purchase.customer_name || 'Não informado'}</TableCell>
                            {/* CÉLULA DA COLUNA ALTERADA */}
-                          <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>{new Date(purchase.atualizado).toLocaleDateString('pt-BR')}</TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-1">
                               <span>{purchase.trackingCode || 'Não informado'}</span>
