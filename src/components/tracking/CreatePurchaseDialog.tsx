@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Trash2, Calendar, Package, DollarSign, Truck } from 'lucide-react';
+import { useState, useEffect } from 'react'; // NOVO: import do useEffect
+import { Plus, Trash2, Calendar, Package, DollarSign, Truck, ChevronsUpDown, Check } from 'lucide-react'; // NOVO: import de ícones para o Combobox
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,9 +8,20 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useTrackingStore } from '@/store/trackingStore';
 import { useToast } from '@/hooks/use-toast';
 
+// NOVO: Imports para o Combobox do shadcn/ui
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils'; // Assumindo que você tem um helper `cn` para classnames
+
 interface CreatePurchaseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+// NOVO: Interface para o produto vindo do banco de dados
+interface DBProduct {
+  name: string;
+  sku: string;
 }
 
 export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialogProps) {
@@ -23,17 +34,46 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     deliveryFee: 0,
   });
 
-  // ADICIONADO: 'sku' ao estado inicial do produto
   const [products, setProducts] = useState([
-    { name: '', quantity: 1, cost: 0, sku: '' } // Adicionado sku
+    { name: '', quantity: 1, cost: 0, sku: '' }
   ]);
+  
+  // NOVO: Estados para a busca de produtos e controle de popovers
+  const [dbProducts, setDbProducts] = useState<DBProduct[]>([]);
+  const [openPopovers, setOpenPopovers] = useState<boolean[]>([]);
+
 
   const [loading, setLoading] = useState(false);
   const { createPurchase } = useTrackingStore();
   const { toast } = useToast();
+  
+  // NOVO: Efeito para buscar os produtos da sua API quando o modal for aberto
+  useEffect(() => {
+    if (open) {
+      const fetchProducts = async () => {
+        try {
+          // Substitua pela URL da sua API
+          const response = await fetch('/api/products'); 
+          if (!response.ok) {
+            throw new Error('Falha ao buscar produtos');
+          }
+          const data: DBProduct[] = await response.json();
+          setDbProducts(data);
+        } catch (error) {
+          console.error('Erro ao buscar produtos:', error);
+          toast({
+            title: 'Erro de Rede',
+            description: 'Não foi possível carregar a lista de produtos. Tente novamente.',
+            variant: 'destructive',
+          });
+        }
+      };
+
+      fetchProducts();
+    }
+  }, [open, toast]);
 
   const handleAddProduct = () => {
-    // ADICIONADO: 'sku' ao novo produto
     setProducts([...products, { name: '', quantity: 1, cost: 0, sku: '' }]);
   };
 
@@ -43,18 +83,31 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
 
   const handleProductChange = (index: number, field: string, value: string | number) => {
     const newProducts = [...products];
-    // Certifique-se que o 'cost' e 'quantity' são convertidos para número, e 'sku' e 'name' são strings
     newProducts[index] = {
       ...newProducts[index],
-      [field]: field === 'quantity' ? parseInt(value as string) : (field === 'cost' ? parseFloat(value as string) : value)
+      [field]: field === 'quantity' || field === 'cost' ? Number(value) : value
     };
     setProducts(newProducts);
+  };
+  
+  // NOVO: Função para lidar com a seleção de um produto no Combobox
+  const handleProductSelect = (index: number, product: DBProduct) => {
+    const newProducts = [...products];
+    newProducts[index] = {
+      ...newProducts[index],
+      name: product.name,
+      sku: product.sku,
+    };
+    setProducts(newProducts);
+    // Fecha o popover específico daquele produto
+    const newOpenPopovers = [...openPopovers];
+    newOpenPopovers[index] = false;
+    setOpenPopovers(newOpenPopovers);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate form
     if (!formData.date || !formData.carrier || !formData.storeName || !formData.trackingCode || formData.deliveryFee < 0) {
       toast({
         title: 'Erro',
@@ -64,11 +117,10 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
       return;
     }
 
-    // Validate products - ADICIONADO: validação para 'sku'
     if (products.length === 0 || products.some(p => !p.name || p.quantity <= 0 || p.cost < 0 || !p.sku)) {
       toast({
         title: 'Erro',
-        description: 'Por favor, preencha corretamente todos os produtos (Nome, Quantidade, Custo, SKU)',
+        description: 'Por favor, preencha corretamente todos os produtos (Nome, SKU, Quantidade e Custo)',
         variant: 'destructive',
       });
       return;
@@ -76,11 +128,8 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
 
     setLoading(true);
     try {
-      // A função createPurchase da store precisa ser atualizada para aceitar o SKU nos produtos.
-      // Já está configurada para mapear de camelCase para snake_case no trackingStore.ts
       await createPurchase(formData, products);
 
-      // Reset form
       setFormData({
         date: new Date().toISOString().split('T')[0],
         carrier: '',
@@ -89,9 +138,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
         trackingCode: '',
         deliveryFee: 0,
       });
-      // ADICIONADO: 'sku' ao reset do produto
       setProducts([{ name: '', quantity: 1, cost: 0, sku: '' }]);
-
       onOpenChange(false);
 
       toast({
@@ -121,133 +168,122 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* ... (seus campos de formulário de compra permanecem os mesmos) ... */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="date" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                Data de Compra *
+              </Label>
+              <Input id="date" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} required />
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
-                Data de Compra *
-              </Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                required
-              />
+                <Label htmlFor="carrier" className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
+                </Label>
+                <Select value={formData.carrier} onValueChange={(value) => setFormData({ ...formData, carrier: value })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a transportadora" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Correios">Correios</SelectItem>
+                        <SelectItem value="Jadlog">Jadlog</SelectItem>
+                        <SelectItem value="Total Express">Total Express</SelectItem>
+                        <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
+                        <SelectItem value="Braspress">Braspress</SelectItem>
+                        <SelectItem value="Outra">Outra</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="carrier" className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-gray-500" />
-                Transportadora *
-              </Label>
-              <Select
-                value={formData.carrier}
-                onValueChange={(value) => setFormData({ ...formData, carrier: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a transportadora" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Correios">Correios</SelectItem>
-                  <SelectItem value="Jadlog">Jadlog</SelectItem>
-                  <SelectItem value="Total Express">Total Express</SelectItem>
-                  <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
-                  <SelectItem value="Braspress">Braspress</SelectItem>
-                  <SelectItem value="Outra">Outra</SelectItem>
-                </SelectContent>
-              </Select>
+                <Label htmlFor="storeName" className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-gray-500" /> Nome da Loja *
+                </Label>
+                <Input id="storeName" value={formData.storeName} onChange={(e) => setFormData({ ...formData, storeName: e.target.value })} placeholder="Ex: Mercado Livre" required />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="storeName" className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-gray-500" />
-                Nome da Loja *
-              </Label>
-              <Input
-                id="storeName"
-                value={formData.storeName}
-                onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
-                placeholder="Ex: Mercado Livre"
-                required
-              />
+                <Label htmlFor="customerName" className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-gray-500" /> Nome do Cliente (Opcional)
+                </Label>
+                <Input id="customerName" value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} placeholder="Ex: João Silva"/>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="customerName" className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-gray-500" />
-                Nome do Cliente (Opcional)
-              </Label>
-              <Input
-                id="customerName"
-                value={formData.customerName}
-                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                placeholder="Ex: João Silva"
-              />
+                <Label htmlFor="trackingCode" className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-gray-500" /> Código de Rastreio *
+                </Label>
+                <Input id="trackingCode" value={formData.trackingCode} onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })} placeholder="Ex: AA123456789BR" required/>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="trackingCode" className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-gray-500" />
-                Código de Rastreio *
-              </Label>
-              <Input
-                id="trackingCode"
-                value={formData.trackingCode}
-                onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })}
-                placeholder="Ex: AA123456789BR"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="deliveryFee" className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-gray-500" />
-                Taxa de Entrega *
-              </Label>
-              <Input
-                id="deliveryFee"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.deliveryFee}
-                onChange={(e) => setFormData({ ...formData, deliveryFee: parseFloat(e.target.value) })}
-                required
-              />
+                <Label htmlFor="deliveryFee" className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
+                </Label>
+                <Input id="deliveryFee" type="number" min="0" step="0.01" value={formData.deliveryFee} onChange={(e) => setFormData({ ...formData, deliveryFee: parseFloat(e.target.value) })} required/>
             </div>
           </div>
-
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Produtos</h3>
               <Button type="button" variant="outline" size="sm" onClick={handleAddProduct}>
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar Produto
+                <Plus className="h-4 w-4 mr-2" /> Adicionar Produto
               </Button>
             </div>
 
             {products.map((product, index) => (
-              // Ajustado para grid-cols-1 md:grid-cols-5 para acomodar o SKU
-              <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg">
+              <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg items-end">
+                {/* ALTERADO: Input por Combobox para o Nome do Produto */}
                 <div className="md:col-span-2 space-y-2">
                   <Label htmlFor={`product-${index}-name`}>Nome do Produto *</Label>
-                  <Input
-                    id={`product-${index}-name`}
-                    value={product.name}
-                    onChange={(e) => handleProductChange(index, 'name', e.target.value)}
-                    placeholder="Ex: Camiseta Preta"
-                    required
-                  />
+                  <Popover open={openPopovers[index]} onOpenChange={(isOpen) => {
+                      const newOpenPopovers = [...openPopovers];
+                      newOpenPopovers[index] = isOpen;
+                      setOpenPopovers(newOpenPopovers);
+                  }}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openPopovers[index]}
+                        className="w-full justify-between font-normal"
+                      >
+                        {product.name || "Selecione um produto..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Command>
+                        <CommandInput placeholder="Buscar produto..." />
+                        <CommandList>
+                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                            <CommandGroup>
+                            {dbProducts.map((dbProduct) => (
+                                <CommandItem
+                                key={dbProduct.sku}
+                                value={dbProduct.name}
+                                onSelect={() => handleProductSelect(index, dbProduct)}
+                                >
+                                <Check
+                                    className={cn(
+                                    "mr-2 h-4 w-4",
+                                    product.name === dbProduct.name ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                {dbProduct.name}
+                                </CommandItem>
+                            ))}
+                            </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
-                {/* NOVO CAMPO: SKU */}
+                {/* ALTERADO: Campo SKU agora é somente leitura */}
                 <div className="space-y-2">
                   <Label htmlFor={`product-${index}-sku`}>SKU *</Label>
                   <Input
                     id={`product-${index}-sku`}
                     value={product.sku}
-                    onChange={(e) => handleProductChange(index, 'sku', e.target.value)}
-                    placeholder="Ex: ABC-123"
+                    placeholder="Selecione um produto"
+                    readOnly // Torna o campo somente leitura
+                    className="bg-gray-100 cursor-not-allowed" // Estilo para indicar que não é editável
                     required
                   />
                 </div>
@@ -259,7 +295,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
                     type="number"
                     min="1"
                     value={product.quantity}
-                    onChange={(e) => handleProductChange(index, 'quantity', parseInt(e.target.value))}
+                    onChange={(e) => handleProductChange(index, 'quantity', parseInt(e.target.value) || 1)}
                     required
                   />
                 </div>
@@ -273,18 +309,16 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
                       min="0"
                       step="0.01"
                       value={product.cost}
-                      onChange={(e) => handleProductChange(index, 'cost', parseFloat(e.target.value))}
+                      onChange={(e) => handleProductChange(index, 'cost', parseFloat(e.target.value) || 0)}
                       required
                     />
                   </div>
-
                   {products.length > 1 && (
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="destructive"
                       size="icon"
                       onClick={() => handleRemoveProduct(index)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
