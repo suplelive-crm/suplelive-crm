@@ -340,10 +340,17 @@ export function TrackingPage() {
                           <TableCell>{purchase.customer_name || 'Não informado'}</TableCell>
                            {/* CÉLULA DA COLUNA ALTERADA */}
                           <TableCell>
-                            {purchase.atualizado
-                                  ? new Date(purchase.atualizado).toLocaleString('pt-BR')
-                                  : 'Não informado'}
-                          </TableCell>
+        {/* VERIFICA SE 'atualizado' EXISTE E É UMA STRING, DEPOIS SUBSTITUI O ESPAÇO POR 'T' */}
+        {purchase.atualizado && typeof purchase.atualizado === 'string'
+            ? new Date(purchase.atualizado.replace(' ', 'T')).toLocaleString('pt-BR', {
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit'
+              })
+            : 'Não informado'}
+    </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-1">
                               <span>{purchase.trackingCode || 'Não informado'}</span>
