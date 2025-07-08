@@ -362,17 +362,8 @@ export function TrackingPage() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-        {/* VERIFICA SE 'atualizado' EXISTE E É UMA STRING, DEPOIS SUBSTITUI O ESPAÇO POR 'T' */}
-        {purchase.atualizado && typeof purchase.atualizado === 'string'
-            ? new Date(purchase.atualizado.replace(' ', 'T')).toLocaleString('pt-BR', {
-                day: '2-digit', 
-                month: '2-digit', 
-                year: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit'
-              })
-            : 'Não informado'}
-    </TableCell>
+                            {new Date(purchase.date).toLocaleDateString('pt-BR')}
+                          </TableCell>
                           <TableCell>
                             {purchase.estimated_delivery 
                               ? new Date(purchase.estimated_delivery).toLocaleDateString('pt-BR')
