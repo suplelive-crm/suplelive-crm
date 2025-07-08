@@ -362,8 +362,8 @@ export function TrackingPage() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            {purchase.atualizado
-                              ? new Date(purchase.atualizado).toLocaleDateString('pt-BR')
+                            {purchase.updated_at
+                              ? new Date(purchase.updated_at).toLocaleDateString('pt-BR')
                               : 'N/A'}
                           </TableCell>
                           <TableCell>
