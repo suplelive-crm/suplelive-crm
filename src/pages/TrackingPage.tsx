@@ -362,7 +362,9 @@ export function TrackingPage() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            {new Date(purchase.atualizado).toLocaleDateString('pt-BR')}
+                            {purchase.estimated_delivery 
+                              ? new Date(purchase.atualizado).toLocaleDateString('pt-BR')
+                              : 'Não Feita'}
                           </TableCell>
                           <TableCell>
                             {purchase.estimated_delivery 
