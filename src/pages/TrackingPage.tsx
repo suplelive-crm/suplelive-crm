@@ -313,11 +313,11 @@ export function TrackingPage() {
                   <TableRow>
                     <TableHead>Data</TableHead>
                     <TableHead>Loja/Cliente</TableHead>
-                    {/* COLUNA ALTERADA */}
-                    <TableHead>Última Atualização</TableHead>
                     <TableHead>Rastreio</TableHead>
                     <TableHead>Produtos</TableHead>
                     <TableHead>Status</TableHead>
+                    {/* COLUNA ALTERADA */}
+                    <TableHead>Última Atualização</TableHead>
                     <TableHead>Previsão</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
@@ -338,19 +338,6 @@ export function TrackingPage() {
                         <TableRow key={purchase.id}>
                           <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR')}</TableCell>
                           <TableCell>{purchase.customer_name || 'Não informado'}</TableCell>
-                           {/* CÉLULA DA COLUNA ALTERADA */}
-                          <TableCell>
-        {/* VERIFICA SE 'atualizado' EXISTE E É UMA STRING, DEPOIS SUBSTITUI O ESPAÇO POR 'T' */}
-        {purchase.atualizado && typeof purchase.atualizado === 'string'
-            ? new Date(purchase.atualizado.replace(' ', 'T')).toLocaleString('pt-BR', {
-                day: '2-digit', 
-                month: '2-digit', 
-                year: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit'
-              })
-            : 'Não informado'}
-    </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-1">
                               <span>{purchase.trackingCode || 'Não informado'}</span>
@@ -374,6 +361,18 @@ export function TrackingPage() {
                               {purchase.status || 'Não informado'}
                             </Badge>
                           </TableCell>
+                          <TableCell>
+        {/* VERIFICA SE 'atualizado' EXISTE E É UMA STRING, DEPOIS SUBSTITUI O ESPAÇO POR 'T' */}
+        {purchase.atualizado && typeof purchase.atualizado === 'string'
+            ? new Date(purchase.atualizado.replace(' ', 'T')).toLocaleString('pt-BR', {
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit'
+              })
+            : 'Não informado'}
+    </TableCell>
                           <TableCell>
                             {purchase.estimated_delivery 
                               ? new Date(purchase.estimated_delivery).toLocaleDateString('pt-BR')
