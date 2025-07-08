@@ -349,7 +349,7 @@ export function TrackingPage() {
                 hour: '2-digit', 
                 minute: '2-digit'
               })
-            : 'Não informado'}
+            : 'Não informado 2'}
     </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-1">
