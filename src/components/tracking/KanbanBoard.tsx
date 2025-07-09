@@ -12,6 +12,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Purchase, Return, Transfer } from '@/types/tracking';
 import { getTrackingUrl } from '@/lib/tracking-api';
