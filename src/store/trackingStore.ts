@@ -16,7 +16,8 @@ interface PurchaseFormData {
 }
 
 // Omit<> remove campos do tipo original para criar um novo tipo
-type FormProduct = Omit<PurchaseProduct, 'id' | 'purchase_id' | 'is_verified' | 'is_in_stock' | 'total_cost' | 'created_at' | 'updated_at'>;
+// Adicionamos 'id' como opcional, pois um produto vindo do formulário pode ser antigo (com id) ou novo (sem id)
+type FormProduct = Partial<Omit<PurchaseProduct, 'purchase_id' | 'is_verified' | 'is_in_stock' | 'total_cost' | 'created_at' | 'updated_at'>>;
 
 
 interface TrackingState {
@@ -40,8 +41,7 @@ interface TrackingState {
   fetchTransfers: () => Promise<void>;
 
   createPurchase: (purchaseData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
-
-  // ## ASSINATURA DA FUNÇÃO CORRIGIDA PARA ACEITAR OS DADOS DO FORMULÁRIO ##
+  
   updatePurchase: (purchaseId: string, formData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
   archivePurchase: (id: string) => Promise<void>;
 
@@ -265,31 +265,21 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         workspace_id: currentWorkspace.id
       };
 
-      console.log("Creating purchase with data:", dbPurchaseData);
-
       const { data: purchase, error: purchaseError } = await supabase
         .from('purchases')
         .insert(dbPurchaseData)
         .select()
         .single();
 
-      if (purchaseError) {
-        console.error("Error creating purchase:", purchaseError);
-        throw purchaseError;
-      }
+      if (purchaseError) throw purchaseError;
 
-      console.log("Purchase created:", purchase);
-
-      const totalQuantity = products.reduce((sum, p) => sum + p.quantity, 0);
-      let deliveryFeePerUnit = 0;
-      if (totalQuantity > 0) {
-        deliveryFeePerUnit = purchaseData.deliveryFee / totalQuantity;
-      }
+      const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+      const deliveryFeePerUnit = totalQuantity > 0 ? purchaseData.deliveryFee / totalQuantity : 0;
 
       const productsWithPurchaseId = products.map(product => ({
         name: product.name,
         quantity: product.quantity,
-        cost: parseFloat((product.cost + deliveryFeePerUnit).toFixed(2)),
+        cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
         SKU: product.sku,
         purchase_id: purchase.id,
         is_verified: false,
@@ -297,16 +287,11 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         vencimento: product.vencimento || null,
       }));
 
-      console.log("Creating products:", productsWithPurchaseId);
-
       const { error: productsError } = await supabase
         .from('purchase_products')
         .insert(productsWithPurchaseId);
 
-      if (productsError) {
-        console.error("Error creating products:", productsError);
-        throw productsError;
-      }
+      if (productsError) throw productsError;
 
       try {
         await get().updateTrackingStatus('purchase', purchase.id);
@@ -315,74 +300,83 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       }
 
       get().fetchPurchases();
-
       ErrorHandler.showSuccess('Compra criada com sucesso!');
     });
   },
 
-  // ## FUNÇÃO TOTALMENTE REESCRITA ##
+  // ## FUNÇÃO CORRIGIDA PARA PRESERVAR O ESTADO 'is_verified' ##
   updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
-        // 1. Atualiza os dados principais da tabela 'purchases'
-        const dbPurchaseUpdates = {
-            date: formData.date,
-            carrier: formData.carrier,
-            storeName: formData.storeName,
-            customer_name: formData.customerName || null,
-            trackingCode: formData.trackingCode,
-            delivery_fee: formData.deliveryFee,
-            updated_at: new Date().toISOString(),
-        };
+      // 1. ANTES de deletar, busca o estado de verificação dos produtos antigos
+      const { data: oldProducts, error: fetchError } = await supabase
+        .from('purchase_products')
+        .select('id, is_verified')
+        .eq('purchase_id', purchaseId);
 
-        const { error: purchaseUpdateError } = await supabase
-            .from('purchases')
-            .update(dbPurchaseUpdates)
-            .eq('id', purchaseId);
+      if (fetchError) {
+          console.error("Error fetching old product statuses:", fetchError);
+          throw fetchError;
+      }
+      
+      // Cria um mapa para consulta rápida: { 'id_do_produto' => true/false }
+      const verificationStatusMap = new Map(oldProducts.map(p => [p.id, p.is_verified]));
 
-        if (purchaseUpdateError) {
-            console.error("Error updating purchase main data:", purchaseUpdateError);
-            throw purchaseUpdateError;
-        }
+      // 2. Atualiza os dados principais da compra
+      const dbPurchaseUpdates = {
+          date: formData.date,
+          carrier: formData.carrier,
+          storeName: formData.storeName,
+          customer_name: formData.customerName || null,
+          trackingCode: formData.trackingCode,
+          delivery_fee: formData.deliveryFee,
+          updated_at: new Date().toISOString(),
+      };
 
-        // 2. Deleta todos os produtos antigos associados a essa compra para evitar duplicatas
-        const { error: deleteError } = await supabase
-            .from('purchase_products')
-            .delete()
-            .eq('purchase_id', purchaseId);
+      const { error: purchaseUpdateError } = await supabase
+          .from('purchases')
+          .update(dbPurchaseUpdates)
+          .eq('id', purchaseId);
 
-        if (deleteError) {
-            console.error("Error deleting old products:", deleteError);
-            throw deleteError;
-        }
+      if (purchaseUpdateError) throw purchaseUpdateError;
 
-        // 3. Recalcula o custo rateado do frete e prepara a nova lista de produtos
-        const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
-        const deliveryFeePerUnit = totalQuantity > 0 ? formData.deliveryFee / totalQuantity : 0;
+      // 3. Deleta os produtos antigos
+      const { error: deleteError } = await supabase
+          .from('purchase_products')
+          .delete()
+          .eq('purchase_id', purchaseId);
 
-        const newProductsData = products.map(product => ({
+      if (deleteError) throw deleteError;
+
+      // 4. Prepara a nova lista de produtos, preservando o `is_verified`
+      const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+      const deliveryFeePerUnit = totalQuantity > 0 ? formData.deliveryFee / totalQuantity : 0;
+
+      const newProductsData = products.map(product => {
+        // Se o produto já existia (tem um id), usa seu status de verificação salvo. Se for novo, é false.
+        const isVerified = product.id ? (verificationStatusMap.get(product.id) || false) : false;
+
+        return {
             name: product.name,
             quantity: product.quantity,
             cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
             SKU: product.sku,
-            purchase_id: purchaseId, // Associa à compra existente
-            is_verified: false,      // Assume que a edição de produtos requer nova verificação
-            is_in_stock: false,
+            purchase_id: purchaseId,
+            is_verified: isVerified, // <-- USA O VALOR PRESERVADO
+            is_in_stock: false,      // Assume que a edição reseta o status de estoque
             vencimento: product.vencimento || null,
-        }));
+        };
+      });
 
-        // 4. Insere a nova lista de produtos na tabela 'purchase_products'
-        const { error: insertError } = await supabase
-            .from('purchase_products')
-            .insert(newProductsData);
+      // 5. Insere a nova lista de produtos
+      const { error: insertError } = await supabase
+          .from('purchase_products')
+          .insert(newProductsData);
 
-        if (insertError) {
-            console.error("Error inserting new products:", insertError);
-            throw insertError;
-        }
+      if (insertError) throw insertError;
 
-        // 5. Busca os dados atualizados do zero para garantir consistência total na UI
-        get().fetchPurchases();
-        ErrorHandler.showSuccess('Compra atualizada com sucesso!');
+      // 6. Refaz o fetch para garantir que a UI tenha os dados 100% corretos
+      get().fetchPurchases();
+      ErrorHandler.showSuccess('Compra atualizada com sucesso!');
     });
   },
 
@@ -611,7 +605,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
+      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
       if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
@@ -702,7 +696,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
+      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
       if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
