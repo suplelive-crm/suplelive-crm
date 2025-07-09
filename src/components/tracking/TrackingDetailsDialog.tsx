@@ -41,7 +41,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
         handleRefreshTracking();
       }
     }
-  }, [open, item, type]); 
+  }, [open, item, type]);
 
   if (!item || !type) return null;
 
@@ -55,7 +55,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     setVencimentoDate(undefined);
     setProductToVerify(null);
   };
-  
+
   const handleArchiveItem = async (id: string, itemType: 'purchase' | 'return' | 'transfer') => {
     if (itemType === 'purchase') {
       await archivePurchase(id);
@@ -88,18 +88,32 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     }
   };
 
+  // ## FUNÇÃO CORRIGIDA ##
   const getStatusColor = (status: string) => {
-    const lowerStatus = status.toLowerCase();
-    if (lowerStatus.includes('entregue') || lowerStatus.includes('conferido') || lowerStatus.includes('estoque')) {
-      return 'bg-green-100 text-green-800';
-    } else if (lowerStatus.includes('trânsito') || lowerStatus.includes('processamento')) {
-      return 'bg-blue-100 text-blue-800';
+    const lowerStatus = (status || '').toLowerCase();
+
+    // 1. Verifica os problemas PRIMEIRO para capturar exceções
+    if (
+        lowerStatus.includes('problema') ||
+        lowerStatus.includes('extraviado') ||
+        lowerStatus.includes('cancelado') ||
+        lowerStatus.includes('não entregue - carteiro não atendido') // Adicionado aqui
+    ) {
+        return 'bg-red-100 text-red-800';
+    }
+    
+    // 2. Depois, verifica os status de sucesso
+    else if (lowerStatus.includes('entregue') || lowerStatus.includes('conferido') || lowerStatus.includes('estoque')) {
+        return 'bg-green-100 text-green-800';
+    }
+    
+    // 3. Continua com os outros status
+    else if (lowerStatus.includes('trânsito') || lowerStatus.includes('processamento')) {
+        return 'bg-blue-100 text-blue-800';
     } else if (lowerStatus.includes('aguardando') || lowerStatus.includes('pendente')) {
-      return 'bg-yellow-100 text-yellow-800';
-    } else if (lowerStatus.includes('problema') || lowerStatus.includes('extraviado') || lowerStatus.includes('cancelado')) {
-      return 'bg-red-100 text-red-800';
+        return 'bg-yellow-100 text-yellow-800';
     } else {
-      return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -112,8 +126,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
 
     const allProductsVerified = purchase.products?.every(p => p.is_verified) || false;
     const purchaseInInventory = purchase.status?.toLowerCase().includes('estoque');
-
-    // **LÓGICA ADICIONADA AQUI**
     const isDelivered = purchase.status?.toLowerCase().includes('entregue') || purchaseInInventory;
 
     return (
@@ -144,7 +156,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             <div className="flex items-center gap-2 text-muted-foreground"><Package className="h-4 w-4" /><span>Status:</span></div>
             <Badge className={`${getStatusColor(purchase.status)} border-transparent`}>{purchase.status || 'Não informado'}</Badge>
           </div>
-          {/* **BLOCO DE CÓDIGO ALTERADO** */}
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="h-4 w-4" />
@@ -157,7 +168,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               }
             </p>
           </div>
-          {/* **FIM DO BLOCO ALTERADO** */}
         </div>
 
         <div className="space-y-4">
@@ -234,7 +244,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       </div>
     );
   };
-  
+
   const renderReturnOrTransferDetails = (item: Return | Transfer, itemType: 'return' | 'transfer') => (
     <div>Detalhes para {itemType} com ID {item.id}</div>
   );
