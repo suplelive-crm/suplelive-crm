@@ -1,5 +1,3 @@
-// src/components/tracking/EditPurchaseDialog.tsx
-
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Calendar, Package, DollarSign, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -50,9 +48,9 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         date: new Date(purchase.date).toISOString().split('T')[0],
         carrier: purchase.carrier || '',
         storeName: purchase.storeName || '',
-        customerName: purchase.customerName || '',
+        customerName: purchase.customer_name || '',
         trackingCode: purchase.trackingCode || '',
-        deliveryFee: purchase.delivery_fee || 0, // Corrigido para snake_case do DB
+        deliveryFee: purchase.delivery_fee || 0,
       });
       setProducts(purchase.products.map(p => ({...p})) || []);
     }
@@ -105,7 +103,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     setLoading(true);
     try {
       await updatePurchase(purchase.id, formData, products as any);
-
       onOpenChange(false);
       toast({ title: 'Sucesso', description: 'Compra atualizada com sucesso' });
     } catch (error) {
@@ -120,7 +117,15 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent 
         className="max-w-5xl max-h-[90vh] overflow-y-auto"
-        onInteractOutside={(e) => e.preventDefault()}
+        // ## LÓGICA CORRIGIDA ##
+        onInteractOutside={(e) => {
+          // Permite a interação se o alvo do clique for um dos nossos botões
+          if ((e.target as HTMLElement).closest('[data-allow-interaction]')) {
+            return;
+          }
+          // Previne o fechamento do diálogo para todos os outros cliques externos
+          e.preventDefault();
+        }}
       >
         <DialogHeader>
           <DialogTitle>Editar Compra</DialogTitle>
@@ -232,8 +237,22 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={loading}>{loading ? 'Salvando...' : 'Salvar Alterações'}</Button>
+            {/* ## ATRIBUTO ADICIONADO AOS BOTÕES ## */}
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              data-allow-interaction 
+            >
+              Cancelar
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              data-allow-interaction
+            >
+              {loading ? 'Salvando...' : 'Salvar Alterações'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
