@@ -41,9 +41,10 @@ interface TrackingState {
   fetchTransfers: () => Promise<void>;
 
   createPurchase: (purchaseData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
-  
   updatePurchase: (purchaseId: string, formData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
   archivePurchase: (id: string) => Promise<void>;
+  // NOVA AÇÃO DE DELETAR
+  deletePurchase: (purchaseId: string) => Promise<void>;
 
   verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string) => Promise<void>;
   addProductToInventory: (purchaseId: string) => Promise<void>;
@@ -304,77 +305,68 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  // ## FUNÇÃO CORRIGIDA PARA PRESERVAR O ESTADO 'is_verified' ##
   updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
-      // 1. ANTES de deletar, busca o estado de verificação dos produtos antigos
       const { data: oldProducts, error: fetchError } = await supabase
         .from('purchase_products')
         .select('id, is_verified')
         .eq('purchase_id', purchaseId);
 
       if (fetchError) {
-          console.error("Error fetching old product statuses:", fetchError);
-          throw fetchError;
+        console.error("Error fetching old product statuses:", fetchError);
+        throw fetchError;
       }
       
-      // Cria um mapa para consulta rápida: { 'id_do_produto' => true/false }
       const verificationStatusMap = new Map(oldProducts.map(p => [p.id, p.is_verified]));
 
-      // 2. Atualiza os dados principais da compra
       const dbPurchaseUpdates = {
-          date: formData.date,
-          carrier: formData.carrier,
-          storeName: formData.storeName,
-          customer_name: formData.customerName || null,
-          trackingCode: formData.trackingCode,
-          delivery_fee: formData.deliveryFee,
-          updated_at: new Date().toISOString(),
+        date: formData.date,
+        carrier: formData.carrier,
+        storeName: formData.storeName,
+        customer_name: formData.customerName || null,
+        trackingCode: formData.trackingCode,
+        delivery_fee: formData.deliveryFee,
+        updated_at: new Date().toISOString(),
       };
 
       const { error: purchaseUpdateError } = await supabase
-          .from('purchases')
-          .update(dbPurchaseUpdates)
-          .eq('id', purchaseId);
+        .from('purchases')
+        .update(dbPurchaseUpdates)
+        .eq('id', purchaseId);
 
       if (purchaseUpdateError) throw purchaseUpdateError;
 
-      // 3. Deleta os produtos antigos
       const { error: deleteError } = await supabase
-          .from('purchase_products')
-          .delete()
-          .eq('purchase_id', purchaseId);
+        .from('purchase_products')
+        .delete()
+        .eq('purchase_id', purchaseId);
 
       if (deleteError) throw deleteError;
 
-      // 4. Prepara a nova lista de produtos, preservando o `is_verified`
       const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
       const deliveryFeePerUnit = totalQuantity > 0 ? formData.deliveryFee / totalQuantity : 0;
 
       const newProductsData = products.map(product => {
-        // Se o produto já existia (tem um id), usa seu status de verificação salvo. Se for novo, é false.
         const isVerified = product.id ? (verificationStatusMap.get(product.id) || false) : false;
 
         return {
-            name: product.name,
-            quantity: product.quantity,
-            cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
-            SKU: product.sku,
-            purchase_id: purchaseId,
-            is_verified: isVerified, // <-- USA O VALOR PRESERVADO
-            is_in_stock: false,      // Assume que a edição reseta o status de estoque
-            vencimento: product.vencimento || null,
+          name: product.name,
+          quantity: product.quantity,
+          cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
+          SKU: product.sku,
+          purchase_id: purchaseId,
+          is_verified: isVerified,
+          is_in_stock: false,
+          vencimento: product.vencimento || null,
         };
       });
 
-      // 5. Insere a nova lista de produtos
       const { error: insertError } = await supabase
-          .from('purchase_products')
-          .insert(newProductsData);
+        .from('purchase_products')
+        .insert(newProductsData);
 
       if (insertError) throw insertError;
 
-      // 6. Refaz o fetch para garantir que a UI tenha os dados 100% corretos
       get().fetchPurchases();
       ErrorHandler.showSuccess('Compra atualizada com sucesso!');
     });
@@ -399,6 +391,38 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       get().fetchPurchases();
       ErrorHandler.showSuccess('Compra arquivada com sucesso!');
+    });
+  },
+
+  // NOVA FUNÇÃO PARA DELETAR A COMPRA
+  deletePurchase: async (purchaseId: string) => {
+    await ErrorHandler.handleAsync(async () => {
+      // É altamente recomendado criar uma função RPC no Supabase para garantir
+      // que a exclusão do pedido e de seus produtos seja atômica.
+      // Exemplo de SQL para criar a função no Supabase:
+      //
+      // CREATE OR REPLACE FUNCTION delete_purchase_and_products(p_id uuid)
+      // RETURNS void AS $$
+      // BEGIN
+      //   DELETE FROM purchase_products WHERE purchase_id = p_id;
+      //   DELETE FROM purchases WHERE id = p_id;
+      // END;
+      // $$ LANGUAGE plpgsql;
+      const { error } = await supabase.rpc('delete_purchase_and_products', {
+        p_id: purchaseId,
+      });
+
+      if (error) {
+        console.error("Erro ao deletar o pedido de compra:", error);
+        throw error; // O ErrorHandler irá capturar e exibir a mensagem
+      }
+
+      // Atualiza o estado local para refletir a exclusão imediatamente na UI.
+      set((state) => ({
+        purchases: state.purchases.filter((p) => p.id !== purchaseId),
+      }));
+      
+      ErrorHandler.showSuccess('Pedido de compra deletado com sucesso!');
     });
   },
 
@@ -780,7 +804,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         else if (type === 'transfer') get().fetchTransfers();
 
         ErrorHandler.showSuccess('Status de rastreamento atualizado com sucesso!');
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error updating ${item.carrier} tracking for ${type} ${id}:`, error);
         throw error;
       }
@@ -860,10 +884,10 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       } else {
         return {
           success: false,
-          error: trackingData.message || 'Falha ao rastrear objeto'
+          error: (trackingData as any).message || 'Falha ao rastrear objeto'
         };
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error tracking package:', error);
       return {
         success: false,
