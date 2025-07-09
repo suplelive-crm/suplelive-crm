@@ -5,6 +5,20 @@ import { ErrorHandler } from '@/lib/error-handler';
 import { Purchase, PurchaseProduct, Return, Transfer, TrackingResponse } from '@/types/tracking';
 import { trackPackage, parseTrackingResponse, getTrackingUrl } from '@/lib/tracking-api';
 
+// Tipos para os dados do formulário, para clareza
+interface PurchaseFormData {
+  date: string;
+  carrier: string;
+  storeName: string;
+  customerName?: string;
+  trackingCode: string;
+  deliveryFee: number;
+}
+
+// Omit<> remove campos do tipo original para criar um novo tipo
+type FormProduct = Omit<PurchaseProduct, 'id' | 'purchase_id' | 'is_verified' | 'is_in_stock' | 'total_cost' | 'created_at' | 'updated_at'>;
+
+
 interface TrackingState {
   // Data
   purchases: Purchase[];
@@ -25,34 +39,10 @@ interface TrackingState {
   fetchReturns: () => Promise<void>;
   fetchTransfers: () => Promise<void>;
 
-  createPurchase: (purchase: {
-    date: string;
-    carrier: string;
-    storeName: string;
-    customerName?: string;
-    trackingCode: string;
-    deliveryFee: number; // deliveryFee como está no formulário
-  },
-    products: {
-      name: string;
-      quantity: number;
-      cost: number; // cost como está no formulário (custo original)
-      sku: string;
-      vencimento?: string;
-    }[]) => Promise<void>;
+  createPurchase: (purchaseData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
 
-
-  updatePurchase: (id: string, updates: Partial<{
-    date: string;
-    carrier: string;
-    storeName: string;
-    customerName?: string;
-    trackingCode: string;
-    deliveryFee: number;
-    status: string;
-    estimatedDelivery?: string;
-    isArchived: boolean;
-  }>) => Promise<void>;
+  // ## ASSINATURA DA FUNÇÃO CORRIGIDA PARA ACEITAR OS DADOS DO FORMULÁRIO ##
+  updatePurchase: (purchaseId: string, formData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
   archivePurchase: (id: string) => Promise<void>;
 
   verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string) => Promise<void>;
@@ -163,7 +153,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           purchase_id: product.purchase_id,
           name: product.name,
           quantity: product.quantity,
-          cost: product.cost, // Este custo já deve incluir a taxa de entrega se foi salva assim
+          cost: product.cost,
           total_cost: product.total_cost,
           is_verified: product.is_verified,
           is_in_stock: product.is_in_stock,
@@ -263,7 +253,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
 
-      // Campos da compra - Usando os nomes EXATOS das colunas do seu DB
       const dbPurchaseData = {
         date: purchaseData.date,
         carrier: purchaseData.carrier,
@@ -291,20 +280,16 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       console.log("Purchase created:", purchase);
 
-      // --- NOVA LÓGICA DE CÁLCULO DE CUSTO UNITÁRIO COM TAXA DE ENTREGA ---
       const totalQuantity = products.reduce((sum, p) => sum + p.quantity, 0);
       let deliveryFeePerUnit = 0;
       if (totalQuantity > 0) {
         deliveryFeePerUnit = purchaseData.deliveryFee / totalQuantity;
       }
 
-      // Campos dos produtos - Usando os nomes EXATOS das colunas do seu DB
       const productsWithPurchaseId = products.map(product => ({
         name: product.name,
         quantity: product.quantity,
-        // Custo unitário ajustado: custo original + (taxa_por_unidade * quantidade_do_produto)
-        // Isso assume que o `cost` na tabela é o custo unitário.
-        cost: parseFloat((product.cost + deliveryFeePerUnit).toFixed(2)), // Arredonda para 2 casas decimais
+        cost: parseFloat((product.cost + deliveryFeePerUnit).toFixed(2)),
         SKU: product.sku,
         purchase_id: purchase.id,
         is_verified: false,
@@ -335,37 +320,69 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  updatePurchase: async (id, updates) => {
+  // ## FUNÇÃO TOTALMENTE REESCRITA ##
+  updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
-      const dbUpdates: any = {
-        updated_at: new Date().toISOString()
-      };
+        // 1. Atualiza os dados principais da tabela 'purchases'
+        const dbPurchaseUpdates = {
+            date: formData.date,
+            carrier: formData.carrier,
+            storeName: formData.storeName,
+            customer_name: formData.customerName || null,
+            trackingCode: formData.trackingCode,
+            delivery_fee: formData.deliveryFee,
+            updated_at: new Date().toISOString(),
+        };
 
-      if (updates.date !== undefined) dbUpdates.date = updates.date;
-      if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
-      if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName; // customer_name (snake_case)
-      if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
-      if (updates.deliveryFee !== undefined) dbUpdates.delivery_fee = updates.deliveryFee; // delivery_fee (snake_case)
-      if (updates.status !== undefined) dbUpdates.status = updates.status;
-      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
-      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
+        const { error: purchaseUpdateError } = await supabase
+            .from('purchases')
+            .update(dbPurchaseUpdates)
+            .eq('id', purchaseId);
 
+        if (purchaseUpdateError) {
+            console.error("Error updating purchase main data:", purchaseUpdateError);
+            throw purchaseUpdateError;
+        }
 
-      console.log("Updating purchase with data:", dbUpdates);
+        // 2. Deleta todos os produtos antigos associados a essa compra para evitar duplicatas
+        const { error: deleteError } = await supabase
+            .from('purchase_products')
+            .delete()
+            .eq('purchase_id', purchaseId);
 
-      const { error } = await supabase
-        .from('purchases')
-        .update(dbUpdates)
-        .eq('id', id);
+        if (deleteError) {
+            console.error("Error deleting old products:", deleteError);
+            throw deleteError;
+        }
 
-      if (error) {
-        console.error("Error updating purchase:", error);
-        throw error;
-      }
+        // 3. Recalcula o custo rateado do frete e prepara a nova lista de produtos
+        const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+        const deliveryFeePerUnit = totalQuantity > 0 ? formData.deliveryFee / totalQuantity : 0;
 
-      get().fetchPurchases();
-      ErrorHandler.showSuccess('Compra atualizada com sucesso!');
+        const newProductsData = products.map(product => ({
+            name: product.name,
+            quantity: product.quantity,
+            cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
+            SKU: product.sku,
+            purchase_id: purchaseId, // Associa à compra existente
+            is_verified: false,      // Assume que a edição de produtos requer nova verificação
+            is_in_stock: false,
+            vencimento: product.vencimento || null,
+        }));
+
+        // 4. Insere a nova lista de produtos na tabela 'purchase_products'
+        const { error: insertError } = await supabase
+            .from('purchase_products')
+            .insert(newProductsData);
+
+        if (insertError) {
+            console.error("Error inserting new products:", insertError);
+            throw insertError;
+        }
+
+        // 5. Busca os dados atualizados do zero para garantir consistência total na UI
+        get().fetchPurchases();
+        ErrorHandler.showSuccess('Compra atualizada com sucesso!');
     });
   },
 
@@ -727,10 +744,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateTrackingStatus: async (type, id) => {
     await ErrorHandler.handleAsync(async () => {
-      // Select com o nome da coluna conforme o DB
       const { data: item } = await supabase
         .from(type === 'purchase' ? 'purchases' : type === 'return' ? 'returns' : 'transfers')
-        .select('trackingCode, carrier') // trackingCode (camelCase)
+        .select('trackingCode, carrier')
         .eq('id', id)
         .single();
 
@@ -739,7 +755,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         return;
       }
 
-      if (!item.trackingCode) { // trackingCode (camelCase)
+      if (!item.trackingCode) {
         console.error(`No tracking code for ${type} ${id}`);
         return;
       }
@@ -747,7 +763,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       console.log(`Updating tracking for ${type} ${id}:`, item);
 
       try {
-        const trackingInfo = await get().getTrackingInfo(item.carrier, item.trackingCode); // trackingCode (camelCase)
+        const trackingInfo = await get().getTrackingInfo(item.carrier, item.trackingCode);
 
         if (!trackingInfo.success || !trackingInfo.data) {
           console.warn(`Failed to update tracking for ${type} ${id}:`, trackingInfo.error);
@@ -756,13 +772,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
         console.log(`Got tracking info for ${type} ${id}:`, trackingInfo);
 
-        // Update com nomes de coluna conforme o DB
         await supabase
           .from(type === 'purchase' ? 'purchases' : type === 'return' ? 'returns' : 'transfers')
           .update({
             status: trackingInfo.data.status,
-            estimated_delivery: trackingInfo.data.estimatedDelivery, // estimated_delivery (snake_case)
-            updated_at: new Date().toISOString()                      // updated_at (snake_case)
+            estimated_delivery: trackingInfo.data.estimatedDelivery,
+            updated_at: new Date().toISOString()
           })
           .eq('id', id);
 
@@ -780,10 +795,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateAllTrackingStatuses: async () => {
     await ErrorHandler.handleAsync(async () => {
-      // Filtrando com o nome da coluna conforme o DB
-      const purchases = get().purchases.filter(p => !p.is_archived); // is_archived (snake_case)
-      const returns = get().returns.filter(r => !r.is_archived);     // is_archived (snake_case)
-      const transfers = get().transfers.filter(t => !t.is_archived); // is_archived (snake_case)
+      const purchases = get().purchases.filter(p => !p.is_archived);
+      const returns = get().returns.filter(r => !r.is_archived);
+      const transfers = get().transfers.filter(t => !t.is_archived);
 
       let successCount = 0;
       let failureCount = 0;
@@ -878,25 +892,24 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           products:purchase_products(*)
         `)
         .eq('workspace_id', currentWorkspace.id)
-        .eq('trackingCode', trackingCode) // trackingCode (camelCase)
+        .eq('trackingCode', trackingCode)
         .maybeSingle();
 
       if (purchaseData) {
-        // Mapeamento explícito de nomes de coluna do DB para o tipo TS do front-end
         const mappedPurchaseData: Purchase = {
           id: purchaseData.id,
           date: purchaseData.date,
           carrier: purchaseData.carrier,
           storeName: purchaseData.storeName,
-          customer_name: purchaseData.customer_name, // snake_case
+          customer_name: purchaseData.customer_name,
           trackingCode: purchaseData.trackingCode,
-          delivery_fee: purchaseData.delivery_fee,   // snake_case
+          delivery_fee: purchaseData.delivery_fee,
           status: purchaseData.status,
-          estimated_delivery: purchaseData.estimated_delivery, // snake_case
-          is_archived: purchaseData.is_archived,     // snake_case
-          created_at: purchaseData.created_at,       // snake_case
-          updated_at: purchaseData.updated_at,       // snake_case
-          workspace_id: purchaseData.workspace_id,   // snake_case
+          estimated_delivery: purchaseData.estimated_delivery,
+          is_archived: purchaseData.is_archived,
+          created_at: purchaseData.created_at,
+          updated_at: purchaseData.updated_at,
+          workspace_id: purchaseData.workspace_id,
           products: (purchaseData.products || []).map((product: any) => ({
             id: product.id,
             purchase_id: product.purchase_id,
@@ -917,7 +930,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .from('returns')
         .select('*')
         .eq('workspace_id', currentWorkspace.id)
-        .eq('trackingCode', trackingCode) // trackingCode (camelCase)
+        .eq('trackingCode', trackingCode)
         .maybeSingle();
 
       if (returnData) {
@@ -926,14 +939,14 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           date: returnData.date,
           carrier: returnData.carrier,
           storeName: returnData.storeName,
-          customer_name: returnData.customer_name, // snake_case
+          customer_name: returnData.customer_name,
           trackingCode: returnData.trackingCode,
           status: returnData.status,
-          estimated_delivery: returnData.estimated_delivery, // snake_case
-          is_archived: returnData.is_archived,       // snake_case
-          created_at: returnData.created_at,         // snake_case
-          updated_at: returnData.updated_at,         // snake_case
-          workspace_id: returnData.workspace_id,     // snake_case
+          estimated_delivery: returnData.estimated_delivery,
+          is_archived: returnData.is_archived,
+          created_at: returnData.created_at,
+          updated_at: returnData.updated_at,
+          workspace_id: returnData.workspace_id,
         };
         return { type: 'return' as const, item: mappedReturnData };
       }
@@ -942,7 +955,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .from('transfers')
         .select('*')
         .eq('workspace_id', currentWorkspace.id)
-        .eq('trackingCode', trackingCode) // trackingCode (camelCase)
+        .eq('trackingCode', trackingCode)
         .maybeSingle();
 
       if (transferData) {
@@ -951,14 +964,14 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           date: transferData.date,
           carrier: transferData.carrier,
           storeName: transferData.storeName,
-          customer_name: transferData.customer_name, // snake_case
+          customer_name: transferData.customer_name,
           trackingCode: transferData.trackingCode,
           status: transferData.status,
-          estimated_delivery: transferData.estimated_delivery, // snake_case
-          is_archived: transferData.is_archived,       // snake_case
-          created_at: transferData.created_at,         // snake_case
-          updated_at: transferData.updated_at,         // snake_case
-          workspace_id: transferData.workspace_id,     // snake_case
+          estimated_delivery: transferData.estimated_delivery,
+          is_archived: transferData.is_archived,
+          created_at: transferData.created_at,
+          updated_at: transferData.updated_at,
+          workspace_id: transferData.workspace_id,
         };
         return { type: 'transfer' as const, item: mappedTransferData };
       }
