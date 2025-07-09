@@ -56,7 +56,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <DashboardPage />
                 )}
@@ -68,7 +68,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <InboxPage />
                 )}
@@ -80,7 +80,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <ClientsPage />
                 )}
@@ -92,7 +92,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <KanbanPage />
                 )}
@@ -104,7 +104,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <OrdersPage />
                 )}
@@ -116,7 +116,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <MessagesPage />
                 )}
@@ -128,7 +128,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <CampaignsPage />
                 )}
@@ -140,7 +140,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <IntegrationsPage />
                 )}
@@ -152,7 +152,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <AutomationPage />
                 )}
@@ -164,7 +164,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <AnalyticsPage />
                 )}
@@ -176,7 +176,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <SettingsPage />
                 )}
@@ -188,7 +188,7 @@ function App() {
             element={
               <ProtectedRoute>
                 {!currentWorkspace ? (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 ) : (
                   <TrackingPage />
                 )}
@@ -202,9 +202,9 @@ function App() {
             element={
               user ? (
                 currentWorkspace ? (
-                  <Navigate to="/dashboard\" replace />
+                  <Navigate to="/dashboard" replace />
                 ) : (
-                  <Navigate to="/onboarding\" replace />
+                  <Navigate to="/onboarding" replace />
                 )
               ) : (
                 <Navigate to="/login" replace />
