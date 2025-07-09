@@ -1,62 +1,28 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
+// Adicionando o 'Pencil' para o ícone de edição
 import {
-  ShoppingBag,
-  RotateCcw,
-  Truck,
-  Package,
-  ArrowLeftRight,
-  Filter,
-  Plus,
-  RefreshCw,
-  CheckSquare,
-  Archive,
-  Eye,
-  MoreHorizontal,
-  Calendar,
-  Search,
-  LayoutGrid,
-  LayoutList,
-  CheckCircle,
-  Database,
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
+  ShoppingBag, RotateCcw, Truck, Package, ArrowLeftRight, Filter, Plus, 
+  RefreshCw, CheckSquare, Archive, Eye, MoreHorizontal, Calendar, Search, 
+  LayoutGrid, LayoutList, CheckCircle, Database, ArrowUpDown, ChevronLeft, 
+  ChevronRight, ChevronsLeft, ChevronsRight, Pencil 
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
 } from '@/components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, 
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -64,6 +30,7 @@ import { Switch } from '@/components/ui/switch';
 import { useTrackingStore } from '@/store/trackingStore';
 import { Purchase, Return, Transfer } from '@/types/tracking';
 import { CreatePurchaseDialog } from '@/components/tracking/CreatePurchaseDialog';
+import { EditPurchaseDialog } from '@/components/tracking/EditPurchaseDialog'; 
 import { CreateReturnDialog } from '@/components/tracking/CreateReturnDialog';
 import { CreateTransferDialog } from '@/components/tracking/CreateTransferDialog';
 import { TrackingDetailsDialog } from '@/components/tracking/TrackingDetailsDialog';
@@ -72,12 +39,8 @@ import { useToast } from '@/hooks/use-toast';
 import { getTrackingUrl } from '@/lib/tracking-api';
 
 // #region Funções de Helper
-
-// ## FUNÇÃO CORRIGIDA ##
 const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
   const statusLower = (item.status || '').toLowerCase();
-
-  // 1. Com problemas (Verificado PRIMEIRO para capturar exceções como 'não entregue')
   if (
     statusLower.includes('problema') ||
     statusLower.includes('não autorizada') ||
@@ -85,33 +48,23 @@ const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
     statusLower.includes('complementar') ||
     statusLower.includes('extraviado') ||
     statusLower.includes('pausado') ||
-    statusLower.includes('não entregue - carteiro não atendido') // Adicionado e verificado primeiro
+    statusLower.includes('não entregue - carteiro não atendido')
   ) {
     return 'Pausado/Problema';
   }
-
-  // 2. Entregue (Status finais bem-sucedidos, agora verificado após a checagem de problemas)
   const isFinalStatus = statusLower.includes('entregue') || statusLower.includes('conferido') || statusLower.includes('estoque');
   if (isFinalStatus) {
     return 'Entregue';
   }
-
-  // 3. Atrasado (Verificado apenas para itens que não estão em um estado final)
   if (item.estimated_delivery && new Date(item.estimated_delivery) < new Date()) {
       return 'Atrasado';
   }
-
-  // 4. Em Trânsito
   if (statusLower.includes('trânsito') || statusLower.includes('transferência') || statusLower.includes('saiu para entrega')) {
     return 'Em trânsito';
   }
-
-  // 5. Aguardando
   if (statusLower.includes('aguardando') || statusLower.includes('aguarde')) {
     return 'Aguardando';
   }
-  
-  // 6. Fallback
   return 'Outro';
 };
 
@@ -231,6 +184,11 @@ export function TrackingPage() {
   const [selectedItem, setSelectedItem] = useState<GenericItem | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [searchingByTracking, setSearchingByTracking] = useState(false);
+
+  // Estados para o diálogo de EDIÇÃO
+  const [isEditPurchaseOpen, setIsEditPurchaseOpen] = useState(false);
+  const [purchaseToEdit, setPurchaseToEdit] = useState<Purchase | null>(null);
+  
   const { toast } = useToast();
   
   useEffect(() => {
@@ -276,6 +234,13 @@ export function TrackingPage() {
 
   const handleRefreshTracking = () => updateAllTrackingStatuses();
   const handleViewDetails = (item: GenericItem) => { setSelectedItem(item); setDetailsOpen(true); };
+  
+  // Função para abrir o diálogo de EDIÇÃO
+  const handleEditPurchase = (purchase: Purchase) => {
+    setPurchaseToEdit(purchase);
+    setIsEditPurchaseOpen(true);
+  };
+
   const handleVerifyProduct = async (purchaseId: string, productId: string) => await verifyPurchaseProduct(purchaseId, productId);
   const handleAddToInventory = async (id: string, type: 'purchase' | 'return' | 'transfer') => {
     if (type === 'purchase') await addProductToInventory(id);
@@ -377,8 +342,11 @@ export function TrackingPage() {
                                                 <TableCell>{purchase.estimated_delivery ? new Date(purchase.estimated_delivery).toLocaleDateString('pt-BR') : 'N/A'}</TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center space-x-2">
+                                                        {/* BOTÃO DE EDIÇÃO ADICIONADO AQUI */}
+                                                        <Button variant="outline" size="sm" onClick={() => handleEditPurchase(purchase)}>
+                                                          <Pencil className="h-4 w-4" />
+                                                        </Button>
                                                         <Button variant="outline" size="sm" onClick={() => handleViewDetails(purchase)}><Eye className="h-4 w-4" /></Button>
-                                                        {/* Restante dos botões de ação para Compras... */}
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
@@ -402,7 +370,6 @@ export function TrackingPage() {
                                                 <TableCell>
                                                     <div className="flex items-center space-x-2">
                                                         <Button variant="outline" size="sm" onClick={() => handleViewDetails(returnItem)}><Eye className="h-4 w-4" /></Button>
-                                                        {/* Restante dos botões de ação para Devoluções... */}
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
@@ -426,7 +393,6 @@ export function TrackingPage() {
                                                 <TableCell>
                                                     <div className="flex items-center space-x-2">
                                                         <Button variant="outline" size="sm" onClick={() => handleViewDetails(transfer)}><Eye className="h-4 w-4" /></Button>
-                                                        {/* Restante dos botões de ação para Transferências... */}
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
@@ -569,6 +535,12 @@ export function TrackingPage() {
       <CreateReturnDialog open={createReturnOpen} onOpenChange={setCreateReturnOpen} />
       <CreateTransferDialog open={createTransferOpen} onOpenChange={setCreateTransferOpen} />
       <TrackingDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} item={selectedItem} type={selectedItem ? ('products' in selectedItem ? 'purchase' : activeTab === 'returns' ? 'return' : 'transfer') : null} />
+      
+      <EditPurchaseDialog
+        open={isEditPurchaseOpen}
+        onOpenChange={setIsEditPurchaseOpen}
+        purchase={purchaseToEdit}
+      />
     </DashboardLayout>
   );
 }
