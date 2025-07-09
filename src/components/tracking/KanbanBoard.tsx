@@ -82,7 +82,8 @@ const getItemKanbanColumn = (item: Purchase | Return | Transfer): KanbanColumn =
         statusLower.includes('problema') ||
         statusLower.includes('não autorizada') ||
         statusLower.includes('necessidade de apresentar') ||
-        statusLower.includes('extraviado') ||
+      statusLower.includes('extraviado') ||
+        statusLower.includes('não entregue - carteiro não atendido') ||
         statusLower.includes('pausado')
     ) {
         return 'Com problemas';
