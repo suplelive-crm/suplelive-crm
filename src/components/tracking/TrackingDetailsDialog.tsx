@@ -3,7 +3,6 @@ import { Calendar, Package, Truck, CheckSquare, Archive, ExternalLink, RefreshCw
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Purchase, Return, Transfer, PurchaseProduct } from '@/types/tracking';
 import { useTrackingStore } from '@/store/trackingStore';
@@ -35,37 +34,29 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
 
   useEffect(() => {
     if (open) {
-      // Limpa estados locais ao abrir ou reabrir o diálogo
       setVencimentoDate(undefined);
       setProductToVerify(null);
 
-      // Se o item existir, busca o status mais recente para garantir que os dados não sejam "stale" (antigos)
       if (item && type) {
         handleRefreshTracking();
       }
     }
-  }, [open, item, type]); // Dependências garantem que a lógica rode quando o diálogo abrir com um novo item
+  }, [open, item, type]); 
 
   if (!item || !type) return null;
 
   const handleVerifyProduct = async (purchaseId: string, productId: string, vencimento: Date | undefined) => {
     const vencimentoISO = vencimento ? vencimento.toISOString() : undefined;
-    
-    // Esta é a função que precisa ser corrigida no seu store para garantir a imutabilidade!
     await verifyPurchaseProduct(purchaseId, productId, vencimentoISO);
-    
     toast({
       title: "Produto Conferido",
       description: "O produto foi marcado como conferido com sucesso."
     });
-    
-    // Limpa os estados locais após a ação
     setVencimentoDate(undefined);
     setProductToVerify(null);
   };
   
   const handleArchiveItem = async (id: string, itemType: 'purchase' | 'return' | 'transfer') => {
-    // Esta função pode precisar de lógica de imutabilidade no store também
     if (itemType === 'purchase') {
       await archivePurchase(id);
     } else if (itemType === 'return') {
@@ -84,8 +75,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     if (!item || !type) return;
     setRefreshing(true);
     try {
-      // Esta função busca os dados mais recentes do item e atualiza o store.
-      // É crucial que a atualização no store seja imutável.
       await updateTrackingStatus(type, item.id);
     } catch (error) {
       console.error("Erro ao atualizar rastreio:", error);
@@ -124,14 +113,12 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     const allProductsVerified = purchase.products?.every(p => p.is_verified) || false;
     const purchaseInInventory = purchase.status?.toLowerCase().includes('estoque');
 
+    // **LÓGICA ADICIONADA AQUI**
+    const isDelivered = purchase.status?.toLowerCase().includes('entregue') || purchaseInInventory;
+
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          {/* Detalhes da Compra (Data, Transportadora, etc.) */}
-          { /*<div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-4 w-4" /><span>Data de Compra:</span></div>
-            <p className="font-medium">{new Date(purchase.date).toLocaleDateString('pt-BR')}</p>
-          </div> */}
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground"><Truck className="h-4 w-4" /><span>Transportadora:</span></div>
             <p className="font-medium">{purchase.carrier || 'Não informada'}</p>
@@ -157,10 +144,20 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             <div className="flex items-center gap-2 text-muted-foreground"><Package className="h-4 w-4" /><span>Status:</span></div>
             <Badge className={`${getStatusColor(purchase.status)} border-transparent`}>{purchase.status || 'Não informado'}</Badge>
           </div>
+          {/* **BLOCO DE CÓDIGO ALTERADO** */}
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-4 w-4" /><span>Previsão de Entrega:</span></div>
-            <p className="font-medium">{purchase.estimatedDelivery ? new Date(purchase.estimatedDelivery).toLocaleDateString('pt-BR') : 'Não disponível'}</p>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              <span>{isDelivered ? 'Entrega feita dia:' : 'Previsão de Entrega:'}</span>
+            </div>
+            <p className="font-medium">
+              {isDelivered
+                ? (purchase.updated_at ? new Date(purchase.updated_at).toLocaleDateString('pt-BR') : 'Não disponível')
+                : (purchase.estimated_delivery ? new Date(purchase.estimated_delivery).toLocaleDateString('pt-BR') : 'Não disponível')
+              }
+            </p>
           </div>
+          {/* **FIM DO BLOCO ALTERADO** */}
         </div>
 
         <div className="space-y-4">
@@ -238,7 +235,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     );
   };
   
-  // A renderização para 'return' e 'transfer' permanece, pois faz parte do componente original.
   const renderReturnOrTransferDetails = (item: Return | Transfer, itemType: 'return' | 'transfer') => (
     <div>Detalhes para {itemType} com ID {item.id}</div>
   );
