@@ -52,7 +52,8 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         trackingCode: purchase.trackingCode || '',
         deliveryFee: purchase.delivery_fee || 0,
       });
-      setProducts(purchase.products.map(p => ({...p})) || []);
+      // Usar `structuredClone` é mais seguro para evitar mutações acidentais do estado original
+      setProducts(structuredClone(purchase.products || []));
     }
     if (open) {
       fetchProducts();
@@ -78,12 +79,12 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   
   const handleProductSelect = (index: number, selectedProduct: any) => {
     const newProducts = [...products];
-    newProducts[index] = {
-      ...newProducts[index],
-      id: selectedProduct.id,
-      name: selectedProduct.name,
-      sku: selectedProduct.sku || '',
-    };
+    const existingProduct = newProducts[index];
+    if (existingProduct) {
+        existingProduct.id = selectedProduct.id;
+        existingProduct.name = selectedProduct.name;
+        existingProduct.sku = selectedProduct.sku || '';
+    }
     setProducts(newProducts);
   };
 
@@ -103,11 +104,12 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     setLoading(true);
     try {
       await updatePurchase(purchase.id, formData, products as any);
-      onOpenChange(false);
-      toast({ title: 'Sucesso', description: 'Compra atualizada com sucesso' });
+      // O toast de sucesso foi removido daqui, pois o ErrorHandler na store já o exibe.
+      onOpenChange(false); // Fecha o diálogo após o sucesso.
     } catch (error) {
-      console.error('Error updating purchase:', error);
-      toast({ title: 'Erro no Servidor', description: 'Falha ao atualizar a compra.', variant: 'destructive' });
+      // O ErrorHandler na store já exibe o toast de erro.
+      // Opcional: logar o erro aqui se precisar para depuração.
+      console.error('Falha ao submeter a atualização:', error);
     } finally {
       setLoading(false);
     }
@@ -115,20 +117,10 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className="max-w-5xl max-h-[90vh] overflow-y-auto"
-        // ## LÓGICA CORRIGIDA ##
-        onInteractOutside={(e) => {
-          // Permite a interação se o alvo do clique for um dos nossos botões
-          if ((e.target as HTMLElement).closest('[data-allow-interaction]')) {
-            return;
-          }
-          // Previne o fechamento do diálogo para todos os outros cliques externos
-          e.preventDefault();
-        }}
-      >
+      {/* A lógica 'onInteractOutside' foi removida para permitir o fechamento padrão do diálogo */}
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar Compra</DialogTitle>
+          <DialogTitle>Editar Compra #{purchase?.id}</DialogTitle>
           <DialogDescription>Altere os detalhes da compra selecionada.</DialogDescription>
         </DialogHeader>
 
@@ -226,7 +218,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                       onChange={(e) => handleProductFieldChange(index, 'cost', parseFloat(e.target.value) || 0)}
                     />
                   </div>
-                  {products.length > 1 && (
+                  {products.length > 0 && ( // Condição ajustada para sempre permitir remover se houver mais de um item.
                     <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveProduct(index)} >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -237,20 +229,10 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
           </div>
 
           <DialogFooter>
-            {/* ## ATRIBUTO ADICIONADO AOS BOTÕES ## */}
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              data-allow-interaction 
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button 
-              type="submit" 
-              disabled={loading}
-              data-allow-interaction
-            >
+            <Button type="submit" disabled={loading}>
               {loading ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
           </DialogFooter>
