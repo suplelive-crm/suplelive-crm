@@ -72,53 +72,61 @@ import { useToast } from '@/hooks/use-toast';
 import { getTrackingUrl } from '@/lib/tracking-api';
 
 // #region Funções de Helper
+
+// ## FUNÇÃO CORRIGIDA ##
 const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
   const statusLower = (item.status || '').toLowerCase();
-  
-  const isFinalStatus = statusLower.includes('entregue') || statusLower.includes('conferido') || statusLower.includes('estoque');
 
-  if (!isFinalStatus && item.estimated_delivery && new Date(item.estimated_delivery) < new Date()) {
+  // 1. Com problemas (Verificado PRIMEIRO para capturar exceções como 'não entregue')
+  if (
+    statusLower.includes('problema') ||
+    statusLower.includes('não autorizada') ||
+    statusLower.includes('necessidade de apresentar') ||
+    statusLower.includes('complementar') ||
+    statusLower.includes('extraviado') ||
+    statusLower.includes('pausado') ||
+    statusLower.includes('não entregue - carteiro não atendido') // Adicionado e verificado primeiro
+  ) {
+    return 'Pausado/Problema';
+  }
+
+  // 2. Entregue (Status finais bem-sucedidos, agora verificado após a checagem de problemas)
+  const isFinalStatus = statusLower.includes('entregue') || statusLower.includes('conferido') || statusLower.includes('estoque');
+  if (isFinalStatus) {
+    return 'Entregue';
+  }
+
+  // 3. Atrasado (Verificado apenas para itens que não estão em um estado final)
+  if (item.estimated_delivery && new Date(item.estimated_delivery) < new Date()) {
       return 'Atrasado';
   }
 
-  if (isFinalStatus) {
-      return 'Entregue';
-  }
-
-  if (
-      statusLower.includes('problema') ||
-      statusLower.includes('não autorizada') ||
-      statusLower.includes('necessidade de apresentar') ||
-      statusLower.includes('complementar') ||
-      statusLower.includes('extraviado') ||
-      statusLower.includes('pausado')
-  ) {
-      return 'Pausado/Problema';
-  }
-
+  // 4. Em Trânsito
   if (statusLower.includes('trânsito') || statusLower.includes('transferência') || statusLower.includes('saiu para entrega')) {
-      return 'Em trânsito';
+    return 'Em trânsito';
   }
 
+  // 5. Aguardando
   if (statusLower.includes('aguardando') || statusLower.includes('aguarde')) {
-      return 'Aguardando';
+    return 'Aguardando';
   }
   
+  // 6. Fallback
   return 'Outro';
 };
 
-// MODIFICAÇÃO 1: Adicionada regra para "saiu para entrega"
+
 const getStatusColor = (status: string) => {
     const statusLower = (status || '').toLowerCase();
     if (statusLower.includes('saiu para entrega')) {
-        return 'bg-[#4169E1] text-white'; // Cor azul customizada com texto branco
+        return 'bg-[#4169E1] text-white';
     } else if (statusLower.includes('entregue') || statusLower.includes('conferido')) {
       return 'bg-green-100 text-green-800';
     } else if (statusLower.includes('trânsito')) {
       return 'bg-blue-100 text-blue-800';
     } else if (statusLower.includes('aguardando')) {
       return 'bg-yellow-100 text-yellow-800';
-    } else if (statusLower.includes('problema') || statusLower.includes('não autorizada') || statusLower.includes('necessidade de apresentar') || statusLower.includes('extraviado')) {
+    } else if (statusLower.includes('problema') || statusLower.includes('não autorizada') || statusLower.includes('necessidade de apresentar') || statusLower.includes('extraviado') || statusLower.includes('não entregue - carteiro não atendido')) {
       return 'bg-red-100 text-red-800';
     } else {
       return 'bg-gray-100 text-gray-800';
@@ -126,11 +134,10 @@ const getStatusColor = (status: string) => {
 };
 // #endregion
 
-// #region Hook customizado para lógica da tabela (MODIFICADO)
+// #region Hook customizado para lógica da tabela
 type SortDirection = 'ascending' | 'descending';
 type GenericItem = Purchase | Return | Transfer;
 
-// MODIFICAÇÃO 2: Hook atualizado para gerenciar linhas por página
 function useTable(data: GenericItem[], defaultSortKey: keyof GenericItem, defaultRowsPerPage = 10) {
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(defaultRowsPerPage);
@@ -194,7 +201,7 @@ function useTable(data: GenericItem[], defaultSortKey: keyof GenericItem, defaul
     
     const changeRowsPerPage = (newSize: number) => {
         setRowsPerPage(newSize);
-        setCurrentPage(1); // Resetar para a primeira página ao mudar o tamanho
+        setCurrentPage(1);
     };
 
     useEffect(() => {
@@ -262,7 +269,6 @@ export function TrackingPage() {
     });
   }, [purchases, returns, transfers, activeTab, searchTerm, productSearchTerm, statusFilter]);
 
-  // MODIFICAÇÃO 2: Desestruturando as novas props do hook
   const {
       paginatedData, requestSort, sortConfig, currentPage, totalPages, changePage,
       rowsPerPage, changeRowsPerPage, totalRows
@@ -432,7 +438,6 @@ export function TrackingPage() {
                         </TableBody>
                     </Table>
                 </div>
-                {/* MODIFICAÇÃO 2: Controles de paginação atualizados */}
                 <div className="flex items-center justify-between space-x-2 py-4">
                     <div className="flex items-center space-x-2">
                         <p className="text-sm font-medium">Linhas por página</p>
