@@ -8,15 +8,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useTrackingStore } from '@/store/trackingStore';
 import { useCrmStore } from '@/store/crmStore';
 import { useToast } from '@/hooks/use-toast';
-import { ProductAutocomplete } from './ProductAutocomplete'; // Importando o novo componente de autocomplete
+import { ProductAutocomplete } from './ProductAutocomplete'; 
 
 interface CreatePurchaseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-// O tipo do produto no formulário agora é Partial (parcial), 
-// pois o usuário pode estar no meio da digitação do nome.
 type FormProduct = Partial<{
     id: string | number;
     name: string;
@@ -58,23 +56,19 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     setProducts(products.filter((_, i) => i !== index));
   };
 
-  // Função genérica para atualizar qualquer campo de um produto (nome, quantidade, custo)
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => {
     const newProducts = [...products];
     const product = newProducts[index];
     if (product) {
-      // Usamos 'as any' para atribuir dinamicamente a propriedade ao objeto
       (product as any)[field] = value;
       setProducts(newProducts);
     }
   };
   
-  // Função chamada quando um produto é SELECIONADO da lista de autocomplete
   const handleProductSelect = (index: number, selectedProduct: any) => {
     const newProducts = [...products];
-    // Preenche a linha do formulário com os dados completos do produto selecionado
     newProducts[index] = {
-      ...newProducts[index], // Mantém a quantidade e custo que o usuário já possa ter digitado
+      ...newProducts[index], 
       id: selectedProduct.id,
       name: selectedProduct.name,
       sku: selectedProduct.sku || '',
@@ -90,7 +84,6 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
       return;
     }
 
-    // A verificação de 'cost' precisa garantir que não é undefined
     if (products.length === 0 || products.some(p => !p.name || !p.sku || (p.quantity ?? 0) <= 0 || (p.cost ?? -1) < 0)) {
       toast({ title: 'Erro', description: 'Por favor, preencha corretamente todos os produtos (Nome, SKU, Quantidade e Custo)', variant: 'destructive' });
       return;
@@ -98,7 +91,6 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
 
     setLoading(true);
     try {
-      // Passando os produtos para a função de criar compra
       await createPurchase(formData, products as any);
 
       setFormData({ date: new Date().toISOString().split('T')[0], carrier: '', storeName: '', customerName: '', trackingCode: '', deliveryFee: 0 });
@@ -115,7 +107,13 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      {/* A MUDANÇA É AQUI: Adicionamos a prop 'onInteractOutside' */}
+      <DialogContent 
+        className="max-w-5xl max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => {
+          e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Nova Compra</DialogTitle>
           <DialogDescription>Adicione uma nova compra para rastreamento</DialogDescription>
