@@ -16,7 +16,6 @@ import { Purchase } from '@/types/tracking';
 interface EditPurchaseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // Recebe a compra a ser editada como prop
   purchase: Purchase | null;
 }
 
@@ -41,12 +40,10 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   const [products, setProducts] = useState<FormProduct[]>([]);
   
   const [loading, setLoading] = useState(false);
-  // Assumindo que você criará a função 'updatePurchase' no seu store
   const { updatePurchase } = useTrackingStore(); 
   const { products: dbProducts, fetchProducts } = useCrmStore();
   const { toast } = useToast();
   
-  // Efeito para popular o formulário quando uma compra é passada via props
   useEffect(() => {
     if (purchase) {
       setFormData({
@@ -55,12 +52,10 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         storeName: purchase.storeName || '',
         customerName: purchase.customerName || '',
         trackingCode: purchase.trackingCode || '',
-        deliveryFee: purchase.deliveryFee || 0,
+        deliveryFee: purchase.delivery_fee || 0, // Corrigido para snake_case do DB
       });
-      // Garante que o array de produtos seja uma cópia editável
       setProducts(purchase.products.map(p => ({...p})) || []);
     }
-    // Sempre busca a lista de produtos do CRM quando o modal abre
     if (open) {
       fetchProducts();
     }
@@ -96,28 +91,26 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!purchase) return; // Proteção para garantir que a compra exista
+    if (!purchase) return;
 
-    // Validação (mesma da criação)
-    if (!formData.date || !formData.carrier || !formData.storeName || !formData.trackingCode || formData.deliveryFee < 0) {
-      toast({ title: 'Erro', description: 'Por favor, preencha todos os campos obrigatórios', variant: 'destructive' });
+    if (!formData.date || !formData.carrier || !formData.storeName || !formData.trackingCode) {
+      toast({ title: 'Erro de Validação', description: 'Por favor, preencha todos os campos da compra (Data, Transportadora, Loja, Rastreio).', variant: 'destructive' });
       return;
     }
     if (products.length === 0 || products.some(p => !p.name || !p.sku || (p.quantity ?? 0) <= 0 || (p.cost ?? -1) < 0)) {
-      toast({ title: 'Erro', description: 'Por favor, preencha corretamente todos os produtos', variant: 'destructive' });
+      toast({ title: 'Erro nos Produtos', description: 'Por favor, preencha corretamente todos os produtos (Nome, SKU, Quantidade e Custo).', variant: 'destructive' });
       return;
     }
 
     setLoading(true);
     try {
-      // Chama a função de ATUALIZAR em vez de criar
       await updatePurchase(purchase.id, formData, products as any);
 
       onOpenChange(false);
       toast({ title: 'Sucesso', description: 'Compra atualizada com sucesso' });
     } catch (error) {
       console.error('Error updating purchase:', error);
-      toast({ title: 'Erro', description: 'Falha ao atualizar compra', variant: 'destructive' });
+      toast({ title: 'Erro no Servidor', description: 'Falha ao atualizar a compra.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -134,16 +127,14 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
           <DialogDescription>Altere os detalhes da compra selecionada.</DialogDescription>
         </DialogHeader>
 
-        {/* O formulário é idêntico ao de criação */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Campos de Data, Transportadora, etc... (código omitido por brevidade, é igual ao de criação) */}
             <div className="space-y-2">
               <Label htmlFor="edit-date" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-500" />
                 Data de Compra *
               </Label>
-              <Input id="edit-date" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} required />
+              <Input id="edit-date" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
             </div>
             <div className="space-y-2">
                 <Label htmlFor="edit-carrier" className="flex items-center gap-2">
@@ -165,7 +156,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                 <Label htmlFor="edit-storeName" className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-gray-500" /> Nome da Loja *
                 </Label>
-                <Input id="edit-storeName" value={formData.storeName} onChange={(e) => setFormData({ ...formData, storeName: e.target.value })} placeholder="Ex: Mercado Livre" required />
+                <Input id="edit-storeName" value={formData.storeName} onChange={(e) => setFormData({ ...formData, storeName: e.target.value })} placeholder="Ex: Mercado Livre" />
             </div>
             <div className="space-y-2">
                 <Label htmlFor="edit-customerName" className="flex items-center gap-2">
@@ -177,13 +168,13 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                 <Label htmlFor="edit-trackingCode" className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-gray-500" /> Código de Rastreio *
                 </Label>
-                <Input id="edit-trackingCode" value={formData.trackingCode} onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })} placeholder="Ex: AA123456789BR" required/>
+                <Input id="edit-trackingCode" value={formData.trackingCode} onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })} placeholder="Ex: AA123456789BR" />
             </div>
             <div className="space-y-2">
                 <Label htmlFor="edit-deliveryFee" className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
+                    <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega
                 </Label>
-                <Input id="edit-deliveryFee" type="number" min="0" step="0.01" value={formData.deliveryFee} onChange={(e) => setFormData({ ...formData, deliveryFee: parseFloat(e.target.value) || 0 })} required/>
+                <Input id="edit-deliveryFee" type="number" min="0" step="0.01" value={formData.deliveryFee} onChange={(e) => setFormData({ ...formData, deliveryFee: parseFloat(e.target.value) || 0 })} />
             </div>
           </div>
 
@@ -217,7 +208,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                     min="1"
                     value={product.quantity || 1}
                     onChange={(e) => handleProductFieldChange(index, 'quantity', parseInt(e.target.value) || 1)}
-                    required
                   />
                 </div>
                 <div className="space-y-2 flex items-end gap-2">
@@ -229,7 +219,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                       step="0.01"
                       value={product.cost || 0}
                       onChange={(e) => handleProductFieldChange(index, 'cost', parseFloat(e.target.value) || 0)}
-                      required
                     />
                   </div>
                   {products.length > 1 && (
