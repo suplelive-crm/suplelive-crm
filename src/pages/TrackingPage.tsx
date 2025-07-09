@@ -172,7 +172,6 @@ export function TrackingPage() {
     setViewMode, setShowArchived, fetchPurchases, fetchReturns, fetchTransfers,
     updateAllTrackingStatuses, verifyPurchaseProduct, addProductToInventory,
     archivePurchase, archiveReturn, archiveTransfer, findItemByTrackingCode,
-    // ADICIONAR A NOVA FUNÇÃO DA STORE
     deletePurchase
   } = useTrackingStore();
 
@@ -191,7 +190,7 @@ export function TrackingPage() {
   const [isEditPurchaseOpen, setIsEditPurchaseOpen] = useState(false);
   const [purchaseToEdit, setPurchaseToEdit] = useState<Purchase | null>(null);
 
-  // NOVO ESTADO PARA O DIÁLOGO DE DELEÇÃO
+  // Estado para o diálogo de DELEÇÃO
   const [purchaseToDelete, setPurchaseToDelete] = useState<Purchase | null>(null);
 
   const { toast } = useToast();
@@ -246,17 +245,15 @@ export function TrackingPage() {
     setIsEditPurchaseOpen(true);
   };
 
-  // NOVA FUNÇÃO PARA CONFIRMAR E EXECUTAR A DELEÇÃO
+  // Função para confirmar e executar a DELEÇÃO
   const handleDeletePurchaseConfirm = async () => {
     if (!purchaseToDelete) return;
     try {
       await deletePurchase(purchaseToDelete.id);
-      // O toast de sucesso já é exibido pela store.
     } catch (error) {
-      // O ErrorHandler na store já deve mostrar um toast de erro.
       console.error("Falha ao deletar o pedido:", error);
     } finally {
-      setPurchaseToDelete(null); // Fecha o diálogo independentemente do resultado
+      setPurchaseToDelete(null); 
     }
   };
 
@@ -361,14 +358,13 @@ export function TrackingPage() {
                           <TableCell>{purchase.estimated_delivery ? new Date(purchase.estimated_delivery).toLocaleDateString('pt-BR') : 'N/A'}</TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
-                              {/* BOTÃO DE EDIÇÃO COMENTADO */}
-                              {/*
-                                <Button variant="outline" size="sm" onClick={() => handleEditPurchase(purchase)}>
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              */}
+                              {/* BOTÃO DE EDIÇÃO REATIVADO */}
+                              <Button variant="outline" size="sm" onClick={() => handleEditPurchase(purchase)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              
                               <Button variant="outline" size="sm" onClick={() => handleViewDetails(purchase)}><Eye className="h-4 w-4" /></Button>
-                              {/* NOVO BOTÃO DE DELETAR */}
+                              
                               <Button variant="destructive" size="sm" onClick={() => setPurchaseToDelete(purchase)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -567,7 +563,6 @@ export function TrackingPage() {
         purchase={purchaseToEdit}
       />
       
-      {/* NOVO DIÁLOGO DE ALERTA PARA DELEÇÃO */}
       <AlertDialog open={!!purchaseToDelete} onOpenChange={(isOpen) => !isOpen && setPurchaseToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
