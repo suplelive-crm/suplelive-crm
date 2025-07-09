@@ -1,17 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  ShoppingBag, 
-  RotateCcw, 
-  Truck, 
-  Package, 
-  ArrowLeftRight, 
-  Filter, 
-  Plus, 
-  RefreshCw, 
-  CheckSquare, 
-  Archive, 
-  Eye, 
+import {
+  ShoppingBag,
+  RotateCcw,
+  Truck,
+  Package,
+  ArrowLeftRight,
+  Filter,
+  Plus,
+  RefreshCw,
+  CheckSquare,
+  Archive,
+  Eye,
   MoreHorizontal,
   Calendar,
   Search,
@@ -32,22 +32,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
 } from '@/components/ui/dialog';
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -96,7 +96,7 @@ const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
       return 'Pausado/Problema';
   }
 
-  if (statusLower.includes('trânsito') || statusLower.includes('transferência')) {
+  if (statusLower.includes('trânsito') || statusLower.includes('transferência') || statusLower.includes('saiu para entrega')) {
       return 'Em trânsito';
   }
 
@@ -107,9 +107,12 @@ const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
   return 'Outro';
 };
 
+// MODIFICAÇÃO 1: Adicionada regra para "saiu para entrega"
 const getStatusColor = (status: string) => {
     const statusLower = (status || '').toLowerCase();
-    if (statusLower.includes('entregue') || statusLower.includes('conferido')) {
+    if (statusLower.includes('saiu para entrega')) {
+        return 'bg-[#4169E1] text-white'; // Cor azul customizada com texto branco
+    } else if (statusLower.includes('entregue') || statusLower.includes('conferido')) {
       return 'bg-green-100 text-green-800';
     } else if (statusLower.includes('trânsito')) {
       return 'bg-blue-100 text-blue-800';
@@ -123,10 +126,11 @@ const getStatusColor = (status: string) => {
 };
 // #endregion
 
-// #region Hook customizado para lógica da tabela
+// #region Hook customizado para lógica da tabela (MODIFICADO)
 type SortDirection = 'ascending' | 'descending';
 type GenericItem = Purchase | Return | Transfer;
 
+// MODIFICAÇÃO 2: Hook atualizado para gerenciar linhas por página
 function useTable(data: GenericItem[], defaultSortKey: keyof GenericItem, defaultRowsPerPage = 10) {
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(defaultRowsPerPage);
@@ -145,7 +149,6 @@ function useTable(data: GenericItem[], defaultSortKey: keyof GenericItem, defaul
                 if (aValue === null || aValue === undefined) return 1;
                 if (bValue === null || bValue === undefined) return -1;
                 
-                // Tratar contagem de produtos como número
                 if (sortConfig.key === 'products') {
                     const aLen = (a as Purchase).products?.length || 0;
                     const bLen = (b as Purchase).products?.length || 0;
@@ -166,12 +169,13 @@ function useTable(data: GenericItem[], defaultSortKey: keyof GenericItem, defaul
         return sortableItems;
     }, [data, sortConfig]);
     
+    const totalRows = sortedData.length;
+    const totalPages = Math.ceil(totalRows / rowsPerPage);
+
     const paginatedData = useMemo(() => {
         const startIndex = (currentPage - 1) * rowsPerPage;
         return sortedData.slice(startIndex, startIndex + rowsPerPage);
     }, [sortedData, currentPage, rowsPerPage]);
-
-    const totalPages = Math.ceil(sortedData.length / rowsPerPage);
 
     const requestSort = (key: keyof GenericItem) => {
         let direction: SortDirection = 'ascending';
@@ -187,13 +191,18 @@ function useTable(data: GenericItem[], defaultSortKey: keyof GenericItem, defaul
             setCurrentPage(page);
         }
     };
+    
+    const changeRowsPerPage = (newSize: number) => {
+        setRowsPerPage(newSize);
+        setCurrentPage(1); // Resetar para a primeira página ao mudar o tamanho
+    };
 
     useEffect(() => {
         setCurrentPage(1);
         setSortConfig({ key: defaultSortKey, direction: 'descending' });
     }, [data, defaultSortKey]);
 
-    return { paginatedData, requestSort, sortConfig, currentPage, totalPages, changePage };
+    return { paginatedData, requestSort, sortConfig, currentPage, totalPages, changePage, rowsPerPage, changeRowsPerPage, totalRows };
 }
 // #endregion
 
@@ -253,8 +262,10 @@ export function TrackingPage() {
     });
   }, [purchases, returns, transfers, activeTab, searchTerm, productSearchTerm, statusFilter]);
 
+  // MODIFICAÇÃO 2: Desestruturando as novas props do hook
   const {
       paginatedData, requestSort, sortConfig, currentPage, totalPages, changePage,
+      rowsPerPage, changeRowsPerPage, totalRows
   } = useTable(filteredData, 'date');
 
   const handleRefreshTracking = () => updateAllTrackingStatuses();
@@ -344,8 +355,6 @@ export function TrackingPage() {
                                 paginatedData.map(item => {
                                     if (activeTab === 'purchases') {
                                         const purchase = item as Purchase;
-                                        const allProductsVerified = purchase.products?.every(p => p.isVerified) || false;
-                                        const isInInventory = purchase.status?.toLowerCase().includes('lançado no estoque') || false;
                                         return (
                                             <TableRow key={purchase.id}>
                                                 <TableCell>{new Date(purchase.date).toLocaleDateString('pt-BR')}</TableCell>
@@ -370,7 +379,6 @@ export function TrackingPage() {
                                         );
                                     } else if (activeTab === 'returns') {
                                         const returnItem = item as Return;
-                                        const isInInventory = returnItem.status?.toLowerCase().includes('estoque') || false;
                                         return (
                                             <TableRow key={returnItem.id}>
                                                 <TableCell>{new Date(returnItem.date).toLocaleDateString('pt-BR')}</TableCell>
@@ -395,7 +403,6 @@ export function TrackingPage() {
                                         );
                                     } else if (activeTab === 'transfers') {
                                         const transfer = item as Transfer;
-                                        const isInInventory = transfer.status?.toLowerCase().includes('estoque') || false;
                                         return (
                                             <TableRow key={transfer.id}>
                                                 <TableCell>{new Date(transfer.date).toLocaleDateString('pt-BR')}</TableCell>
@@ -425,12 +432,37 @@ export function TrackingPage() {
                         </TableBody>
                     </Table>
                 </div>
-                <div className="flex items-center justify-end space-x-2 py-4">
-                    <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages || 1}</span>
-                    <Button variant="outline" size="icon" onClick={() => changePage(1)} disabled={currentPage === 1}><ChevronsLeft className="h-4 w-4" /></Button>
-                    <Button variant="outline" size="icon" onClick={() => changePage(currentPage - 1)} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
-                    <Button variant="outline" size="icon" onClick={() => changePage(currentPage + 1)} disabled={currentPage === totalPages}><ChevronRight className="h-4 w-4" /></Button>
-                    <Button variant="outline" size="icon" onClick={() => changePage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight className="h-4 w-4" /></Button>
+                {/* MODIFICAÇÃO 2: Controles de paginação atualizados */}
+                <div className="flex items-center justify-between space-x-2 py-4">
+                    <div className="flex items-center space-x-2">
+                        <p className="text-sm font-medium">Linhas por página</p>
+                        <Select
+                            value={`${rowsPerPage}`}
+                            onValueChange={(value) => {
+                                changeRowsPerPage(Number(value));
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[80px]">
+                                <SelectValue placeholder={rowsPerPage} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 20, 50, 100].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                                 {totalRows > 0 && <SelectItem value={`${totalRows}`}>Todos</SelectItem>}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                        <span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages || 1}</span>
+                        <Button variant="outline" size="icon" onClick={() => changePage(1)} disabled={currentPage === 1}><ChevronsLeft className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="icon" onClick={() => changePage(currentPage - 1)} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="icon" onClick={() => changePage(currentPage + 1)} disabled={currentPage === totalPages}><ChevronRight className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="icon" onClick={() => changePage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight className="h-4 w-4" /></Button>
+                    </div>
                 </div>
             </CardContent>
         </Card>
