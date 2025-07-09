@@ -3,7 +3,7 @@ import { CheckSquare, Database, Eye, CheckCircle, ExternalLink } from 'lucide-re
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -12,49 +12,89 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { Purchase, Return, Transfer } from '@/types/tracking';
 import { getTrackingUrl } from '@/lib/tracking-api';
 
 // =================================================================
-// 1. LÓGICA DE STATUS UNIFICADA E DEFINIÇÃO DAS COLUNAS
+// 1. CONFIGURAÇÃO E LÓGICA DE STATUS UNIFICADA
 // =================================================================
-const KANBAN_COLUMNS = ['Aguardando', 'Em Trânsito', 'Atrasado', 'Com problemas', 'Entregue', 'Concluído'] as const;
-type KanbanColumn = typeof KANBAN_COLUMNS[number];
 
+// MODIFICAÇÃO: Centraliza a definição das colunas com títulos e cores
+const KANBAN_COLUMNS_CONFIG = {
+  'Aguardando': {
+    title: 'Aguardando',
+    headerClasses: 'bg-yellow-100/70 border-yellow-200',
+    textClasses: 'text-yellow-900',
+    countBg: 'bg-yellow-300/80',
+  },
+  'Em Trânsito': {
+    title: 'Em Trânsito',
+    headerClasses: 'bg-blue-100/70 border-blue-200',
+    textClasses: 'text-blue-900',
+    countBg: 'bg-blue-300/80',
+  },
+  'Atrasado': {
+    title: 'Atrasado',
+    headerClasses: 'bg-orange-100/70 border-orange-200',
+    textClasses: 'text-orange-900',
+    countBg: 'bg-orange-300/80',
+  },
+  'Com problemas': {
+    title: 'Com Problemas',
+    headerClasses: 'bg-red-100/70 border-red-200',
+    textClasses: 'text-red-900',
+    countBg: 'bg-red-300/80',
+  },
+  'Entregue': {
+    title: 'Entregue',
+    headerClasses: 'bg-cyan-100/70 border-cyan-200',
+    textClasses: 'text-cyan-900',
+    countBg: 'bg-cyan-300/80',
+  },
+  'Concluído': {
+    title: 'Concluído',
+    headerClasses: 'bg-green-100/70 border-green-200',
+    textClasses: 'text-green-900',
+    countBg: 'bg-green-300/80',
+  },
+} as const;
+
+type KanbanColumn = keyof typeof KANBAN_COLUMNS_CONFIG;
+
+// Função que define em qual coluna o item deve estar
 const getItemKanbanColumn = (item: Purchase | Return | Transfer): KanbanColumn => {
     const statusLower = (item.status || '').toLowerCase();
 
     // 1. Concluído (Prioridade máxima): item já processado e lançado no estoque.
-    if (statusLower.toLowerCase().includes('estoque')) {
+    if (statusLower.includes('estoque')) {
         return 'Concluído';
     }
 
     // 2. Entregue: Objeto entregue ou conferido, mas ainda não lançado no estoque.
-    if (statusLower.toLowerCase().includes('entregue') || statusLower.toLowerCase().includes('conferido')) {
+    if (statusLower.includes('entregue') || statusLower.includes('conferido')) {
         return 'Entregue';
     }
 
     // 3. Com problemas: Agrega vários status problemáticos.
     if (
-        statusLower.toLowerCase().includes('problema') ||
-        statusLower.toLowerCase().includes('não autorizada') ||
-        statusLower.toLowerCase().includes('necessidade de apresentar') ||
-        statusLower.toLowerCase().includes('extraviado') ||
-        statusLower.toLowerCase().includes('pausado')
+        statusLower.includes('problema') ||
+        statusLower.includes('não autorizada') ||
+        statusLower.includes('necessidade de apresentar') ||
+        statusLower.includes('extraviado') ||
+        statusLower.includes('pausado')
     ) {
         return 'Com problemas';
     }
     
     // 4. Atrasado: Deve ser verificado antes de "Em Trânsito".
-    const isFinalStatus =statusLower.toLowerCase().includes('entregue') || statusLower.toLowerCase().includes('conferido') || statusLower.toLowerCase().includes('estoque');
+    const isFinalStatus = statusLower.includes('entregue') || statusLower.includes('conferido') || statusLower.includes('estoque');
     if (!isFinalStatus && item.estimated_delivery && new Date(item.estimated_delivery) < new Date()) {
         return 'Atrasado';
     }
 
     // 5. Em Trânsito: Itens em movimento.
-    if (statusLower.toLowerCase().includes('trânsito') || statusLower.toLowerCase().includes('transferência')) {
+    if (statusLower.includes('trânsito') || statusLower.includes('transferência') || statusLower.includes('saiu para entrega')) {
         return 'Em Trânsito';
     }
 
@@ -63,7 +103,7 @@ const getItemKanbanColumn = (item: Purchase | Return | Transfer): KanbanColumn =
 };
 
 // =================================================================
-// 2. COMPONENTE DO CARTÃO KANBAN
+// 2. COMPONENTE DO CARTÃO KANBAN (Sem alterações)
 // =================================================================
 interface KanbanCardProps {
   item: Purchase | Return | Transfer;
@@ -78,7 +118,7 @@ const KanbanCard = ({ item, onViewDetails, onVerifyProduct, onAddToInventory }: 
   const allProductsVerified = isPurchase ? (item as Purchase).products?.every(p => p.isVerified) || false : false;
 
   return (
-    <Card className="mb-4 hover:shadow-lg transition-shadow duration-200">
+    <Card className="mb-4 bg-white hover:shadow-lg transition-shadow duration-200">
       <CardContent className="p-3">
         <div className="flex justify-between items-start mb-2">
           <span className="font-semibold text-sm pr-2 break-words">
@@ -124,17 +164,17 @@ const KanbanCard = ({ item, onViewDetails, onVerifyProduct, onAddToInventory }: 
 
           {(allProductsVerified || !isPurchase) && !isInInventory && (
              <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="default" size="sm"><Database className="h-4 w-4" /></Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Lançar no Estoque</AlertDialogTitle><AlertDialogDescription>Esta ação irá arquivar o item. Tem certeza?</AlertDialogDescription></AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onAddToInventory(item.id, isPurchase ? 'purchase' : (item as Return).type)}>Confirmar</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+               <AlertDialogTrigger asChild>
+                 <Button variant="default" size="sm"><Database className="h-4 w-4" /></Button>
+               </AlertDialogTrigger>
+               <AlertDialogContent>
+                 <AlertDialogHeader><AlertDialogTitle>Lançar no Estoque</AlertDialogTitle><AlertDialogDescription>Esta ação irá arquivar o item. Tem certeza?</AlertDialogDescription></AlertDialogHeader>
+                 <AlertDialogFooter>
+                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                   <AlertDialogAction onClick={() => onAddToInventory(item.id, isPurchase ? 'purchase' : (item as Return).type)}>Confirmar</AlertDialogAction>
+                 </AlertDialogFooter>
+               </AlertDialogContent>
+             </AlertDialog>
           )}
 
           {allProductsVerified && !isInInventory && (
@@ -148,7 +188,7 @@ const KanbanCard = ({ item, onViewDetails, onVerifyProduct, onAddToInventory }: 
 
 
 // =================================================================
-// 3. COMPONENTE PRINCIPAL DO KANBAN BOARD
+// 3. COMPONENTE PRINCIPAL DO KANBAN BOARD (Alterado)
 // =================================================================
 
 interface KanbanBoardProps {
@@ -181,9 +221,11 @@ export function KanbanBoard({
   }, [activeTab, purchases, returns, transfers]);
 
   const groupedItems = useMemo(() => {
-    const initialGroups: Record<KanbanColumn, (Purchase | Return | Transfer)[]> = {
-      'Aguardando': [], 'Em Trânsito': [], 'Atrasado': [], 'Com problemas': [], 'Entregue': [], 'Concluído': []
-    };
+    // MODIFICAÇÃO: Usa as chaves da configuração para inicializar os grupos
+    const initialGroups = Object.keys(KANBAN_COLUMNS_CONFIG).reduce((acc, col) => {
+        acc[col as KanbanColumn] = [];
+        return acc;
+    }, {} as Record<KanbanColumn, (Purchase | Return | Transfer)[]>);
     
     return items.reduce((acc, item) => {
       const column = getItemKanbanColumn(item);
@@ -196,37 +238,43 @@ export function KanbanBoard({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-5 w-full">
-      {KANBAN_COLUMNS.map((column) => (
-        <div key={column} className="bg-gray-100/70 rounded-xl flex flex-col">
-          {/* Cabeçalho da Coluna */}
-          <div className="p-3 border-b border-gray-200 sticky top-0 bg-gray-100/70 rounded-t-xl z-10 backdrop-blur-sm">
-             <h2 className="font-bold text-gray-900 text-md flex items-center justify-between">
-              <span>{column}</span>
-              <span className="text-sm font-medium bg-gray-300/80 text-gray-800 rounded-full h-6 w-6 flex items-center justify-center">
-                {groupedItems[column].length}
-              </span>
-            </h2>
+      {/* MODIFICAÇÃO: Mapeia a configuração para criar as colunas dinamicamente */}
+      {(Object.keys(KANBAN_COLUMNS_CONFIG) as KanbanColumn[]).map((columnKey) => {
+        const columnConfig = KANBAN_COLUMNS_CONFIG[columnKey];
+        const columnItems = groupedItems[columnKey];
+
+        return (
+          <div key={columnKey} className="bg-gray-50 rounded-xl flex flex-col">
+            {/* Cabeçalho da Coluna com cores dinâmicas */}
+            <div className={`p-3 border-b sticky top-0 rounded-t-xl z-10 backdrop-blur-sm ${columnConfig.headerClasses}`}>
+                <h2 className={`font-bold text-md flex items-center justify-between ${columnConfig.textClasses}`}>
+                <span>{columnConfig.title}</span>
+                <span className={`text-sm font-semibold text-gray-900 rounded-full h-6 w-6 flex items-center justify-center ${columnConfig.countBg}`}>
+                    {columnItems.length}
+                </span>
+                </h2>
+            </div>
+            {/* Corpo da Coluna com os Cartões */}
+            <div className="flex-grow p-2 overflow-y-auto">
+              {columnItems.length > 0 ? (
+                columnItems.map(item => (
+                  <KanbanCard 
+                    key={item.id} 
+                    item={item} 
+                    onViewDetails={onViewDetails}
+                    onVerifyProduct={onVerifyProduct}
+                    onAddToInventory={onAddToInventory}
+                  />
+                ))
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-400 text-xs p-4">
+                  Nenhum item nesta etapa.
+                </div>
+              )}
+            </div>
           </div>
-          {/* Corpo da Coluna com os Cartões */}
-          <div className="flex-grow p-2 overflow-y-auto">
-            {groupedItems[column].length > 0 ? (
-              groupedItems[column].map(item => (
-                <KanbanCard 
-                  key={item.id} 
-                  item={item} 
-                  onViewDetails={onViewDetails}
-                  onVerifyProduct={onVerifyProduct}
-                  onAddToInventory={onAddToInventory}
-                />
-              ))
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-400 text-xs p-4">
-                Nenhum item nesta etapa.
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
