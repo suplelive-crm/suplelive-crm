@@ -128,16 +128,20 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           {/* Detalhes da Compra (Data, Transportadora, etc.) */}
-          <div className="space-y-1">
+          { /*<div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-4 w-4" /><span>Data de Compra:</span></div>
             <p className="font-medium">{new Date(purchase.date).toLocaleDateString('pt-BR')}</p>
-          </div>
+          </div> */}
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground"><Truck className="h-4 w-4" /><span>Transportadora:</span></div>
             <p className="font-medium">{purchase.carrier || 'Não informada'}</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground"><Package className="h-4 w-4" /><span>Loja:</span></div>
+            <p className="font-medium">{purchase.customer_name || 'Não informada'}</p>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-muted-foreground"><Package className="h-4 w-4" /><span>Cliente:</span></div>
             <p className="font-medium">{purchase.storeName || 'Não informada'}</p>
           </div>
           <div className="space-y-1">
