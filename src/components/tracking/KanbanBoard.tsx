@@ -21,7 +21,6 @@ import { getTrackingUrl } from '@/lib/tracking-api';
 // 1. CONFIGURAÇÃO E LÓGICA DE STATUS UNIFICADA
 // =================================================================
 
-// MODIFICAÇÃO: Centraliza a definição das colunas com títulos e cores
 const KANBAN_COLUMNS_CONFIG = {
   'Aguardando': {
     title: 'Aguardando',
@@ -63,49 +62,49 @@ const KANBAN_COLUMNS_CONFIG = {
 
 type KanbanColumn = keyof typeof KANBAN_COLUMNS_CONFIG;
 
-// Função que define em qual coluna o item deve estar
+// **FUNÇÃO CORRIGIDA**
 const getItemKanbanColumn = (item: Purchase | Return | Transfer): KanbanColumn => {
     const statusLower = (item.status || '').toLowerCase();
 
-    // 1. Concluído (Prioridade máxima): item já processado e lançado no estoque.
+    // 1. Concluído (Prioridade máxima)
     if (statusLower.includes('estoque')) {
         return 'Concluído';
     }
 
-    // 2. Entregue: Objeto entregue ou conferido, mas ainda não lançado no estoque.
-    if (statusLower.includes('entregue') || statusLower.includes('conferido')) {
-        return 'Entregue';
-    }
-
-    // 3. Com problemas: Agrega vários status problemáticos.
+    // 2. Com problemas (Verificado ANTES de 'Entregue' para capturar exceções)
     if (
         statusLower.includes('problema') ||
         statusLower.includes('não autorizada') ||
         statusLower.includes('necessidade de apresentar') ||
-      statusLower.includes('extraviado') ||
+        statusLower.includes('extraviado') ||
         statusLower.includes('não entregue - carteiro não atendido') ||
         statusLower.includes('pausado')
     ) {
         return 'Com problemas';
     }
     
-    // 4. Atrasado: Deve ser verificado antes de "Em Trânsito".
+    // 3. Entregue (Agora verificado depois dos problemas)
+    if (statusLower.includes('entregue') || statusLower.includes('conferido')) {
+        return 'Entregue';
+    }
+    
+    // 4. Atrasado
     const isFinalStatus = statusLower.includes('entregue') || statusLower.includes('conferido') || statusLower.includes('estoque');
     if (!isFinalStatus && item.estimated_delivery && new Date(item.estimated_delivery) < new Date()) {
         return 'Atrasado';
     }
 
-    // 5. Em Trânsito: Itens em movimento.
+    // 5. Em Trânsito
     if (statusLower.includes('trânsito') || statusLower.includes('transferência') || statusLower.includes('saiu para entrega')) {
         return 'Em Trânsito';
     }
 
-    // 6. Aguardando: Itens que aguardam postagem, coleta ou são o fallback.
+    // 6. Aguardando
     return 'Aguardando';
 };
 
 // =================================================================
-// 2. COMPONENTE DO CARTÃO KANBAN (Sem alterações)
+// 2. COMPONENTE DO CARTÃO KANBAN
 // =================================================================
 interface KanbanCardProps {
   item: Purchase | Return | Transfer;
@@ -190,7 +189,7 @@ const KanbanCard = ({ item, onViewDetails, onVerifyProduct, onAddToInventory }: 
 
 
 // =================================================================
-// 3. COMPONENTE PRINCIPAL DO KANBAN BOARD (Alterado)
+// 3. COMPONENTE PRINCIPAL DO KANBAN BOARD
 // =================================================================
 
 interface KanbanBoardProps {
@@ -223,7 +222,6 @@ export function KanbanBoard({
   }, [activeTab, purchases, returns, transfers]);
 
   const groupedItems = useMemo(() => {
-    // MODIFICAÇÃO: Usa as chaves da configuração para inicializar os grupos
     const initialGroups = Object.keys(KANBAN_COLUMNS_CONFIG).reduce((acc, col) => {
         acc[col as KanbanColumn] = [];
         return acc;
@@ -240,14 +238,12 @@ export function KanbanBoard({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-5 w-full">
-      {/* MODIFICAÇÃO: Mapeia a configuração para criar as colunas dinamicamente */}
       {(Object.keys(KANBAN_COLUMNS_CONFIG) as KanbanColumn[]).map((columnKey) => {
         const columnConfig = KANBAN_COLUMNS_CONFIG[columnKey];
         const columnItems = groupedItems[columnKey];
 
         return (
           <div key={columnKey} className="bg-gray-50 rounded-xl flex flex-col">
-            {/* Cabeçalho da Coluna com cores dinâmicas */}
             <div className={`p-3 border-b sticky top-0 rounded-t-xl z-10 backdrop-blur-sm ${columnConfig.headerClasses}`}>
                 <h2 className={`font-bold text-md flex items-center justify-between ${columnConfig.textClasses}`}>
                 <span>{columnConfig.title}</span>
@@ -256,7 +252,6 @@ export function KanbanBoard({
                 </span>
                 </h2>
             </div>
-            {/* Corpo da Coluna com os Cartões */}
             <div className="flex-grow p-2 overflow-y-auto">
               {columnItems.length > 0 ? (
                 columnItems.map(item => (
