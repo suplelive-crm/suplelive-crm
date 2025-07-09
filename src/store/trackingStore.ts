@@ -43,7 +43,6 @@ interface TrackingState {
   createPurchase: (purchaseData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
   updatePurchase: (purchaseId: string, formData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
   archivePurchase: (id: string) => Promise<void>;
-  // NOVA AÇÃO DE DELETAR
   deletePurchase: (purchaseId: string) => Promise<void>;
 
   verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string) => Promise<void>;
@@ -304,71 +303,38 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       ErrorHandler.showSuccess('Compra criada com sucesso!');
     });
   },
-
+  
+  // ## FUNÇÃO 'updatePurchase' ATUALIZADA E SIMPLIFICADA ##
   updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
-      const { data: oldProducts, error: fetchError } = await supabase
-        .from('purchase_products')
-        .select('id, is_verified')
-        .eq('purchase_id', purchaseId);
-
-      if (fetchError) {
-        console.error("Error fetching old product statuses:", fetchError);
-        throw fetchError;
-      }
-      
-      const verificationStatusMap = new Map(oldProducts.map(p => [p.id, p.is_verified]));
-
-      const dbPurchaseUpdates = {
-        date: formData.date,
-        carrier: formData.carrier,
-        storeName: formData.storeName,
-        customer_name: formData.customerName || null,
-        trackingCode: formData.trackingCode,
-        delivery_fee: formData.deliveryFee,
-        updated_at: new Date().toISOString(),
+      // Prepara os parâmetros para a chamada RPC
+      const params = {
+        p_id: purchaseId,
+        p_date: formData.date,
+        p_carrier: formData.carrier,
+        p_store_name: formData.storeName,
+        p_customer_name: formData.customerName || null,
+        p_tracking_code: formData.trackingCode,
+        p_delivery_fee: formData.deliveryFee,
+        p_products: products.map(p => ({
+            name: p.name,
+            sku: p.sku,
+            quantity: p.quantity,
+            cost: p.cost
+        }))
       };
 
-      const { error: purchaseUpdateError } = await supabase
-        .from('purchases')
-        .update(dbPurchaseUpdates)
-        .eq('id', purchaseId);
+      // Chama a função do banco de dados que faz todo o trabalho pesado
+      const { error } = await supabase.rpc('update_purchase_and_products', params);
 
-      if (purchaseUpdateError) throw purchaseUpdateError;
+      if (error) {
+        console.error("Erro ao atualizar a compra via RPC:", error);
+        throw error; // Deixa o ErrorHandler cuidar da notificação
+      }
 
-      const { error: deleteError } = await supabase
-        .from('purchase_products')
-        .delete()
-        .eq('purchase_id', purchaseId);
-
-      if (deleteError) throw deleteError;
-
-      const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
-      const deliveryFeePerUnit = totalQuantity > 0 ? formData.deliveryFee / totalQuantity : 0;
-
-      const newProductsData = products.map(product => {
-        const isVerified = product.id ? (verificationStatusMap.get(product.id) || false) : false;
-
-        return {
-          name: product.name,
-          quantity: product.quantity,
-          cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
-          SKU: product.sku,
-          purchase_id: purchaseId,
-          is_verified: isVerified,
-          is_in_stock: false,
-          vencimento: product.vencimento || null,
-        };
-      });
-
-      const { error: insertError } = await supabase
-        .from('purchase_products')
-        .insert(newProductsData);
-
-      if (insertError) throw insertError;
-
-      get().fetchPurchases();
-      ErrorHandler.showSuccess('Compra atualizada com sucesso!');
+      // Atualiza os dados na UI para uma resposta instantânea
+      await get().fetchPurchases();
+      // A notificação de sucesso foi movida para o EditPurchaseDialog para melhor feedback
     });
   },
 
@@ -394,30 +360,17 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  // NOVA FUNÇÃO PARA DELETAR A COMPRA
   deletePurchase: async (purchaseId: string) => {
     await ErrorHandler.handleAsync(async () => {
-      // É altamente recomendado criar uma função RPC no Supabase para garantir
-      // que a exclusão do pedido e de seus produtos seja atômica.
-      // Exemplo de SQL para criar a função no Supabase:
-      //
-      // CREATE OR REPLACE FUNCTION delete_purchase_and_products(p_id uuid)
-      // RETURNS void AS $$
-      // BEGIN
-      //   DELETE FROM purchase_products WHERE purchase_id = p_id;
-      //   DELETE FROM purchases WHERE id = p_id;
-      // END;
-      // $$ LANGUAGE plpgsql;
       const { error } = await supabase.rpc('delete_purchase_and_products', {
         p_id: purchaseId,
       });
 
       if (error) {
         console.error("Erro ao deletar o pedido de compra:", error);
-        throw error; // O ErrorHandler irá capturar e exibir a mensagem
+        throw error;
       }
 
-      // Atualiza o estado local para refletir a exclusão imediatamente na UI.
       set((state) => ({
         purchases: state.purchases.filter((p) => p.id !== purchaseId),
       }));
