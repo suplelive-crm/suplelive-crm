@@ -223,7 +223,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-semibold">{product.name || `Item ${product.id}`}</h4>
+                    <h4 className="font-semibold">
+                      {product.name || `Item ${product.id}`}
+                      {product.SKU && ` - ${product.SKU}`}
+                    </h4>
                     <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
                       <span>Quantidade: <span className="font-medium text-foreground">{product.quantity || 0}</span></span>
                       <span>Custo: <span className="font-medium text-foreground">R$ {(product.cost || 0).toFixed(2)}</span></span>
