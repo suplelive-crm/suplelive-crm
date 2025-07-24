@@ -106,6 +106,48 @@ export interface Workspace {
   updated_at: string;
   plan?: Plan;
   subscription?: Subscription;
+  users?: WorkspaceUser[];
+  user_role?: 'owner' | 'admin' | 'operator';
+}
+
+export interface WorkspaceUser {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  role: 'admin' | 'operator';
+  invited_by?: string;
+  invited_at: string;
+  joined_at?: string;
+  status: 'pending' | 'active' | 'inactive';
+  created_at: string;
+  updated_at: string;
+  user?: {
+    id: string;
+    email: string;
+    user_metadata?: {
+      name?: string;
+    };
+  };
+  invited_by_user?: {
+    email: string;
+  };
+}
+
+export interface UserInvitation {
+  id: string;
+  workspace_id: string;
+  email: string;
+  role: 'admin' | 'operator';
+  invited_by: string;
+  token: string;
+  expires_at: string;
+  accepted_at?: string;
+  status: 'pending' | 'accepted' | 'expired';
+  created_at: string;
+  workspace?: Workspace;
+  invited_by_user?: {
+    email: string;
+  };
 }
 
 export interface Plan {

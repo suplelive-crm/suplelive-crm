@@ -18,6 +18,7 @@ export function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   
   const { plans, fetchPlans, createWorkspace, setCurrentWorkspace } = useWorkspaceStore();
+  const { checkWorkspaceUniqueness } = useWorkspaceStore();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -44,6 +45,34 @@ export function OnboardingPage() {
 
     setLoading(true);
     try {
+      // Check if workspace name/slug already exists
+      const displaySlug = workspaceName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      
+      const uniqueness = await checkWorkspaceUniqueness(workspaceName, displaySlug);
+      
+      if (uniqueness.nameExists) {
+        toast({
+          title: 'Nome já existe',
+          description: `Já existe um workspace com o nome "${workspaceName}". Escolha um nome diferente.`,
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+      
+      if (uniqueness.slugExists) {
+        toast({
+          title: 'URL já existe',
+          description: `A URL "${displaySlug}" já está em uso. Escolha um nome diferente.`,
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
       const newWorkspace = await createWorkspace({
         name: workspaceName,
         plan_id: selectedPlan,

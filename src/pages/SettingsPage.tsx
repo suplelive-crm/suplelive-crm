@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useAuthStore } from '@/store/authStore';
+import { UserManagementDialog } from '@/components/workspace/UserManagementDialog';
 import { useToast } from '@/hooks/use-toast';
 
 export function SettingsPage() {
@@ -228,22 +229,11 @@ export function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                          {user?.email?.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-medium">{user?.email}</p>
-                          <p className="text-sm text-gray-500">Proprietário</p>
-                        </div>
-                      </div>
-                      <Badge>Admin</Badge>
-                    </div>
-                    <Button variant="outline" className="w-full">
-                      Convidar Membro
-                    </Button>
+                  <div className="text-center py-6">
+                    <p className="text-gray-600 mb-4">
+                      Gerencie usuários, roles e permissões do workspace
+                    </p>
+                    <UserManagementDialog />
                   </div>
                 </CardContent>
               </Card>

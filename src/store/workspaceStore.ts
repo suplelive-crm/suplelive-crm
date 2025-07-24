@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Workspace, Plan, Subscription, Channel, WhatsAppInstance } from '@/types';
+import { Workspace, Plan, Subscription, Channel, WhatsAppInstance, WorkspaceUser, UserInvitation } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { getEvolutionAPI, formatPhoneNumber } from '@/lib/evolution-api';
 import { ErrorHandler } from '@/lib/error-handler';
@@ -10,6 +10,8 @@ interface WorkspaceState {
   plans: Plan[];
   channels: Channel[];
   whatsappInstances: WhatsAppInstance[];
+  workspaceUsers: WorkspaceUser[];
+  userInvitations: UserInvitation[];
   loading: boolean;
 
   // Actions
@@ -17,8 +19,18 @@ interface WorkspaceState {
   fetchPlans: () => Promise<void>;
   fetchChannels: () => Promise<void>;
   fetchWhatsAppInstances: () => Promise<void>;
+  fetchWorkspaceUsers: () => Promise<void>;
+  fetchUserInvitations: () => Promise<void>;
   createWorkspace: (data: { name: string; plan_id: string }) => Promise<Workspace>;
   setCurrentWorkspace: (workspace: Workspace) => void;
+  checkWorkspaceUniqueness: (name: string, slug: string) => Promise<{ nameExists: boolean; slugExists: boolean }>;
+  
+  // User management
+  inviteUser: (email: string, role: 'admin' | 'operator') => Promise<void>;
+  removeUser: (userId: string) => Promise<void>;
+  updateUserRole: (userId: string, role: 'admin' | 'operator') => Promise<void>;
+  cancelInvitation: (invitationId: string) => Promise<void>;
+  resendInvitation: (invitationId: string) => Promise<void>;
   
   // WhatsApp management
   connectWhatsApp: (instanceName: string) => Promise<WhatsAppInstance>;
@@ -77,6 +89,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   plans: [],
   channels: [],
   whatsappInstances: [],
+  workspaceUsers: [],
+  userInvitations: [],
   loading: false,
 
   fetchWorkspaces: async () => {
@@ -89,13 +103,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         .select(`
           *,
           plan:plans(*),
-          subscription:subscriptions(*)
+          subscription:subscriptions(*),
+          users:workspace_users(
+            *,
+            user:users(id, email, user_metadata)
+          )
         `)
         .eq('owner_id', user.id);
 
       if (error) throw error;
       
-      const workspaces = data || [];
+      // Add user role to each workspace
+      const workspaces = (data || []).map(workspace => ({
+        ...workspace,
+        user_role: 'owner' as const
+      }));
+      
       set({ workspaces });
 
       // Only set current workspace if none is selected and workspaces exist
@@ -161,73 +184,155 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     });
   },
 
+  fetchWorkspaceUsers: async () => {
+    await ErrorHandler.handleAsync(async () => {
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) return;
+
+      const { data, error } = await supabase
+        .from('workspace_users')
+        .select(`
+          *,
+          user:users(id, email, user_metadata),
+          invited_by_user:users!workspace_users_invited_by_fkey(email)
+        `)
+        .eq('workspace_id', currentWorkspace.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      set({ workspaceUsers: data || [] });
+    });
+  },
+
+  fetchUserInvitations: async () => {
+    await ErrorHandler.handleAsync(async () => {
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) return;
+
+      const { data, error } = await supabase
+        .from('user_invitations')
+        .select(`
+          *,
+          invited_by_user:users!user_invitations_invited_by_fkey(email)
+        `)
+        .eq('workspace_id', currentWorkspace.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      set({ userInvitations: data || [] });
+    });
+  },
+
+  checkWorkspaceUniqueness: async (name: string, slug: string) => {
+    return await ErrorHandler.handleAsync(async () => {
+      const { data, error } = await supabase
+        .rpc('check_workspace_uniqueness', {
+          workspace_name: name,
+          workspace_slug: slug
+        });
+
+      if (error) throw error;
+      
+      return {
+        nameExists: data[0]?.name_exists || false,
+        slugExists: data[0]?.slug_exists || false
+      };
+    }) || { nameExists: false, slugExists: false };
+  },
+
   createWorkspace: async (workspaceData) => {
     return await ErrorHandler.handleAsync(async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const maxRetries = 5;
-      let lastError: any = null;
+      // Generate slug from name
+      const baseSlug = workspaceData.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
 
-      // Retry mechanism to handle race conditions with slug generation
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          const uniqueSlug = await generateUniqueSlug(workspaceData.name);
+      // Check if workspace with this name or slug already exists
+      const uniqueness = await get().checkWorkspaceUniqueness(workspaceData.name, baseSlug);
+      
+      if (uniqueness.nameExists) {
+        // Check if user is already a member of the workspace with this name
+        const { data: existingWorkspace } = await supabase
+          .from('workspaces')
+          .select(`
+            *,
+            users:workspace_users!inner(user_id)
+          `)
+          .ilike('name', workspaceData.name)
+          .eq('users.user_id', user.id)
+          .maybeSingle();
 
-          const { data, error } = await supabase
+        if (existingWorkspace) {
+          // User is already in this workspace, just set it as current
+          const { data: fullWorkspace } = await supabase
             .from('workspaces')
-            .insert({
-              name: workspaceData.name,
-              slug: uniqueSlug,
-              plan_id: workspaceData.plan_id,
-              owner_id: user.id,
-            })
             .select(`
               *,
               plan:plans(*),
               subscription:subscriptions(*)
             `)
+            .eq('id', existingWorkspace.id)
             .single();
 
-          if (error) {
-            // Check if this is a unique constraint violation on the slug
-            if (error.code === '23505' && error.message.includes('workspaces_slug_key')) {
-              lastError = error;
-              console.log(`Slug collision detected on attempt ${attempt}, retrying...`);
-              
-              // Add a small random delay to reduce chance of repeated collisions
-              await new Promise(resolve => setTimeout(resolve, Math.random() * 100 + 50));
-              continue;
-            }
-            throw error;
+          if (fullWorkspace) {
+            get().setCurrentWorkspace({ ...fullWorkspace, user_role: 'admin' });
+            ErrorHandler.showSuccess('Bem-vindo de volta!', `Você já faz parte do workspace "${workspaceData.name}"`);
+            return fullWorkspace;
           }
-
-          // Success! Create the subscription and return
-          await supabase
-            .from('subscriptions')
-            .insert({
-              workspace_id: data.id,
-              plan_id: workspaceData.plan_id,
-              status: 'active',
-            });
-
-          await get().fetchWorkspaces();
-          return data;
-
-        } catch (error: any) {
-          // If it's not a slug collision error, throw immediately
-          if (error.code !== '23505' || !error.message.includes('workspaces_slug_key')) {
-            throw error;
-          }
-          lastError = error;
-          
-          // Add a small random delay before retrying
-          await new Promise(resolve => setTimeout(resolve, Math.random() * 100 + 50));
         }
+        
+        throw new Error(`Já existe um workspace com o nome "${workspaceData.name}". Escolha um nome diferente.`);
       }
 
-      // If we've exhausted all retries, throw the last error
-      throw new Error(`Falha ao criar workspace após ${maxRetries} tentativas. Tente novamente com um nome diferente.`);
+      if (uniqueness.slugExists) {
+        throw new Error(`A URL "${baseSlug}" já está em uso. Escolha um nome diferente.`);
+      }
+
+      // Create workspace
+      const { data, error } = await supabase
+        .from('workspaces')
+        .insert({
+          name: workspaceData.name,
+          slug: baseSlug,
+          plan_id: workspaceData.plan_id,
+          owner_id: user.id,
+        })
+        .select(`
+          *,
+          plan:plans(*),
+          subscription:subscriptions(*)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      // Create subscription
+      await supabase
+        .from('subscriptions')
+        .insert({
+          workspace_id: data.id,
+          plan_id: workspaceData.plan_id,
+          status: 'active',
+        });
+
+      // Add owner as admin user
+      await supabase
+        .from('workspace_users')
+        .insert({
+          workspace_id: data.id,
+          user_id: user.id,
+          role: 'admin',
+          joined_at: new Date().toISOString(),
+          status: 'active',
+        });
+
+      await get().fetchWorkspaces();
+      return { ...data, user_role: 'owner' };
     }) || null;
   },
 
@@ -237,6 +342,136 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ currentWorkspace: workspace });
     get().fetchChannels();
     get().fetchWhatsAppInstances();
+    get().fetchWorkspaceUsers();
+    get().fetchUserInvitations();
+  },
+
+  inviteUser: async (email, role) => {
+    await ErrorHandler.handleAsync(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentWorkspace = get().currentWorkspace;
+      
+      if (!user || !currentWorkspace) {
+        throw new Error('Usuário não autenticado ou workspace não selecionado');
+      }
+
+      // Check if email is valid
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Email inválido');
+      }
+
+      const { data, error } = await supabase
+        .rpc('invite_user_to_workspace', {
+          p_workspace_id: currentWorkspace.id,
+          p_email: email,
+          p_role: role,
+          p_invited_by: user.id
+        });
+
+      if (error) {
+        if (error.message.includes('already a member')) {
+          throw new Error('Este usuário já é membro do workspace');
+        }
+        throw error;
+      }
+
+      get().fetchWorkspaceUsers();
+      get().fetchUserInvitations();
+      ErrorHandler.showSuccess('Usuário convidado com sucesso!', `Convite enviado para ${email}`);
+    });
+  },
+
+  removeUser: async (userId) => {
+    await ErrorHandler.handleAsync(async () => {
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+      // Don't allow removing workspace owner
+      if (userId === currentWorkspace.owner_id) {
+        throw new Error('Não é possível remover o proprietário do workspace');
+      }
+
+      const { error } = await supabase
+        .from('workspace_users')
+        .update({ status: 'inactive' })
+        .eq('workspace_id', currentWorkspace.id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      get().fetchWorkspaceUsers();
+      ErrorHandler.showSuccess('Usuário removido do workspace');
+    });
+  },
+
+  updateUserRole: async (userId, role) => {
+    await ErrorHandler.handleAsync(async () => {
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+      // Don't allow changing owner role
+      if (userId === currentWorkspace.owner_id) {
+        throw new Error('Não é possível alterar o role do proprietário do workspace');
+      }
+
+      const { error } = await supabase
+        .from('workspace_users')
+        .update({ 
+          role,
+          updated_at: new Date().toISOString()
+        })
+        .eq('workspace_id', currentWorkspace.id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      get().fetchWorkspaceUsers();
+      ErrorHandler.showSuccess('Role do usuário atualizado');
+    });
+  },
+
+  cancelInvitation: async (invitationId) => {
+    await ErrorHandler.handleAsync(async () => {
+      const { error } = await supabase
+        .from('user_invitations')
+        .update({ status: 'expired' })
+        .eq('id', invitationId);
+
+      if (error) throw error;
+
+      get().fetchUserInvitations();
+      ErrorHandler.showSuccess('Convite cancelado');
+    });
+  },
+
+  resendInvitation: async (invitationId) => {
+    await ErrorHandler.handleAsync(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentWorkspace = get().currentWorkspace;
+      
+      if (!user || !currentWorkspace) {
+        throw new Error('Usuário não autenticado ou workspace não selecionado');
+      }
+
+      // Get invitation details
+      const { data: invitation, error: fetchError } = await supabase
+        .from('user_invitations')
+        .select('email, role')
+        .eq('id', invitationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Cancel old invitation
+      await supabase
+        .from('user_invitations')
+        .update({ status: 'expired' })
+        .eq('id', invitationId);
+
+      // Create new invitation
+      await get().inviteUser(invitation.email, invitation.role);
+    });
   },
 
   connectWhatsApp: async (instanceName) => {

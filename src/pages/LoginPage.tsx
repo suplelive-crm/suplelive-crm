@@ -43,7 +43,8 @@ export function LoginPage() {
       
       // Then fetch workspaces and find the one with matching slug
       await fetchWorkspaces();
-      const workspace = workspaces.find(w => w.slug === workspaceSlug);
+      const updatedWorkspaces = useWorkspaceStore.getState().workspaces;
+      const workspace = updatedWorkspaces.find(w => w.slug === workspaceSlug);
       
       if (!workspace) {
         ErrorHandler.showError(
@@ -52,6 +53,7 @@ export function LoginPage() {
             'O workspace informado não foi encontrado ou você não tem acesso a ele. Verifique a URL e tente novamente.'
           )
         );
+        setWorkspaceLoading(false);
         return;
       }
 
