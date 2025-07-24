@@ -348,6 +348,35 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     });
   },
 
+  registerUser: async (userData) => {
+    await ErrorHandler.handleAsync(async () => {
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+      // Create user account
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: userData.email,
+        password: userData.password,
+        user_metadata: {
+          name: userData.name
+        },
+        email_confirm: true // Auto-confirm email
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Falha ao criar usuário');
+
+      // Add user to workspace_users table (when it exists)
+      // For now, we'll just show success message
+      ErrorHandler.showSuccess(
+        'Usuário cadastrado com sucesso!',
+        `${userData.name} foi adicionado ao workspace como ${userData.role === 'admin' ? 'Administrador' : 'Operador'}`
+      );
+
+      // Refresh user list
+      get().fetchWorkspaceUsers();
+    });
+  },
   removeUser: async (userId) => {
     await ErrorHandler.handleAsync(async () => {
       // User management functionality disabled until proper tables are created

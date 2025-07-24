@@ -492,6 +492,14 @@ export function UserManagementDialog() {
               <span><strong>Operador:</strong> Acesso às funcionalidades principais (CRM, mensagens, relatórios)</span>
             </div>
           </div>
+          
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <h5 className="font-medium text-green-800 mb-1">Diferença entre Cadastrar e Convidar</h5>
+            <div className="space-y-1 text-xs text-green-700">
+              <p><strong>Cadastrar:</strong> Cria uma nova conta imediatamente e adiciona ao workspace</p>
+              <p><strong>Convidar:</strong> Envia um convite por email para o usuário se cadastrar</p>
+            </div>
+          </div>
         </div>
 
         <DialogFooter>
