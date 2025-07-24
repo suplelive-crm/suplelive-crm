@@ -67,6 +67,29 @@ export function UserManagementDialog() {
     }
   };
 
+  const handleRegisterUser = async () => {
+    if (!registerData.name.trim() || !registerData.email.trim() || !registerData.password.trim()) return;
+    if (registerData.password !== registerData.confirmPassword) return;
+    if (registerData.password.length < 6) return;
+
+    setLoading(true);
+    try {
+      // Add your register user logic here
+      setRegisterData({
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        role: 'operator'
+      });
+      setRegisterDialogOpen(false);
+    } catch (error) {
+      console.error('Error registering user:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRemoveUser = async (userId: string) => {
     try {
       await removeUser(userId);
@@ -185,67 +208,170 @@ export function UserManagementDialog() {
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-medium">Membros do Workspace</h3>
               {canManageUsers && (
-                <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Convidar Usuário
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Convidar Novo Usuário</DialogTitle>
-                      <DialogDescription>
-                        Convide um usuário para fazer parte do seu workspace
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div>
-                        <Label htmlFor="inviteEmail">Email do Usuário *</Label>
-                        <Input
-                          id="inviteEmail"
-                          type="email"
-                          placeholder="usuario@exemplo.com"
-                          value={inviteEmail}
-                          onChange={(e) => setInviteEmail(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="inviteRole">Role do Usuário *</Label>
-                        <Select value={inviteRole} onValueChange={(value: 'admin' | 'operator') => setInviteRole(value)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">
-                              <div className="flex items-center">
-                                <Shield className="h-4 w-4 mr-2" />
-                                Administrador
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="operator">
-                              <div className="flex items-center">
-                                <Users className="h-4 w-4 mr-2" />
-                                Operador
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Administradores podem gerenciar usuários e configurações. Operadores têm acesso às funcionalidades principais.
-                        </p>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
-                        Cancelar
+                <div className="flex gap-2">
+                  <Dialog open={registerDialogOpen} onOpenChange={setRegisterDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Cadastrar Usuário
                       </Button>
-                      <Button onClick={handleInviteUser} disabled={loading || !inviteEmail.trim()}>
-                        {loading ? 'Convidando...' : 'Enviar Convite'}
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Cadastrar Novo Usuário</DialogTitle>
+                        <DialogDescription>
+                          Crie uma nova conta de usuário e adicione ao workspace
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div>
+                          <Label htmlFor="registerName">Nome Completo *</Label>
+                          <Input
+                            id="registerName"
+                            placeholder="João Silva"
+                            value={registerData.name}
+                            onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="registerEmail">Email *</Label>
+                          <Input
+                            id="registerEmail"
+                            type="email"
+                            placeholder="usuario@exemplo.com"
+                            value={registerData.email}
+                            onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="registerPassword">Senha *</Label>
+                          <Input
+                            id="registerPassword"
+                            type="password"
+                            placeholder="Mínimo 6 caracteres"
+                            value={registerData.password}
+                            onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="confirmPassword">Confirmar Senha *</Label>
+                          <Input
+                            id="confirmPassword"
+                            type="password"
+                            placeholder="Confirme a senha"
+                            value={registerData.confirmPassword}
+                            onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="registerRole">Role do Usuário *</Label>
+                          <Select value={registerData.role} onValueChange={(value: 'admin' | 'operator') => setRegisterData({ ...registerData, role: value })}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">
+                                <div className="flex items-center">
+                                  <Shield className="h-4 w-4 mr-2" />
+                                  Administrador
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="operator">
+                                <div className="flex items-center">
+                                  <Users className="h-4 w-4 mr-2" />
+                                  Operador
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Administradores podem gerenciar usuários e configurações. Operadores têm acesso às funcionalidades principais.
+                          </p>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setRegisterDialogOpen(false)}>
+                          Cancelar
+                        </Button>
+                        <Button 
+                          onClick={handleRegisterUser} 
+                          disabled={
+                            loading || 
+                            !registerData.name.trim() || 
+                            !registerData.email.trim() || 
+                            !registerData.password.trim() ||
+                            registerData.password !== registerData.confirmPassword ||
+                            registerData.password.length < 6
+                          }
+                        >
+                          {loading ? 'Cadastrando...' : 'Cadastrar Usuário'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Convidar Usuário
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Convidar Novo Usuário</DialogTitle>
+                        <DialogDescription>
+                          Convide um usuário para fazer parte do seu workspace
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div>
+                          <Label htmlFor="inviteEmail">Email do Usuário *</Label>
+                          <Input
+                            id="inviteEmail"
+                            type="email"
+                            placeholder="usuario@exemplo.com"
+                            value={inviteEmail}
+                            onChange={(e) => setInviteEmail(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="inviteRole">Role do Usuário *</Label>
+                          <Select value={inviteRole} onValueChange={(value: 'admin' | 'operator') => setInviteRole(value)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">
+                                <div className="flex items-center">
+                                  <Shield className="h-4 w-4 mr-2" />
+                                  Administrador
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="operator">
+                                <div className="flex items-center">
+                                  <Users className="h-4 w-4 mr-2" />
+                                  Operador
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Administradores podem gerenciar usuários e configurações. Operadores têm acesso às funcionalidades principais.
+                          </p>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
+                          Cancelar
+                        </Button>
+                        <Button onClick={handleInviteUser} disabled={loading || !inviteEmail.trim()}>
+                          {loading ? 'Convidando...' : 'Enviar Convite'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               )}
             </div>
 
