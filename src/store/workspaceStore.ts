@@ -32,6 +32,7 @@ interface WorkspaceState {
   cancelInvitation: (invitationId: string) => Promise<void>;
   resendInvitation: (invitationId: string) => Promise<void>;
   registerUser: (userData: { name: string; email: string; password: string; role: 'admin' | 'operator' }) => Promise<void>;
+  registerUser: (userData: { name: string; email: string; password: string; role: 'admin' | 'operator'; workspace_id: string }) => Promise<void>;
   
   // WhatsApp management
   connectWhatsApp: (instanceName: string) => Promise<WhatsAppInstance>;
@@ -351,9 +352,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   registerUser: async (userData) => {
     await ErrorHandler.handleAsync(async () => {
-      const currentWorkspace = get().currentWorkspace;
-      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
-
       // Get current user session for authorization
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Usuário não autenticado');
@@ -370,7 +368,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           email: userData.email,
           password: userData.password,
           role: userData.role,
-          workspace_id: currentWorkspace.id
+          workspace_id: userData.workspace_id
         })
       });
 

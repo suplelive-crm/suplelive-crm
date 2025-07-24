@@ -91,7 +91,8 @@ export function UserManagementDialog() {
         name: registerData.name,
         email: registerData.email,
         password: registerData.password,
-        role: registerData.role
+        role: registerData.role,
+        workspace_id: currentWorkspace.id
       });
       
       setRegisterData({
