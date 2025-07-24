@@ -103,11 +103,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         .select(`
           *,
           plan:plans(*),
-          subscription:subscriptions(*),
-          users:workspace_users(
-            *,
-            user:users(id, email, user_metadata)
-          )
+          subscription:subscriptions(*)
         `)
         .eq('owner_id', user.id);
 
