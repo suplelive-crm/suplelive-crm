@@ -98,9 +98,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const workspaces = data || [];
       set({ workspaces });
 
+      // Only set current workspace if none is selected and workspaces exist
       const currentState = get();
       if (!currentState.currentWorkspace && workspaces.length > 0) {
-        set({ currentWorkspace: workspaces[0] });
+        // Try to restore from localStorage first
+        const savedWorkspaceId = localStorage.getItem('currentWorkspaceId');
+        const savedWorkspace = savedWorkspaceId 
+          ? workspaces.find(w => w.id === savedWorkspaceId)
+          : null;
+        
+        set({ currentWorkspace: savedWorkspace || workspaces[0] });
       }
     });
   },
@@ -225,6 +232,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   setCurrentWorkspace: (workspace) => {
+    // Save to localStorage for persistence
+    localStorage.setItem('currentWorkspaceId', workspace.id);
     set({ currentWorkspace: workspace });
     get().fetchChannels();
     get().fetchWhatsAppInstances();

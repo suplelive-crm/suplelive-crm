@@ -74,9 +74,12 @@ export function LoginPage() {
       // Fetch workspaces to check if user has any
       await fetchWorkspaces();
       
+      // Get updated workspaces from store
+      const updatedWorkspaces = useWorkspaceStore.getState().workspaces;
+      
       // If user has workspaces, go to dashboard, otherwise go to onboarding
-      if (workspaces.length > 0) {
-        setCurrentWorkspace(workspaces[0]);
+      if (updatedWorkspaces.length > 0) {
+        setCurrentWorkspace(updatedWorkspaces[0]);
         navigate('/dashboard');
       } else {
         navigate('/onboarding');

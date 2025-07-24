@@ -10,7 +10,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading, initialize } = useAuthStore();
 
   useEffect(() => {
-    initialize();
+    // Only initialize if not already initialized
+    if (loading) {
+      initialize();
+    }
   }, [initialize]);
 
   if (loading) {
