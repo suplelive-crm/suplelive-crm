@@ -111,6 +111,7 @@ interface KanbanCardProps {
   onViewDetails: (item: Purchase | Return | Transfer) => void;
   onVerifyProduct: (purchaseId: string, productId: string) => Promise<void>;
   onAddToInventory: (id: string, type: 'purchase' | 'return' | 'transfer') => Promise<void>;
+  onVerifyReturn?: (returnId: string, observations?: string) => Promise<void>;
 }
 
 const KanbanCard = ({ item, onViewDetails, onVerifyProduct, onAddToInventory }: KanbanCardProps) => {

@@ -185,6 +185,7 @@ export function TrackingPage() {
   const [selectedItem, setSelectedItem] = useState<GenericItem | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [searchingByTracking, setSearchingByTracking] = useState(false);
+  const [selectedItemType, setSelectedItemType] = useState<'purchase' | 'return' | 'transfer' | null>(null);
 
   // Estados para o diálogo de EDIÇÃO
   const [isEditPurchaseOpen, setIsEditPurchaseOpen] = useState(false);
@@ -237,7 +238,18 @@ export function TrackingPage() {
   } = useTable(filteredData, 'date');
 
   const handleRefreshTracking = () => updateAllTrackingStatuses();
-  const handleViewDetails = (item: GenericItem) => { setSelectedItem(item); setDetailsOpen(true); };
+  const handleViewDetails = (item: GenericItem) => { 
+    setSelectedItem(item); 
+    // Determinar o tipo baseado na presença de propriedades específicas
+    if ('products' in item) {
+      setSelectedItemType('purchase');
+    } else if (activeTab === 'returns') {
+      setSelectedItemType('return');
+    } else {
+      setSelectedItemType('transfer');
+    }
+    setDetailsOpen(true); 
+  };
 
   // Função para abrir o diálogo de EDIÇÃO
   const handleEditPurchase = (purchase: Purchase) => {
@@ -255,6 +267,11 @@ export function TrackingPage() {
     } finally {
       setPurchaseToDelete(null); 
     }
+  };
+
+  const handleVerifyReturn = async (returnId: string, observations?: string) => {
+    // Esta função será implementada no store se necessário
+    console.log('Verify return:', returnId, observations);
   };
 
   const handleVerifyProduct = async (purchaseId: string, productId: string) => await verifyPurchaseProduct(purchaseId, productId);
@@ -556,7 +573,12 @@ export function TrackingPage() {
       <CreatePurchaseDialog open={createPurchaseOpen} onOpenChange={setCreatePurchaseOpen} />
       <CreateReturnDialog open={createReturnOpen} onOpenChange={setCreateReturnOpen} />
       <CreateTransferDialog open={createTransferOpen} onOpenChange={setCreateTransferOpen} />
-      <TrackingDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} item={selectedItem} type={selectedItem ? ('products' in selectedItem ? 'purchase' : activeTab === 'returns' ? 'return' : 'transfer') : null} />
+      <TrackingDetailsDialog 
+        open={detailsOpen} 
+        onOpenChange={setDetailsOpen} 
+        item={selectedItem} 
+        type={selectedItemType} 
+      />
 
       <EditPurchaseDialog
         open={isEditPurchaseOpen}
