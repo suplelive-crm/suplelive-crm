@@ -354,74 +354,39 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const currentWorkspace = get().currentWorkspace;
       if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
 
-      // Create user account using Supabase Auth Admin API
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: userData.password,
-        user_metadata: {
-          name: userData.name
+      // Get current user session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Usuário não autenticado');
+
+      // Call the secure Edge Function to register the user
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/register-user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
         },
-        email_confirm: true // Auto-confirm email
-      });
-
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Falha ao criar usuário');
-
-      // Create client record for the new user in the current workspace
-      const { error: clientError } = await supabase
-        .from('clients')
-        .insert({
+        body: JSON.stringify({
           name: userData.name,
           email: userData.email,
-          workspace_id: currentWorkspace.id,
-          metadata: {
-            user_type: 'workspace_member',
-            role: userData.role,
-            created_by: 'admin_registration'
-          }
-        });
+          password: userData.password,
+          role: userData.role,
+          workspace_id: currentWorkspace.id
+        })
+      });
 
-      if (clientError) {
-        console.warn('Could not create client record:', clientError);
-        // Don't throw error here as user creation was successful
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao cadastrar usuário');
       }
 
+      const result = await response.json();
+      
       ErrorHandler.showSuccess(
         'Usuário cadastrado com sucesso!',
         `${userData.name} foi criado e pode fazer login com o email ${userData.email}`
       );
 
       // Refresh user list (when workspace_users table is available)
-      get().fetchWorkspaceUsers();
-    });
-  },
-
-  registerUser: async (userData) => {
-    await ErrorHandler.handleAsync(async () => {
-      const currentWorkspace = get().currentWorkspace;
-      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
-
-      // Create user account
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: userData.password,
-        user_metadata: {
-          name: userData.name
-        },
-        email_confirm: true // Auto-confirm email
-      });
-
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Falha ao criar usuário');
-
-      // Add user to workspace_users table (when it exists)
-      // For now, we'll just show success message
-      ErrorHandler.showSuccess(
-        'Usuário cadastrado com sucesso!',
-        `${userData.name} foi adicionado ao workspace como ${userData.role === 'admin' ? 'Administrador' : 'Operador'}`
-      );
-
-      // Refresh user list
       get().fetchWorkspaceUsers();
     });
   },
