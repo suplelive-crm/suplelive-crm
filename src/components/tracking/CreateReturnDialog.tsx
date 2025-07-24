@@ -19,7 +19,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
     date: new Date().toISOString().split('T')[0],
     carrier: '',
     storeName: '',
-    customerName: '',
+    customer_name: '',
     trackingCode: '',
     observations: '',
   });
@@ -32,7 +32,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
     e.preventDefault();
     
     // Validate form
-    if (!formData.date || !formData.carrier || !formData.storeName || !formData.customerName || !formData.trackingCode) {
+    if (!formData.date || !formData.carrier || !formData.storeName || !formData.customer_name || !formData.trackingCode) {
       toast({
         title: 'Erro',
         description: 'Por favor, preencha todos os campos obrigatórios',
@@ -50,7 +50,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
         date: new Date().toISOString().split('T')[0],
         carrier: '',
         storeName: '',
-        customerName: '',
+        customer_name: '',
         trackingCode: '',
         observations: '',
       });
@@ -143,8 +143,8 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
               </Label>
               <Input
                 id="customerName"
-                value={formData.customerName}
-                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                value={formData.customer_name}
+                onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                 placeholder="Ex: João Silva"
                 required
               />

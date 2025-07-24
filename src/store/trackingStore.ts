@@ -553,7 +553,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         date: returnData.date,
         carrier: returnData.carrier,
         storeName: returnData.storeName,
-        customer_name: returnData.customerName,
+        customer_name: returnData.customer_name,
         trackingCode: returnData.trackingCode,
         status: 'Aguardando rastreamento',
         is_archived: false,
@@ -597,11 +597,11 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
+      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
       if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
-      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
-      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
+      if (updates.estimated_delivery !== undefined) dbUpdates.estimated_delivery = updates.estimated_delivery;
+      if (updates.is_archived !== undefined) dbUpdates.is_archived = updates.is_archived;
       if (updates.observations !== undefined) dbUpdates.observations = updates.observations;
       if (updates.is_verified !== undefined) dbUpdates.is_verified = updates.is_verified;
       if (updates.verification_observations !== undefined) dbUpdates.verification_observations = updates.verification_observations;
@@ -670,7 +670,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         date: transferData.date,
         carrier: transferData.carrier,
         storeName: transferData.storeName,
-        customer_name: transferData.customerName,
+        customer_name: transferData.customer_name,
         trackingCode: transferData.trackingCode,
         status: 'Aguardando rastreamento',
         is_archived: false,
@@ -712,11 +712,11 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (updates.date !== undefined) dbUpdates.date = updates.date;
       if (updates.carrier !== undefined) dbUpdates.carrier = updates.carrier;
       if (updates.storeName !== undefined) dbUpdates.storeName = updates.storeName;
-      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
+      if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
       if (updates.trackingCode !== undefined) dbUpdates.trackingCode = updates.trackingCode;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
-      if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
-      if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
+      if (updates.estimated_delivery !== undefined) dbUpdates.estimated_delivery = updates.estimated_delivery;
+      if (updates.is_archived !== undefined) dbUpdates.is_archived = updates.is_archived;
 
       const { error } = await supabase
         .from('transfers')

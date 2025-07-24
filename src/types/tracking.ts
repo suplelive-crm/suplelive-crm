@@ -32,7 +32,7 @@ export interface Return {
   date: string;
   carrier: 'Jadlog' | 'Correios' | string;
   storeName: string;
-  customerName: string;
+  customer_name: string;
   trackingCode: string;
   status: string;
   estimatedDelivery?: string;
@@ -51,7 +51,7 @@ export interface Transfer {
   date: string;
   carrier: 'Jadlog' | 'Correios' | string;
   storeName: string;
-  customerName: string;
+  customer_name: string;
   trackingCode: string;
   status: string;
   estimatedDelivery?: string;

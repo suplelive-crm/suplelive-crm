@@ -215,7 +215,7 @@ export function TrackingPage() {
       const productSearchTermLower = productSearchTerm.toLowerCase();
       const generalSearchMatch =
         (item.storeName || '').toLowerCase().includes(searchTermLower) ||
-        (item.customerName || '').toLowerCase().includes(searchTermLower) ||
+        (item.customer_name || '').toLowerCase().includes(searchTermLower) ||
         (item.trackingCode || '').toLowerCase().includes(searchTermLower) ||
         (item.status || '').toLowerCase().includes(searchTermLower);
 
@@ -394,7 +394,7 @@ export function TrackingPage() {
                       return (
                         <TableRow key={returnItem.id}>
                           <TableCell>{new Date(returnItem.date).toLocaleDateString('pt-BR')}</TableCell>
-                          <TableCell>{returnItem.customerName || 'Não informado'}</TableCell>
+                          <TableCell>{returnItem.customer_name || 'Não informado'}</TableCell>
                           <TableCell>{returnItem.storeName || 'Não informado'}</TableCell>
                           <TableCell>{returnItem.carrier || 'Não informado'}</TableCell>
                           <TableCell>
@@ -417,7 +417,7 @@ export function TrackingPage() {
                       return (
                         <TableRow key={transfer.id}>
                           <TableCell>{new Date(transfer.date).toLocaleDateString('pt-BR')}</TableCell>
-                          <TableCell>{transfer.customerName || 'Não informado'}</TableCell>
+                          <TableCell>{transfer.customer_name || 'Não informado'}</TableCell>
                           <TableCell>{transfer.storeName || 'Não informado'}</TableCell>
                           <TableCell>{transfer.carrier || 'Não informado'}</TableCell>
                           <TableCell>

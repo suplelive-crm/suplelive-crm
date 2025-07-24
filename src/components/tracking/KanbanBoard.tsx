@@ -124,7 +124,7 @@ const KanbanCard = ({ item, onViewDetails, onVerifyProduct, onAddToInventory }: 
       <CardContent className="p-3">
         <div className="flex justify-between items-start mb-2">
           <span className="font-semibold text-sm pr-2 break-words">
-            {isPurchase ? (item as Purchase).storeName : (item as Return | Transfer).customerName || 'Não identificado'}
+            {isPurchase ? (item as Purchase).storeName : (item as Return | Transfer).customer_name || 'Não identificado'}
           </span>
           <Badge variant={isPurchase ? 'default' : (item as Return).type === 'return' ? 'secondary' : 'outline'}>
             {isPurchase ? 'Compra' : (item as Return).type === 'return' ? 'Dev.' : 'Transf.'}
