@@ -55,6 +55,7 @@ interface TrackingState {
     storeName: string;
     customerName: string;
     trackingCode: string;
+    observations?: string;
   }) => Promise<void>;
   updateReturn: (id: string, updates: Partial<{
     date: string;
@@ -65,8 +66,12 @@ interface TrackingState {
     status: string;
     estimatedDelivery?: string;
     isArchived: boolean;
+    observations?: string;
+    is_verified: boolean;
+    verification_observations?: string;
   }>) => Promise<void>;
   archiveReturn: (id: string) => Promise<void>;
+  verifyReturn: (id: string, verification_observations?: string) => Promise<void>;
 
   createTransfer: (transfer: {
     date: string;
@@ -201,6 +206,10 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         created_at: item.created_at,
         updated_at: item.updated_at,
         workspace_id: item.workspace_id,
+        observations: item.observations,
+        is_verified: item.is_verified,
+        verification_observations: item.verification_observations,
+        verified_at: item.verified_at,
       }));
 
       set({ returns: formattedData || [], loading: false });
@@ -544,7 +553,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         trackingCode: returnData.trackingCode,
         status: 'Aguardando rastreamento',
         is_archived: false,
-        workspace_id: currentWorkspace.id
+        workspace_id: currentWorkspace.id,
+        observations: returnData.observations || null,
+        is_verified: false
       };
 
       console.log("Creating return with data:", dbReturnData);

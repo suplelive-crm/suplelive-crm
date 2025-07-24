@@ -40,6 +40,10 @@ export interface Return {
   createdAt: string;
   updatedAt: string;
   workspace_id: string;
+  observations?: string;
+  is_verified: boolean;
+  verification_observations?: string;
+  verified_at?: string;
 }
 
 export interface Transfer {
