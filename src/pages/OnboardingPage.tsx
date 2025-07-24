@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, ArrowRight, Building2, Users, Zap } from 'lucide-react';
+import { Check, ArrowRight, Building2, Users, Zap, Plus, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,16 +16,25 @@ export function OnboardingPage() {
   const [workspaceName, setWorkspaceName] = useState('');
   const [selectedPlan, setSelectedPlan] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showCreateNew, setShowCreateNew] = useState(false);
   
-  const { plans, fetchPlans, createWorkspace, setCurrentWorkspace } = useWorkspaceStore();
+  const { 
+    workspaces, 
+    plans, 
+    fetchWorkspaces,
+    fetchPlans, 
+    createWorkspace, 
+    setCurrentWorkspace 
+  } = useWorkspaceStore();
   const { checkWorkspaceUniqueness } = useWorkspaceStore();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
+    fetchWorkspaces();
     fetchPlans();
-  }, [fetchPlans]);
+  }, [fetchWorkspaces, fetchPlans]);
 
   // Generate display slug from workspace name (for preview only)
   const displaySlug = workspaceName
@@ -33,6 +42,10 @@ export function OnboardingPage() {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
+  const handleSelectExistingWorkspace = (workspace: any) => {
+    setCurrentWorkspace(workspace);
+    navigate('/dashboard');
+  };
   const handleCreateWorkspace = async () => {
     if (!workspaceName || !selectedPlan) {
       toast({
@@ -133,16 +146,93 @@ export function OnboardingPage() {
               Bem-vindo ao OmniCRM
             </h1>
             <p className="text-xl text-gray-600">
-              Vamos configurar seu workspace e começar
+              {workspaces.length > 0 && !showCreateNew 
+                ? 'Escolha um workspace ou crie um novo'
+                : 'Vamos configurar seu workspace e começar'
+              }
             </p>
           </motion.div>
 
-          {step === 1 && (
+          {/* Show existing workspaces if user has any and not creating new */}
+          {workspaces.length > 0 && !showCreateNew && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="space-y-6"
+            >
+              <Card className="max-w-2xl mx-auto">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Building2 className="mr-2 h-5 w-5" />
+                    Seus Workspaces
+                  </CardTitle>
+                  <CardDescription>
+                    Você já possui {workspaces.length} workspace(s). Escolha um para acessar ou crie um novo.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    {workspaces.map((workspace) => (
+                      <div
+                        key={workspace.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <Building2 className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-gray-900">{workspace.name}</h3>
+                            <p className="text-sm text-gray-500">
+                              omnicrm.com/{workspace.slug}
+                            </p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                {workspace.plan?.name || 'Plano não encontrado'}
+                              </Badge>
+                              <Badge className="text-xs bg-yellow-100 text-yellow-800">
+                                Proprietário
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                        <Button onClick={() => handleSelectExistingWorkspace(workspace)}>
+                          <LogIn className="h-4 w-4 mr-2" />
+                          Acessar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="flex justify-center pt-4 border-t">
+                    <Button variant="outline" onClick={() => setShowCreateNew(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar Novo Workspace
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+          {/* Show workspace creation form if no workspaces exist or user chose to create new */}
+          {(workspaces.length === 0 || showCreateNew) && step === 1 && (
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
+              {showCreateNew && (
+                <div className="text-center mb-6">
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => setShowCreateNew(false)}
+                    className="mb-4"
+                  >
+                    ← Voltar para meus workspaces
+                  </Button>
+                </div>
+              )}
+              
               <Card className="max-w-md mx-auto">
                 <CardHeader>
                   <CardTitle>Crie Seu Workspace</CardTitle>
@@ -189,7 +279,7 @@ export function OnboardingPage() {
             </motion.div>
           )}
 
-          {step === 2 && (
+          {(workspaces.length === 0 || showCreateNew) && step === 2 && (
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
