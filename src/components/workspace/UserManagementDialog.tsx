@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Mail, Shield, UserX, MoreVertical, Crown, RefreshCw, Send } from 'lucide-react';
+import { Users, Plus, Mail, Shield, UserX, MoreVertical, Crown, RefreshCw, Send, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,8 +17,16 @@ import { useAuthStore } from '@/store/authStore';
 export function UserManagementDialog() {
   const [open, setOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'operator'>('operator');
+  const [registerData, setRegisterData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: 'operator' as 'admin' | 'operator'
+  });
   const [loading, setLoading] = useState(false);
 
   const { 
