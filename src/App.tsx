@@ -26,6 +26,7 @@ function AppContent() {
   const [appInitialized, setAppInitialized] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -63,6 +64,13 @@ function AppContent() {
           // Set the workspace
           setCurrentWorkspace(workspaceToSet);
           console.log('Workspace set successfully');
+          
+          // Restore the last visited route if user is on root path
+          const savedRoute = localStorage.getItem('lastVisitedRoute');
+          if (location.pathname === '/' && savedRoute && savedRoute !== '/onboarding') {
+            console.log('Restoring last visited route:', savedRoute);
+            navigate(savedRoute, { replace: true });
+          }
         } else {
           console.log('No workspaces found, user needs onboarding');
         }
@@ -77,6 +85,12 @@ function AppContent() {
     initializeApp();
   }, [user, appInitialized, fetchWorkspaces, setCurrentWorkspace]);
 
+  // Save current route to localStorage whenever it changes
+  useEffect(() => {
+    if (user && currentWorkspace && location.pathname !== '/' && location.pathname !== '/onboarding') {
+      localStorage.setItem('lastVisitedRoute', location.pathname);
+    }
+  }, [location.pathname, user, currentWorkspace]);
   // Show loading while auth is loading
   if (authLoading) {
     return (
@@ -267,7 +281,11 @@ function AppContent() {
         element={
           user ? (
             currentWorkspace ? (
-              <Navigate to="/dashboard" replace />
+              (() => {
+                const savedRoute = localStorage.getItem('lastVisitedRoute');
+                const targetRoute = savedRoute && savedRoute !== '/onboarding' ? savedRoute : '/dashboard';
+                return <Navigate to={targetRoute} replace />;
+              })()
             ) : workspaces.length === 0 ? (
               <Navigate to="/onboarding" replace />
             ) : (

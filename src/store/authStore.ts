@@ -100,6 +100,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // If user logged out, clear workspace data
         if (!newUser) {
           localStorage.removeItem('currentWorkspaceId');
+          localStorage.removeItem('lastVisitedRoute');
           const { setCurrentWorkspace } = useWorkspaceStore.getState();
           setCurrentWorkspace(null);
         }
