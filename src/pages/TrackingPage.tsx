@@ -406,6 +406,21 @@ export function TrackingPage() {
                           <TableCell><Badge className={getStatusColor(returnItem.status)}>{returnItem.status || 'Não informado'}</Badge></TableCell>
                           <TableCell>{returnItem.estimated_delivery ? new Date(returnItem.estimated_delivery).toLocaleDateString('pt-BR') : 'N/A'}</TableCell>
                           <TableCell>
+                            <div className="max-w-xs truncate">
+                              {returnItem.observations || 'N/A'}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {returnItem.is_verified ? (
+                              <Badge className="bg-green-100 text-green-800">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Sim
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">Não</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
                             <div className="flex items-center space-x-2">
                               <Button variant="outline" size="sm" onClick={() => handleViewDetails(returnItem)}><Eye className="h-4 w-4" /></Button>
                             </div>
@@ -428,6 +443,8 @@ export function TrackingPage() {
                           </TableCell>
                           <TableCell><Badge className={getStatusColor(transfer.status)}>{transfer.status || 'Não informado'}</Badge></TableCell>
                           <TableCell>{transfer.estimated_delivery ? new Date(transfer.estimated_delivery).toLocaleDateString('pt-BR') : 'N/A'}</TableCell>
+                          <TableCell>N/A</TableCell>
+                          <TableCell>N/A</TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
                               <Button variant="outline" size="sm" onClick={() => handleViewDetails(transfer)}><Eye className="h-4 w-4" /></Button>
