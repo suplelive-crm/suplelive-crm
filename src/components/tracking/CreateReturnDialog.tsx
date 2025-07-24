@@ -21,6 +21,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
     storeName: '',
     customerName: '',
     trackingCode: '',
+    observations: '',
   });
   
   const [loading, setLoading] = useState(false);
@@ -51,6 +52,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
         storeName: '',
         customerName: '',
         trackingCode: '',
+        observations: '',
       });
       
       onOpenChange(false);
@@ -159,6 +161,20 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
                 onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })}
                 placeholder="Ex: AA123456789BR"
                 required
+              />
+            </div>
+            
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="observations" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" />
+                Observações (Opcional)
+              </Label>
+              <Textarea
+                id="observations"
+                value={formData.observations || ''}
+                onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+                placeholder="Adicione observações sobre esta devolução..."
+                rows={3}
               />
             </div>
           </div>

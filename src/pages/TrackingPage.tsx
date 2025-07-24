@@ -307,7 +307,7 @@ export function TrackingPage() {
       returns: [
         { key: 'date', label: 'Data' }, { key: 'customerName', label: 'Cliente' }, { key: 'storeName', label: 'Loja' },
         { key: 'carrier', label: 'Transportadora' }, { key: 'trackingCode', label: 'Rastreio' }, { key: 'status', label: 'Status' },
-        { key: 'estimated_delivery', label: 'Previsão' }
+        { key: 'estimated_delivery', label: 'Previsão' }, { key: 'observations', label: 'Observações' }, { key: 'is_verified', label: 'Conferido' }
       ],
       transfers: [
         { key: 'date', label: 'Data' }, { key: 'customerName', label: 'Cliente' }, { key: 'storeName', label: 'Loja' },
