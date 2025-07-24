@@ -304,6 +304,7 @@ export function UserManagementDialog() {
                           onClick={handleRegisterUser} 
                           disabled={
                             loading || 
+                           !currentWorkspace ||
                             !registerData.name.trim() || 
                             !registerData.email.trim() || 
                             !registerData.password.trim() ||
@@ -373,6 +374,7 @@ export function UserManagementDialog() {
                           Cancelar
                         </Button>
                         <Button onClick={handleInviteUser} disabled={loading || !inviteEmail.trim()}>
+                        <Button onClick={handleInviteUser} disabled={loading || !currentWorkspace || !inviteEmail.trim()}>
                           {loading ? 'Convidando...' : 'Enviar Convite'}
                         </Button>
                       </DialogFooter>
