@@ -107,13 +107,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* A MUDANÇA É AQUI: Adicionamos a prop 'onInteractOutside' */}
-      <DialogContent 
-        className="max-w-5xl max-h-[90vh] overflow-y-auto"
-        onInteractOutside={(e) => {
-          e.preventDefault();
-        }}
-      >
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nova Compra</DialogTitle>
           <DialogDescription>Adicione uma nova compra para rastreamento</DialogDescription>

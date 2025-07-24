@@ -18,6 +18,7 @@ interface ProductAutocompleteProps {
 
 export function ProductAutocomplete({ products, value, onSelect, onInputChange }: ProductAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   
   const inputValue = value?.name || '';
 
@@ -71,12 +72,25 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
   }, [inputValue, products]);
 
   useEffect(() => {
-    if (inputValue && filteredProducts.length > 0) {
+    if (inputValue && filteredProducts.length > 0 && inputFocused) {
       setIsOpen(true);
     } else {
       setIsOpen(false);
     }
-  }, [inputValue, filteredProducts.length]);
+  }, [inputValue, filteredProducts.length, inputFocused]);
+
+  const handleSelect = (product: Product) => {
+    onSelect(product);
+    setIsOpen(false);
+    setInputFocused(false);
+  };
+
+  const handleInputChange = (value: string) => {
+    onInputChange(value);
+    if (value.trim()) {
+      setInputFocused(true);
+    }
+  };
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -85,11 +99,20 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
           type="text"
           placeholder="Digite para buscar um produto..."
           value={inputValue}
-          onChange={(e) => onInputChange(e.target.value)}
+          onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => {
-            if (inputValue) setIsOpen(true);
+            setInputFocused(true);
+            if (inputValue && filteredProducts.length > 0) {
+              setIsOpen(true);
+            }
           }}
-          // ## LINHA CORRIGIDA: O onBlur foi removido para evitar a race condition ##
+          onBlur={() => {
+            // Delay to allow click on dropdown items
+            setTimeout(() => {
+              setInputFocused(false);
+              setIsOpen(false);
+            }, 200);
+          }}
           className="w-full"
         />
       </PopoverAnchor>
@@ -97,6 +120,10 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
       <PopoverContent 
         className="w-[--radix-popover-anchor-width] p-0" 
         onOpenAutoFocus={(e) => e.preventDefault()}
+        onInteractOutside={(e) => {
+          setIsOpen(false);
+          setInputFocused(false);
+        }}
       >
         <Command>
           <CommandList className="max-h-[300px] overflow-y-auto">
@@ -107,10 +134,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
               {filteredProducts.map((product) => (
                 <CommandItem
                   key={product.id}
-                  onSelect={() => {
-                    onSelect(product);
-                    setIsOpen(false);
-                  }}
+                  onSelect={() => handleSelect(product)}
                   className="cursor-pointer"
                 >
                   {product.name}
