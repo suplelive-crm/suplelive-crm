@@ -31,6 +31,7 @@ interface WorkspaceState {
   updateUserRole: (userId: string, role: 'admin' | 'operator') => Promise<void>;
   cancelInvitation: (invitationId: string) => Promise<void>;
   resendInvitation: (invitationId: string) => Promise<void>;
+  registerUser: (userData: { name: string; email: string; password: string; role: 'admin' | 'operator' }) => Promise<void>;
   
   // WhatsApp management
   connectWhatsApp: (instanceName: string) => Promise<WhatsAppInstance>;
@@ -345,6 +346,53 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     await ErrorHandler.handleAsync(async () => {
       // User invitation functionality disabled until proper tables are created
       throw new Error('Funcionalidade de convite de usuários temporariamente indisponível');
+    });
+  },
+
+  registerUser: async (userData) => {
+    await ErrorHandler.handleAsync(async () => {
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+      // Create user account using Supabase Auth Admin API
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: userData.email,
+        password: userData.password,
+        user_metadata: {
+          name: userData.name
+        },
+        email_confirm: true // Auto-confirm email
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Falha ao criar usuário');
+
+      // Create client record for the new user in the current workspace
+      const { error: clientError } = await supabase
+        .from('clients')
+        .insert({
+          name: userData.name,
+          email: userData.email,
+          workspace_id: currentWorkspace.id,
+          metadata: {
+            user_type: 'workspace_member',
+            role: userData.role,
+            created_by: 'admin_registration'
+          }
+        });
+
+      if (clientError) {
+        console.warn('Could not create client record:', clientError);
+        // Don't throw error here as user creation was successful
+      }
+
+      ErrorHandler.showSuccess(
+        'Usuário cadastrado com sucesso!',
+        `${userData.name} foi criado e pode fazer login com o email ${userData.email}`
+      );
+
+      // Refresh user list (when workspace_users table is available)
+      get().fetchWorkspaceUsers();
     });
   },
 

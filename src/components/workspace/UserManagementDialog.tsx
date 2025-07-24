@@ -36,6 +36,7 @@ export function UserManagementDialog() {
     fetchWorkspaceUsers,
     fetchUserInvitations,
     inviteUser,
+    registerUser,
     removeUser,
     updateUserRole,
     cancelInvitation,
@@ -74,7 +75,13 @@ export function UserManagementDialog() {
 
     setLoading(true);
     try {
-      // Add your register user logic here
+      await registerUser({
+        name: registerData.name,
+        email: registerData.email,
+        password: registerData.password,
+        role: registerData.role
+      });
+      
       setRegisterData({
         name: '',
         email: '',
