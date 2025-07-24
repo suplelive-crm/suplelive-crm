@@ -776,8 +776,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         const trackingInfo = await get().getTrackingInfo(item.carrier, item.trackingCode);
 
         if (!trackingInfo.success || !trackingInfo.data) {
-          console.warn(`Failed to update tracking for ${type} ${id}:`, trackingInfo.error);
-          return;
+          throw new Error(trackingInfo.error || 'Falha ao rastrear objeto');
         }
 
         console.log(`Got tracking info for ${type} ${id}:`, trackingInfo);
