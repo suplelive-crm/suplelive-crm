@@ -546,6 +546,7 @@ export function TrackingPage() {
                 onViewDetails={handleViewDetails}
                 onVerifyProduct={handleVerifyProduct}
                 onAddToInventory={handleAddToInventory}
+                onVerifyReturn={handleVerifyReturn}
               />
             )}
           </div>

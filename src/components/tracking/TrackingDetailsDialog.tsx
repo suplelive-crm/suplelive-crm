@@ -323,6 +323,36 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             </AlertDialog>
           </div>
         </DialogFooter>
+
+        {/* Dialog de Verificação de Devolução */}
+        <AlertDialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Conferir Devolução</AlertDialogTitle>
+              <AlertDialogDescription>
+                Marque esta devolução como conferida e adicione observações se necessário.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="verification-observations">Observações da Conferência (Opcional)</Label>
+                <Textarea
+                  id="verification-observations"
+                  value={verificationObservations}
+                  onChange={(e) => setVerificationObservations(e.target.value)}
+                  placeholder="Adicione observações sobre a conferência da devolução..."
+                  rows={3}
+                />
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => handleVerifyReturn(item.id, verificationObservations)}>
+                Confirmar Conferência
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

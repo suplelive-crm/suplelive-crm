@@ -250,6 +250,10 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         created_at: item.created_at,
         updated_at: item.updated_at,
         workspace_id: item.workspace_id,
+        observations: item.observations,
+        is_verified: item.is_verified,
+        verification_observations: item.verification_observations,
+        verified_at: item.verified_at,
       }));
 
 
