@@ -373,7 +373,6 @@ export function UserManagementDialog() {
                         <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
                           Cancelar
                         </Button>
-                        <Button onClick={handleInviteUser} disabled={loading || !inviteEmail.trim()}>
                         <Button onClick={handleInviteUser} disabled={loading || !currentWorkspace || !inviteEmail.trim()}>
                           {loading ? 'Convidando...' : 'Enviar Convite'}
                         </Button>
