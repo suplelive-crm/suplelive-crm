@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -23,21 +24,24 @@ import { useEffect } from 'react';
 function App() {
   const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore();
   const { user, initialize } = useAuthStore();
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    initialize();
+    const initializeApp = async () => {
+      await initialize();
+      if (user) {
+        await fetchWorkspaces();
+      }
+      setInitializing(false);
+    };
+    
+    initializeApp();
   }, [initialize]);
-
-  useEffect(() => {
-    if (user) {
-      fetchWorkspaces();
-    }
-  }, [user, fetchWorkspaces]);
 
   // Show loading screen while initializing auth
   const { loading } = useAuthStore();
   
-  if (loading) {
+  if (loading || initializing) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -217,7 +221,14 @@ function App() {
                 currentWorkspace ? (
                   <Navigate to="/dashboard" replace />
                 ) : (
-                  <Navigate to="/onboarding" replace />
+                  // Only redirect to onboarding if user has no workspaces at all
+                  // This will be handled by the workspace store initialization
+                  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <p className="text-gray-600">Carregando workspace...</p>
+                    </div>
+                  </div>
                 )
               ) : (
                 <Navigate to="/login" replace />

@@ -126,7 +126,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           ? workspaces.find(w => w.id === savedWorkspaceId)
           : null;
         
-        set({ currentWorkspace: savedWorkspace || workspaces[0] });
+        const workspaceToSet = savedWorkspace || workspaces[0];
+        set({ currentWorkspace: workspaceToSet });
+        
+        // If we restored a workspace, we don't need to redirect to onboarding
+        if (workspaceToSet && window.location.pathname === '/') {
+          window.location.href = '/dashboard';
+        }
+      } else if (workspaces.length === 0 && window.location.pathname === '/') {
+        // Only redirect to onboarding if user has no workspaces and is on root
+        window.location.href = '/onboarding';
       }
     });
   },
@@ -333,13 +342,25 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   setCurrentWorkspace: (workspace) => {
-    // Save to localStorage for persistence
-    localStorage.setItem('currentWorkspaceId', workspace.id);
-    set({ currentWorkspace: workspace });
-    get().fetchChannels();
-    get().fetchWhatsAppInstances();
-    get().fetchWorkspaceUsers();
-    get().fetchUserInvitations();
+    if (workspace) {
+      // Save to localStorage for persistence
+      localStorage.setItem('currentWorkspaceId', workspace.id);
+      set({ currentWorkspace: workspace });
+      get().fetchChannels();
+      get().fetchWhatsAppInstances();
+      get().fetchWorkspaceUsers();
+      get().fetchUserInvitations();
+    } else {
+      // Clear workspace
+      localStorage.removeItem('currentWorkspaceId');
+      set({ 
+        currentWorkspace: null,
+        channels: [],
+        whatsappInstances: [],
+        workspaceUsers: [],
+        userInvitations: []
+      });
+    }
   },
 
   inviteUser: async (email, role) => {

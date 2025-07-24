@@ -91,7 +91,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Set up auth state listener
       supabase.auth.onAuthStateChange((event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
-        set({ user: session?.user ?? null, loading: false });
+        const newUser = session?.user ?? null;
+        set({ user: newUser, loading: false });
+        
+        // If user logged out, clear workspace data
+        if (!newUser) {
+          localStorage.removeItem('currentWorkspaceId');
+          useWorkspaceStore.getState().setCurrentWorkspace(null);
+        }
       });
     } catch (error) {
       set({ loading: false });
