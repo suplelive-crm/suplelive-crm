@@ -61,9 +61,11 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     }
   };
 
+  // ## FUNÇÃO CORRIGIDA ##
+  // A correção está aqui: a variável 'observations' agora é passada para 'verifyReturn'.
   const handleVerifyReturn = async (returnId: string, observations?: string) => {
     try {
-      await verifyReturn(returnId);
+      await verifyReturn(returnId, observations); // Passa as observações para o store
       toast({
         title: "Devolução Conferida",
         description: "A devolução foi marcada como conferida com sucesso."
