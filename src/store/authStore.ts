@@ -79,6 +79,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ loading: true });
       
+      console.log('Initializing auth...');
+      
       // Check for existing session first
       const { data: { session }, error } = await supabase.auth.getSession();
       
@@ -86,6 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw error;
       }
       
+      console.log('Auth session:', session?.user?.email || 'No user');
       set({ user: session?.user ?? null, loading: false });
 
       // Set up auth state listener
@@ -97,11 +100,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // If user logged out, clear workspace data
         if (!newUser) {
           localStorage.removeItem('currentWorkspaceId');
-          useWorkspaceStore.getState().setCurrentWorkspace(null);
+          const { setCurrentWorkspace } = useWorkspaceStore.getState();
+          setCurrentWorkspace(null);
         }
       });
     } catch (error) {
       set({ loading: false });
+      console.error('Auth initialization error:', error);
       ErrorHandler.showError(error);
     }
   },

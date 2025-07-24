@@ -98,6 +98,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      console.log('Fetching workspaces for user:', user.email);
+
       const { data, error } = await supabase
         .from('workspaces')
         .select(`
@@ -115,28 +117,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         user_role: 'owner' as const
       }));
       
+      console.log('Fetched workspaces:', workspaces.length, workspaces.map(w => ({ id: w.id, name: w.name })));
       set({ workspaces });
 
-      // Only set current workspace if none is selected and workspaces exist
-      const currentState = get();
-      if (!currentState.currentWorkspace && workspaces.length > 0) {
-        // Try to restore from localStorage first
-        const savedWorkspaceId = localStorage.getItem('currentWorkspaceId');
-        const savedWorkspace = savedWorkspaceId 
-          ? workspaces.find(w => w.id === savedWorkspaceId)
-          : null;
-        
-        const workspaceToSet = savedWorkspace || workspaces[0];
-        set({ currentWorkspace: workspaceToSet });
-        
-        // If we restored a workspace, we don't need to redirect to onboarding
-        if (workspaceToSet && window.location.pathname === '/') {
-          window.location.href = '/dashboard';
-        }
-      } else if (workspaces.length === 0 && window.location.pathname === '/') {
-        // Only redirect to onboarding if user has no workspaces and is on root
-        window.location.href = '/onboarding';
-      }
+      // Don't automatically set workspace here - let App.tsx handle it
+      console.log('Workspaces fetched successfully');
     });
   },
 
@@ -345,6 +330,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     if (workspace) {
       // Save to localStorage for persistence
       localStorage.setItem('currentWorkspaceId', workspace.id);
+      console.log('Setting current workspace:', workspace.name, workspace.id);
       set({ currentWorkspace: workspace });
       get().fetchChannels();
       get().fetchWhatsAppInstances();
@@ -353,6 +339,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     } else {
       // Clear workspace
       localStorage.removeItem('currentWorkspaceId');
+      console.log('Clearing current workspace');
       set({ 
         currentWorkspace: null,
         channels: [],

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { LoginPage } from '@/pages/LoginPage';
@@ -19,29 +19,66 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { TrackingPage } from '@/pages/TrackingPage';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useAuthStore } from '@/store/authStore';
-import { useEffect } from 'react';
 
-function App() {
-  const { currentWorkspace, fetchWorkspaces } = useWorkspaceStore();
-  const { user, initialize } = useAuthStore();
-  const [initializing, setInitializing] = useState(true);
+function AppContent() {
+  const { currentWorkspace, workspaces, fetchWorkspaces, setCurrentWorkspace } = useWorkspaceStore();
+  const { user, loading: authLoading } = useAuthStore();
+  const [appInitialized, setAppInitialized] = useState(false);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const initializeApp = async () => {
-      await initialize();
-      if (user) {
-        await fetchWorkspaces();
-      }
-      setInitializing(false);
-    };
-    
-    initializeApp();
-  }, [initialize]);
+      if (!user || appInitialized) return;
 
-  // Show loading screen while initializing auth
-  const { loading } = useAuthStore();
-  
-  if (loading || initializing) {
+      console.log('Initializing app for user:', user.email);
+      setWorkspaceLoading(true);
+
+      try {
+        // Fetch workspaces first
+        await fetchWorkspaces();
+        
+        // Get updated workspaces from store
+        const updatedWorkspaces = useWorkspaceStore.getState().workspaces;
+        console.log('Fetched workspaces:', updatedWorkspaces.length);
+
+        if (updatedWorkspaces.length > 0) {
+          // Try to restore workspace from localStorage
+          const savedWorkspaceId = localStorage.getItem('currentWorkspaceId');
+          console.log('Saved workspace ID:', savedWorkspaceId);
+          
+          let workspaceToSet = null;
+          
+          if (savedWorkspaceId) {
+            workspaceToSet = updatedWorkspaces.find(w => w.id === savedWorkspaceId);
+            console.log('Found saved workspace:', workspaceToSet?.name);
+          }
+          
+          // If no saved workspace or saved workspace not found, use first available
+          if (!workspaceToSet) {
+            workspaceToSet = updatedWorkspaces[0];
+            console.log('Using first workspace:', workspaceToSet.name);
+          }
+          
+          // Set the workspace
+          setCurrentWorkspace(workspaceToSet);
+          console.log('Workspace set successfully');
+        } else {
+          console.log('No workspaces found, user needs onboarding');
+        }
+      } catch (error) {
+        console.error('Error initializing app:', error);
+      } finally {
+        setWorkspaceLoading(false);
+        setAppInitialized(true);
+      }
+    };
+
+    initializeApp();
+  }, [user, appInitialized, fetchWorkspaces, setCurrentWorkspace]);
+
+  // Show loading while auth is loading
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -51,191 +88,239 @@ function App() {
       </div>
     );
   }
+
+  // Show workspace loading only if user exists and we're still loading workspaces
+  if (user && workspaceLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignUpPage />} />
+      
+      {/* Protected routes */}
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute>
+            <OnboardingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <DashboardPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inbox"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <InboxPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/clients"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <ClientsPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kanban"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <KanbanPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/orders"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <OrdersPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <MessagesPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/campaigns"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <CampaignsPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/integrations"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <IntegrationsPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/automation"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <AutomationPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <AnalyticsPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <SettingsPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tracking"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <TrackingPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Root redirect */}
+      <Route 
+        path="/" 
+        element={
+          user ? (
+            currentWorkspace ? (
+              <Navigate to="/dashboard" replace />
+            ) : workspaces.length === 0 ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              // Still loading workspaces
+              <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Carregando workspace...</p>
+                </div>
+              </div>
+            )
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } 
+      />
+    </Routes>
+  );
+}
+
+function App() {
+  const { initialize } = useAuthStore();
+  const [authInitialized, setAuthInitialized] = useState(false);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        await initialize();
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        setAuthInitialized(true);
+      }
+    };
+    
+    initAuth();
+  }, [initialize]);
+
+  if (!authInitialized) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Inicializando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
-          
-          {/* Protected routes */}
-          <Route
-            path="/onboarding"
-            element={
-              <ProtectedRoute>
-                <OnboardingPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <DashboardPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/inbox"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <InboxPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/clients"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <ClientsPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/kanban"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <KanbanPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/orders"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <OrdersPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/messages"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <MessagesPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/campaigns"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <CampaignsPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/integrations"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <IntegrationsPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/automation"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <AutomationPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/analytics"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <AnalyticsPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <SettingsPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tracking"
-            element={
-              <ProtectedRoute>
-                {!currentWorkspace ? (
-                  <Navigate to="/onboarding" replace />
-                ) : (
-                  <TrackingPage />
-                )}
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Root redirect */}
-          <Route 
-            path="/" 
-            element={
-              user ? (
-                currentWorkspace ? (
-                  <Navigate to="/dashboard" replace />
-                ) : (
-                  // Only redirect to onboarding if user has no workspaces at all
-                  // This will be handled by the workspace store initialization
-                  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                      <p className="text-gray-600">Carregando workspace...</p>
-                    </div>
-                  </div>
-                )
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            } 
-          />
-        </Routes>
+        <AppContent />
         <Toaster />
       </div>
     </Router>
