@@ -55,6 +55,12 @@ export function UserManagementDialog() {
   const handleInviteUser = async () => {
     if (!inviteEmail.trim()) return;
 
+    // Validate workspace is selected
+    if (!currentWorkspace) {
+      ErrorHandler.showError('Erro', 'Nenhum workspace selecionado. Selecione um workspace antes de convidar usuários.');
+      return;
+    }
+
     setLoading(true);
     try {
       await inviteUser(inviteEmail, inviteRole);
@@ -72,6 +78,12 @@ export function UserManagementDialog() {
     if (!registerData.name.trim() || !registerData.email.trim() || !registerData.password.trim()) return;
     if (registerData.password !== registerData.confirmPassword) return;
     if (registerData.password.length < 6) return;
+
+    // Validate workspace is selected
+    if (!currentWorkspace) {
+      ErrorHandler.showError('Erro', 'Nenhum workspace selecionado. Selecione um workspace antes de cadastrar usuários.');
+      return;
+    }
 
     setLoading(true);
     try {
