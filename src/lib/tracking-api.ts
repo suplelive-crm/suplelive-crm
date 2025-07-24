@@ -1,33 +1,29 @@
 /**
- * Função ÚNICA e simplificada para chamar nosso proxy de rastreamento no back-end.
- * O front-end não precisa mais saber sobre APIs específicas ou chaves.
+ * Função para rastrear pacotes usando nossa edge function de automação
  */
 export async function trackPackage(carrier: string, trackingCode: string): Promise<any> {
-  // Validação inicial no front-end para evitar chamadas de API desnecessárias.
   if (!carrier || !trackingCode) {
     throw new Error('Transportadora e código de rastreio são obrigatórios.');
   }
 
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    // A chamada 'fetch' foi construída corretamente em uma única declaração.
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
     const response = await fetch(`${supabaseUrl}/functions/v1/tracking-proxy`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        "Authorization": `Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684`
+        'Authorization': `Bearer ${supabaseAnonKey}`
       },
-      // Enviamos um payload padronizado que nosso back-end entende.
       body: JSON.stringify({ 
         carrier,
         trackingCode 
       })
     });
 
-    // Se a resposta do nosso proxy não for OK, lança um erro.
     if (!response.ok) {
       const errorData = await response.json();
-      // Usa a mensagem de erro amigável que o nosso proxy retorna.
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
 
@@ -35,7 +31,35 @@ export async function trackPackage(carrier: string, trackingCode: string): Promi
 
   } catch (error) {
     console.error('Error in trackPackage function:', error);
-    // Re-lança o erro para que a camada superior (Zustand store) possa capturá-lo.
+    throw error;
+  }
+}
+
+/**
+ * Função para executar a automação de tracking (equivalente ao seu n8n)
+ */
+export async function runTrackingAutomation(): Promise<any> {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/tracking-automation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+
+  } catch (error) {
+    console.error('Error in tracking automation:', error);
     throw error;
   }
 }

@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useWorkspaceStore } from './workspaceStore';
 import { ErrorHandler } from '@/lib/error-handler';
 import { Purchase, PurchaseProduct, Return, Transfer, TrackingResponse } from '@/types/tracking';
-import { trackPackage, parseTrackingResponse, getTrackingUrl } from '@/lib/tracking-api';
+import { trackPackage, parseTrackingResponse, getTrackingUrl, runTrackingAutomation } from '@/lib/tracking-api';
 
 // Tipos para os dados do formulário, para clareza
 interface PurchaseFormData {
@@ -805,49 +805,33 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updateAllTrackingStatuses: async () => {
     await ErrorHandler.handleAsync(async () => {
-      const purchases = get().purchases.filter(p => !p.is_archived);
-      const returns = get().returns.filter(r => !r.is_archived);
-      const transfers = get().transfers.filter(t => !t.is_archived);
-
-      let successCount = 0;
-      let failureCount = 0;
-
-      for (const purchase of purchases) {
-        try {
-          await get().updateTrackingStatus('purchase', purchase.id);
-          successCount++;
-        } catch (error) {
-          failureCount++;
-          console.warn(`Failed to update tracking for purchase ${purchase.id}:`, error);
+      try {
+        // Use the automated tracking function (equivalent to your n8n workflow)
+        const result = await runTrackingAutomation();
+        
+        if (result.success) {
+          // Refresh all data after automation
+          await Promise.all([
+            get().fetchPurchases(),
+            get().fetchReturns(),
+            get().fetchTransfers()
+          ]);
+          
+          ErrorHandler.showSuccess(
+            `Automação de rastreamento concluída!`,
+            `${result.updated} itens atualizados de ${result.total} processados`
+          );
+        } else {
+          throw new Error(result.error || 'Falha na automação de rastreamento');
         }
-      }
-
-      for (const returnItem of returns) {
-        try {
-          await get().updateTrackingStatus('return', returnItem.id);
-          successCount++;
-        } catch (error) {
-          failureCount++;
-          console.warn(`Failed to update tracking for return ${returnItem.id}:`, error);
-        }
-      }
-
-      for (const transfer of transfers) {
-        try {
-          await get().updateTrackingStatus('transfer', transfer.id);
-          successCount++;
-        } catch (error) {
-          failureCount++;
-          console.warn(`Failed to update tracking for transfer ${transfer.id}:`, error);
-        }
-      }
-
-      if (successCount > 0) {
-        ErrorHandler.showSuccess(`${successCount} rastreamentos atualizados com sucesso!`);
-      }
-
-      if (failureCount > 0) {
-        ErrorHandler.showError(`${failureCount} rastreamentos falharam. Verifique a conexão com a internet.`);
+      } catch (error: any) {
+        console.error('Error in tracking automation:', error);
+        ErrorHandler.showError(
+          ErrorHandler.createError(
+            'Erro na Automação',
+            `Falha ao executar automação de rastreamento: ${error.message}`
+          )
+        );
       }
     });
   },
