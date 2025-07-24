@@ -49,9 +49,9 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         date: new Date(purchase.date).toISOString().split('T')[0],
         carrier: purchase.carrier || '',
         storeName: purchase.storeName || '',
-        customerName: purchase.customer_name || '',
+        customer_name: purchase.customer_name || '',
         trackingCode: purchase.trackingCode || '',
-        deliveryFee: purchase.delivery_fee || 0,
+        delivery_fee: purchase.delivery_fee || 0,
       });
       // structuredClone é uma forma segura de copiar o array sem referenciar o original
       setProducts(structuredClone(purchase.products || []));

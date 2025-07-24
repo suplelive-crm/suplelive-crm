@@ -10,9 +10,9 @@ interface PurchaseFormData {
   date: string;
   carrier: string;
   storeName: string;
-  customerName?: string;
+  customer_name?: string;
   trackingCode: string;
-  deliveryFee: number;
+  delivery_fee: number;
 }
 
 // Omit<> remove campos do tipo original para criar um novo tipo
@@ -270,9 +270,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         date: purchaseData.date,
         carrier: purchaseData.carrier,
         storeName: purchaseData.storeName,
-        customer_name: purchaseData.customerName || null,
+        customer_name: purchaseData.customer_name || null,
         trackingCode: purchaseData.trackingCode,
-        delivery_fee: purchaseData.deliveryFee,
+        delivery_fee: purchaseData.delivery_fee,
         status: 'Aguardando rastreamento',
         is_archived: false,
         workspace_id: currentWorkspace.id
@@ -287,7 +287,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (purchaseError) throw purchaseError;
 
       const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
-      const deliveryFeePerUnit = totalQuantity > 0 ? purchaseData.deliveryFee / totalQuantity : 0;
+      const deliveryFeePerUnit = totalQuantity > 0 ? purchaseData.delivery_fee / totalQuantity : 0;
 
       const productsWithPurchaseId = products.map(product => ({
         name: product.name,
@@ -326,9 +326,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         p_date: formData.date,
         p_carrier: formData.carrier,
         p_store_name: formData.storeName,
-        p_customer_name: formData.customerName || null,
+        p_customer_name: formData.customer_name || null,
         p_tracking_code: formData.trackingCode,
-        p_delivery_fee: formData.deliveryFee,
+        p_delivery_fee: formData.delivery_fee,
         p_products: products.map(p => ({
             name: p.name,
             sku: p.sku,

@@ -28,9 +28,9 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     date: new Date().toISOString().split('T')[0],
     carrier: '',
     storeName: '',
-    customerName: '',
+    customer_name: '',
     trackingCode: '',
-    deliveryFee: 0,
+    delivery_fee: 0,
   });
 
   const [products, setProducts] = useState<FormProduct[]>([
@@ -93,7 +93,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     try {
       await createPurchase(formData, products as any);
 
-      setFormData({ date: new Date().toISOString().split('T')[0], carrier: '', storeName: '', customerName: '', trackingCode: '', deliveryFee: 0 });
+      setFormData({ date: new Date().toISOString().split('T')[0], carrier: '', storeName: '', customer_name: '', trackingCode: '', delivery_fee: 0 });
       setProducts([{ name: '', quantity: 1, cost: 0, sku: '' }]);
       onOpenChange(false);
       toast({ title: 'Sucesso', description: 'Compra criada com sucesso' });
@@ -149,6 +149,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
                     <Package className="h-4 w-4 text-gray-500" /> Nome do Cliente (Opcional)
                 </Label>
                 <Input id="customerName" value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} placeholder="Ex: João Silva"/>
+                <Input id="customerName" value={formData.customer_name} onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })} placeholder="Ex: João Silva"/>
             </div>
             <div className="space-y-2">
                 <Label htmlFor="trackingCode" className="flex items-center gap-2">
@@ -160,7 +161,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
                 <Label htmlFor="deliveryFee" className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
                 </Label>
-                <Input id="deliveryFee" type="number" min="0" step="0.01" value={formData.deliveryFee} onChange={(e) => setFormData({ ...formData, deliveryFee: parseFloat(e.target.value) || 0 })} required/>
+                <Input id="deliveryFee" type="number" min="0" step="0.01" value={formData.delivery_fee} onChange={(e) => setFormData({ ...formData, delivery_fee: parseFloat(e.target.value) || 0 })} required/>
             </div>
           </div>
 
