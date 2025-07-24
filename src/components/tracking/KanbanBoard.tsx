@@ -261,6 +261,7 @@ export function KanbanBoard({
                     onViewDetails={onViewDetails}
                     onVerifyProduct={onVerifyProduct}
                     onAddToInventory={onAddToInventory}
+                    onVerifyReturn={onVerifyReturn}
                   />
                 ))
               ) : (

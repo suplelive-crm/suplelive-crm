@@ -598,6 +598,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.estimatedDelivery !== undefined) dbUpdates.estimated_delivery = updates.estimatedDelivery;
       if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
+      if (updates.observations !== undefined) dbUpdates.observations = updates.observations;
+      if (updates.is_verified !== undefined) dbUpdates.is_verified = updates.is_verified;
+      if (updates.verification_observations !== undefined) dbUpdates.verification_observations = updates.verification_observations;
 
       const { error } = await supabase
         .from('returns')
@@ -630,6 +633,27 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       get().fetchReturns();
       ErrorHandler.showSuccess('Devolução arquivada com sucesso!');
+    });
+  },
+
+  verifyReturn: async (id) => {
+    await ErrorHandler.handleAsync(async () => {
+      const { error } = await supabase
+        .from('returns')
+        .update({
+          is_verified: true,
+          verified_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error("Erro ao verificar devolução:", error);
+        throw error;
+      }
+
+      get().fetchReturns();
+      ErrorHandler.showSuccess('Devolução conferida com sucesso!');
     });
   },
 
