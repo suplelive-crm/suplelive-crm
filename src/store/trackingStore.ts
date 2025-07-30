@@ -760,7 +760,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       ErrorHandler.showSuccess('Transferência arquivada com sucesso!');
     });
   },
-
+/*
   updateTrackingStatus: async (type, id) => {
     await ErrorHandler.handleAsync(async () => {
       const { data: item } = await supabase
@@ -810,7 +810,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       }
     });
   },
-
+*/
+/*
   updateAllTrackingStatuses: async () => {
     await ErrorHandler.handleAsync(async () => {
       try {
@@ -841,7 +842,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       }
     });
   },
-
+*/
   getTrackingInfo: async (carrier: string, trackingCode: string) => {
     try {
       if (!carrier || !trackingCode) {
