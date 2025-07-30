@@ -38,7 +38,7 @@ serve(async (req: Request) => {
         if (!woncaApiKey) {
           throw new Error("A chave de API da Wonca (WONCA_API_KEY) não foi configurada nos segredos do Supabase.");
         }
-        
+        /*
         // 2. Faz a chamada real para a API da Wonca
         const response = await fetch("https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track", {
           method: "POST",
@@ -50,7 +50,7 @@ serve(async (req: Request) => {
           // 4. Envia o corpo da requisição com o código de rastreio
           body: JSON.stringify({ code: trackingCode })
         });
-
+*/
         // 5. Trata respostas de erro da API
         if (!response.ok) {
           // Tenta ler o corpo do erro como JSON, que é o formato esperado
