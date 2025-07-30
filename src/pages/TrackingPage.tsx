@@ -570,15 +570,6 @@ export function TrackingPage() {
                 <Label htmlFor="show-archived" className="text-sm shrink-0">Mostrar Arquivados</Label>
                 <Switch id="show-archived" checked={showArchived} onCheckedChange={setShowArchived} />
               </div>
-              
-              <Button 
-                variant="outline" 
-                onClick={handleRunAutomation}
-                className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Executar Automação
-              </Button>
 
               <div className="flex border rounded-md">
                 <Button variant={viewMode === 'table' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('table')} className="rounded-r-none"><LayoutList className="h-4 w-4" /></Button>
