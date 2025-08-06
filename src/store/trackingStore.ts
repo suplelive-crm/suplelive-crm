@@ -387,7 +387,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  // FUNÇÃO CORRIGIDA: Implementando a lógica de validação para `is_verified`
+  // FUNÇÃO CORRIGIDA: Implementando a lógica de validação para `is_verified` e atualizando status
   verifyPurchaseProduct: async (purchaseId, productId, vencimento, preco_ml) => {
     await ErrorHandler.handleAsync(async () => {
       // 1. Buscando o estado atual do produto
@@ -413,7 +413,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         vencimento?: string | null;
         preco_ml?: number | null;
       } = {
-        is_verified: isVerified, // AQUI ESTÁ A LÓGICA DE VALIDAÇÃO
+        is_verified: isVerified,
         updated_at: new Date().toISOString()
       };
       
@@ -435,42 +435,53 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         throw error;
       }
 
+      // 4. Lógica de atualização do status no pedido de compra
+      // Buscamos o pedido de compra e seus produtos para verificar o estado de todos
+      const { data: purchaseData, error: purchaseError } = await supabase
+        .from('purchases')
+        .select('*, products:purchase_products(*)')
+        .eq('id', purchaseId)
+        .single();
+
+      if (purchaseError) throw purchaseError;
+
+      const currentPurchase = purchaseData as Purchase;
+      const updatedProductList = (currentPurchase.products || []).map(p =>
+          p.id === productId ? { ...p, is_verified: isVerified, vencimento: updatedVencimento, preco_ml: updatedPrecoMl } : p
+      );
+
+      // Determinando o novo status do produto
+      let newStatus = currentPurchase.status;
+      const hasVencimento = !!updatedVencimento;
+      const hasPrecoMl = updatedPrecoMl !== undefined && updatedPrecoMl !== null;
+      
+      if (isVerified) {
+          newStatus = 'Produto entregue e conferido';
+      } else if (hasVencimento) {
+          newStatus = 'Produto entregue - Data de vencimento conferida';
+      } else if (hasPrecoMl) {
+          newStatus = 'Produto entregue - Preço mercado livre conferido';
+      } else {
+          // Se nenhum dos campos está preenchido, o status volta a ser 'Entregue'
+          // A não ser que o status atual já seja um de problema ou arquivado
+          if (!currentPurchase.is_archived && currentPurchase.status?.toLowerCase().includes('entregue')) {
+            newStatus = 'Entregue';
+          }
+      }
+
+      await supabase
+        .from('purchases')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', purchaseId);
+
       // Atualiza o estado local do store com a nova informação
       set((state) => ({
         purchases: state.purchases.map((purchase) =>
           purchase.id === purchaseId
-            ? {
-                ...purchase,
-                products: (purchase.products || []).map((p) =>
-                  p.id === productId ? { ...p, is_verified: isVerified, vencimento: updatedVencimento, preco_ml: updatedPrecoMl } : p
-                ),
-              }
+            ? { ...purchase, status: newStatus, products: updatedProductList }
             : purchase
         ),
       }));
-
-      // A lógica de verificação total dos produtos ainda é necessária
-      const { data: products, error: fetchProductsError } = await supabase
-        .from('purchase_products')
-        .select('is_verified')
-        .eq('purchase_id', purchaseId);
-
-      if (fetchProductsError) {
-        console.error("Erro ao buscar produtos para verificação total:", fetchProductsError);
-        throw fetchProductsError;
-      }
-
-      const allVerified = (products || []).every(product => product.is_verified);
-
-      if (allVerified) {
-        await supabase
-          .from('purchases')
-          .update({
-            status: 'Produto entregue e conferido',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', purchaseId);
-      }
 
       get().fetchPurchases();
     });
