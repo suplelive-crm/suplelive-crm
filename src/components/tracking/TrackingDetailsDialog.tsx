@@ -298,13 +298,12 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <Calendar className="h-4 w-4 text-gray-500" />
                               Data de Vencimento (Opcional):
                             </Label>
-                            {/* CORRIGIDO: Adicionando tabIndex={0} para garantir que o campo é focável */}
                             <Input
                               id="vencimento-date"
                               type="date"
                               value={vencimentoDate}
                               onChange={(e) => setVencimentoDate(e.target.value)}
-                              tabIndex={0} // Garante que o campo é focável
+                              tabIndex={0}
                             />
                           </div>
                           <div className="space-y-2">
@@ -312,7 +311,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <DollarSign className="h-4 w-4 text-gray-500" />
                               Preço do produto - Mercado Livre (Opcional):
                             </Label>
-                            {/* CORRIGIDO: Adicionando tabIndex={0} para garantir que o campo é focável */}
                             <Input
                               id="preco-ml"
                               type="number"
@@ -320,7 +318,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               value={precoMl}
                               onChange={(e) => setPrecoMl(e.target.value === '' ? '' : parseFloat(e.target.value))}
                               placeholder="R$ 0.00"
-                              tabIndex={0} // Garante que o campo é focável
+                              tabIndex={0}
                             />
                           </div>
                         </div>
