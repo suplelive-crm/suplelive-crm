@@ -20,14 +20,6 @@ interface PurchaseFormData {
 // Adicionamos 'id' como opcional, pois um produto vindo do formulário pode ser antigo (com id) ou novo (sem id)
 type FormProduct = Partial<Omit<PurchaseProduct, 'purchase_id' | 'is_verified' | 'is_in_stock' | 'total_cost' | 'created_at' | 'updated_at'>>;
 
-// NOVO TIPO: Adicionando 'preco_ml' à interface PurchaseProduct para evitar erros
-// (Assumindo que essa interface está no arquivo '@/types/tracking')
-// declare module '@/types/tracking' {
-//   export interface PurchaseProduct {
-//     preco_ml?: number;
-//   }
-// }
-
 interface TrackingState {
   purchases: Purchase[];
   returns: Return[];
@@ -395,18 +387,41 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  // FUNÇÃO CORRIGIDA: Adicionando 'preco_ml' como parâmetro e o atualizando no banco
+  // FUNÇÃO CORRIGIDA: Implementando a lógica de validação para `is_verified`
   verifyPurchaseProduct: async (purchaseId, productId, vencimento, preco_ml) => {
     await ErrorHandler.handleAsync(async () => {
-      const updates: { is_verified: boolean; updated_at: string; vencimento?: string | null; preco_ml?: number | null } = {
-        is_verified: true,
+      // 1. Buscando o estado atual do produto
+      const { data: currentProduct, error: fetchError } = await supabase
+        .from('purchase_products')
+        .select('vencimento, preco_ml')
+        .eq('id', productId)
+        .eq('purchase_id', purchaseId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+
+      // 2. Combinando os valores existentes com os novos
+      const updatedVencimento = vencimento || currentProduct?.vencimento;
+      const updatedPrecoMl = preco_ml !== undefined ? preco_ml : currentProduct?.preco_ml;
+
+      // 3. Verificando se ambos os campos estão preenchidos para marcar como 'is_verified'
+      const isVerified = !!updatedVencimento && updatedPrecoMl !== undefined && updatedPrecoMl !== null;
+
+      const updates: {
+        is_verified: boolean;
+        updated_at: string;
+        vencimento?: string | null;
+        preco_ml?: number | null;
+      } = {
+        is_verified: isVerified, // AQUI ESTÁ A LÓGICA DE VALIDAÇÃO
         updated_at: new Date().toISOString()
       };
-      if (vencimento !== undefined) {
-        updates.vencimento = vencimento;
+      
+      if (updatedVencimento !== undefined) {
+        updates.vencimento = updatedVencimento;
       }
-      if (preco_ml !== undefined) {
-        updates.preco_ml = preco_ml;
+      if (updatedPrecoMl !== undefined) {
+        updates.preco_ml = updatedPrecoMl;
       }
 
       const { error } = await supabase
@@ -420,19 +435,21 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         throw error;
       }
 
+      // Atualiza o estado local do store com a nova informação
       set((state) => ({
         purchases: state.purchases.map((purchase) =>
           purchase.id === purchaseId
             ? {
                 ...purchase,
                 products: (purchase.products || []).map((p) =>
-                  p.id === productId ? { ...p, is_verified: true, vencimento: vencimento || p.vencimento, preco_ml: preco_ml || p.preco_ml } : p
+                  p.id === productId ? { ...p, is_verified: isVerified, vencimento: updatedVencimento, preco_ml: updatedPrecoMl } : p
                 ),
               }
             : purchase
         ),
       }));
 
+      // A lógica de verificação total dos produtos ainda é necessária
       const { data: products, error: fetchProductsError } = await supabase
         .from('purchase_products')
         .select('is_verified')
@@ -905,5 +922,4 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       };
     }
   },
-
 }));
