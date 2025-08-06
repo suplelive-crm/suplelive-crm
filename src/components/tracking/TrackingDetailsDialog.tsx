@@ -298,6 +298,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <Calendar className="h-4 w-4 text-gray-500" />
                               Data de Vencimento (Opcional):
                             </Label>
+                            {/* CORRIGIDO: Removendo o className para isolar o problema */}
                             <Input
                               id="vencimento-date"
                               type="date"
@@ -310,6 +311,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <DollarSign className="h-4 w-4 text-gray-500" />
                               Preço do produto - Mercado Livre (Opcional):
                             </Label>
+                            {/* CORRIGIDO: Removendo o className para isolar o problema */}
                             <Input
                               id="preco-ml"
                               type="number"
