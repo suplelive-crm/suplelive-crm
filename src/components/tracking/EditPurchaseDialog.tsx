@@ -31,15 +31,15 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     date: '',
     carrier: '',
     storeName: '',
-    customerName: '',
+    customer_name: '',
     trackingCode: '',
-    deliveryFee: 0,
+    delivery_fee: 0,
   });
 
   const [products, setProducts] = useState<FormProduct[]>([]);
   
   const [loading, setLoading] = useState(false);
-  const { updatePurchase } = useTrackingStore(); 
+  const { updatePurchase } = useTrackingStore();
   const { products: dbProducts, fetchProducts } = useCrmStore();
   const { toast } = useToast();
   
@@ -127,9 +127,84 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Campos do formulário principal (data, transportadora, etc.) - Sem alterações */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* ... os inputs de data, carrier, etc. continuam aqui ... */}
+            <div className="space-y-2">
+              <Label htmlFor="date" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-500" /> Data de Compra *
+              </Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="carrier" className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
+              </Label>
+              <Select value={formData.carrier || ''} onValueChange={(value: string) => setFormData({ ...formData, carrier: value })}>
+                <SelectTrigger><SelectValue placeholder="Selecione a transportadora" /></SelectTrigger>
+                <SelectContent className="z-[10000]">
+                  <SelectItem value="Correios">Correios</SelectItem>
+                  <SelectItem value="Jadlog">Jadlog</SelectItem>
+                  <SelectItem value="Total Express">Total Express</SelectItem>
+                  <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
+                  <SelectItem value="Braspress">Braspress</SelectItem>
+                  <SelectItem value="Outra">Outra</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="storeName" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" /> Nome da Loja *
+              </Label>
+              <Input
+                id="storeName"
+                value={formData.storeName}
+                onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
+                placeholder="Ex: Mercado Livre"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="customerName" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" /> Nome do Cliente (Opcional)
+              </Label>
+              <Input
+                id="customerName"
+                value={formData.customer_name}
+                onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                placeholder="Ex: João Silva"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="trackingCode" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" /> Código de Rastreio *
+              </Label>
+              <Input
+                id="trackingCode"
+                value={formData.trackingCode}
+                onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })}
+                placeholder="Ex: AA123456789BR"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deliveryFee" className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
+              </Label>
+              <Input
+                id="deliveryFee"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.delivery_fee}
+                onChange={(e) => setFormData({ ...formData, delivery_fee: parseFloat(e.target.value) || 0 })}
+                required
+              />
+            </div>
           </div>
 
           <div className="space-y-4">
@@ -140,19 +215,16 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
               </Button>
             </div>
 
-            {/* AQUI ESTÁ A LÓGICA ATUALIZADA */}
             {products.map((product, index) => {
-              // Verifica se o produto já existia na compra (se tem um ID da tabela 'purchase_products')
               const isExistingProduct = !!product.id;
-
               return (
                 <div key={index} className={`grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg items-end ${isExistingProduct ? 'bg-gray-50/50' : ''}`}>
-                  
-                  {/* --- CAMPO NOME DO PRODUTO --- */}
                   <div className="md:col-span-2 space-y-2">
                     <Label>Nome do Produto *</Label>
                     {isExistingProduct ? (
-                      <Input value={product.name || ''} disabled className="cursor-not-allowed" />
+                      <div className="flex items-center h-10 w-full rounded-md border border-input bg-gray-100 px-3 py-2 text-sm text-gray-500 cursor-not-allowed">
+                        {product.name || ''}
+                      </div>
                     ) : (
                       <ProductAutocomplete
                         products={dbProducts}
@@ -162,14 +234,10 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                       />
                     )}
                   </div>
-
-                  {/* --- CAMPO SKU --- */}
                   <div className="space-y-2">
                     <Label>SKU *</Label>
                     <Input value={product.sku || ''} disabled className="cursor-not-allowed" />
                   </div>
-
-                  {/* --- CAMPO QUANTIDADE (SEMPRE EDITÁVEL) --- */}
                   <div className="space-y-2">
                     <Label>Quantidade *</Label>
                     <Input
@@ -179,13 +247,10 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                       onChange={(e) => handleProductFieldChange(index, 'quantity', parseInt(e.target.value) || 1)}
                     />
                   </div>
-
                   <div className="space-y-2 flex items-end gap-2">
-                    {/* --- CAMPO CUSTO UNITÁRIO --- */}
                     <div className="flex-1">
                       <Label className="flex items-center gap-1">
-                        {isExistingProduct && <Lock className="h-3 w-3 text-gray-400" />}
-                        Custo Unitário *
+                        {isExistingProduct && <Lock className="h-3 w-3 text-gray-400" />} Custo Unitário *
                       </Label>
                       <Input
                         type="number"
@@ -193,14 +258,12 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                         step="0.01"
                         value={product.cost || 0}
                         onChange={(e) => handleProductFieldChange(index, 'cost', parseFloat(e.target.value) || 0)}
-                        disabled={isExistingProduct} // Bloqueado se for produto existente
+                        disabled={isExistingProduct}
                         className={isExistingProduct ? "cursor-not-allowed" : ""}
                       />
                     </div>
-
-                    {/* --- BOTÃO REMOVER (SÓ PARA NOVOS PRODUTOS) --- */}
                     {!isExistingProduct && (
-                      <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveProduct(index)} >
+                      <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveProduct(index)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
