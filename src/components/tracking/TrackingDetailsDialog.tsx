@@ -325,6 +325,37 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                             />
                           </div>
                         </div>
+                        {/* Botões de incremento e decremento adicionados aqui */}
+                        <div className="flex justify-end space-x-2">
+                          <Button 
+                            type="button" 
+                            variant="secondary" 
+                            onClick={() => setPrecoMl(p => p !== '' ? (p > 50 ? p - 50 : 0) : 0)}
+                          >
+                            -50
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="secondary" 
+                            onClick={() => setPrecoMl(p => p !== '' ? (p > 10 ? p - 10 : 0) : 0)}
+                          >
+                            -10
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="secondary" 
+                            onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 10)}
+                          >
+                            +10
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="secondary" 
+                            onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 50)}
+                          >
+                            +50
+                          </Button>
+                        </div>
                         <AlertDialogFooter>
                           <AlertDialogCancel onClick={() => { setVencimentoDate(''); setPrecoMl(''); }}>Cancelar</AlertDialogCancel>
                           <AlertDialogAction
