@@ -68,10 +68,6 @@ const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
     return 'Entregue';
   }
   
-  if (item.estimated_delivery && new Date(item.estimated_delivery) < new Date()) {
-    return 'Atrasado';
-  }
-  
   if (statusLower.includes('trânsito') || statusLower.includes('transferência')) {
     return 'Em trânsito';
   }
@@ -577,6 +573,8 @@ export function TrackingPage() {
                   <SelectItem value="Entregue">Entregue</SelectItem>
                   <SelectItem value="Pausado/Problema">Pausado / Problema</SelectItem>
                   <SelectItem value="Atrasado">Atrasado</SelectItem>
+                  <SelectItem value="Saiu para entrega">Saiu para entrega</SelectItem>
+                  <SelectItem value="Aguardando pagamento">Aguardando pagamento</SelectItem>
                 </SelectContent>
               </Select>
 
