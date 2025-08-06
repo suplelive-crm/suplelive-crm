@@ -6,7 +6,6 @@ import { Purchase, PurchaseProduct, Return, Transfer, TrackingResponse } from '@
 import { trackPackage, parseTrackingResponse, getTrackingUrl, runTrackingAutomation } from '@/lib/tracking-api';
 
 // Tipos para os dados do formulário, para clareza
-// CORREÇÃO 1: Adicionando o campo 'observation' na interface de dados do formulário
 interface PurchaseFormData {
   date: string;
   carrier: string;
@@ -21,36 +20,36 @@ interface PurchaseFormData {
 // Adicionamos 'id' como opcional, pois um produto vindo do formulário pode ser antigo (com id) ou novo (sem id)
 type FormProduct = Partial<Omit<PurchaseProduct, 'purchase_id' | 'is_verified' | 'is_in_stock' | 'total_cost' | 'created_at' | 'updated_at'>>;
 
+// NOVO TIPO: Adicionando 'preco_ml' à interface PurchaseProduct para evitar erros
+// (Assumindo que essa interface está no arquivo '@/types/tracking')
+// declare module '@/types/tracking' {
+//   export interface PurchaseProduct {
+//     preco_ml?: number;
+//   }
+// }
 
 interface TrackingState {
-  // Data
   purchases: Purchase[];
   returns: Return[];
   transfers: Transfer[];
-
-  // View state
   viewMode: 'table' | 'kanban';
   showArchived: boolean;
   loading: boolean;
-
-  // Actions
   setViewMode: (mode: 'table' | 'kanban') => void;
   setShowArchived: (show: boolean) => void;
-
-  // CRUD operations
   fetchPurchases: () => Promise<void>;
   fetchReturns: () => Promise<void>;
   fetchTransfers: () => Promise<void>;
-
   createPurchase: (purchaseData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
   updatePurchase: (purchaseId: string, formData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
   archivePurchase: (id: string) => Promise<void>;
   deletePurchase: (purchaseId: string) => Promise<void>;
-
-  verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string) => Promise<void>;
+  
+  // CORREÇÃO: Adicionando o novo parâmetro 'preco_ml' na função
+  verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string, preco_ml?: number) => Promise<void>;
+  
   addProductToInventory: (purchaseId: string) => Promise<void>;
   updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>;
-
   createReturn: (returnData: {
     date: string;
     carrier: string;
@@ -74,7 +73,6 @@ interface TrackingState {
   }>) => Promise<void>;
   archiveReturn: (id: string) => Promise<void>;
   verifyReturn: (id: string, verification_observations?: string) => Promise<void>;
-
   createTransfer: (transferData: {
     date: string;
     carrier: string;
@@ -93,8 +91,6 @@ interface TrackingState {
     isArchived: boolean;
   }>) => Promise<void>;
   archiveTransfer: (id: string) => Promise<void>;
-
-  // Tracking operations
   updateTrackingStatus: (type: 'purchase' | 'return' | 'transfer', id: string) => Promise<void>;
   updateAllTrackingStatuses: () => Promise<void>;
   getTrackingInfo: (carrier: string, trackingCode: string) => Promise<TrackingResponse>;
@@ -118,7 +114,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     fetchTransfers();
   },
   
-  // FUNÇÃO CORRIGIDA: Inclui a coluna metadata no select e mapeia 'observation'
   fetchPurchases: async () => {
     await ErrorHandler.handleAsync(async () => {
       set({ loading: true });
@@ -159,7 +154,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         updated_at: purchase.updated_at,
         workspace_id: purchase.workspace_id,
         metadata: purchase.metadata,
-        // CORREÇÃO 2: Mapeando a coluna 'observation'
         observation: purchase.observation,
         products: (purchase.products || []).map((product: any) => ({
           id: product.id,
@@ -172,6 +166,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           is_in_stock: product.is_in_stock,
           vencimento: product.vencimento,
           SKU: product.SKU,
+          preco_ml: product.preco_ml // Mapeando a nova coluna
         }))
       }));
 
@@ -180,7 +175,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  // FUNÇÃO CORRIGIDA: Inclui a coluna metadata no select
   fetchReturns: async () => {
     await ErrorHandler.handleAsync(async () => {
       set({ loading: true });
@@ -226,7 +220,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  // FUNÇÃO CORRIGIDA: Inclui a coluna metadata no select
   fetchTransfers: async () => {
     await ErrorHandler.handleAsync(async () => {
       set({ loading: true });
@@ -273,7 +266,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  // CORREÇÃO 3: Adicionando 'observation' ao objeto de inserção
   createPurchase: async (purchaseData, products) => {
     return await ErrorHandler.handleAsync(async () => {
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
@@ -290,7 +282,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         is_archived: false,
         workspace_id: currentWorkspace.id,
         metadata: [],
-        observation: purchaseData.observation || null, // Adicionando a observação
+        observation: purchaseData.observation || null,
       };
 
       const { data: purchase, error: purchaseError } = await supabase
@@ -313,6 +305,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         is_verified: false,
         is_in_stock: false,
         vencimento: product.vencimento || null,
+        preco_ml: product.preco_ml || null, // Adicionando o novo campo
       }));
 
       const { error: productsError } = await supabase
@@ -402,14 +395,18 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  verifyPurchaseProduct: async (purchaseId, productId, vencimento) => {
+  // FUNÇÃO CORRIGIDA: Adicionando 'preco_ml' como parâmetro e o atualizando no banco
+  verifyPurchaseProduct: async (purchaseId, productId, vencimento, preco_ml) => {
     await ErrorHandler.handleAsync(async () => {
-      const updates: { is_verified: boolean; updated_at: string; vencimento?: string | null } = {
+      const updates: { is_verified: boolean; updated_at: string; vencimento?: string | null; preco_ml?: number | null } = {
         is_verified: true,
         updated_at: new Date().toISOString()
       };
       if (vencimento !== undefined) {
         updates.vencimento = vencimento;
+      }
+      if (preco_ml !== undefined) {
+        updates.preco_ml = preco_ml;
       }
 
       const { error } = await supabase
@@ -429,7 +426,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
             ? {
                 ...purchase,
                 products: (purchase.products || []).map((p) =>
-                  p.id === productId ? { ...p, is_verified: true, vencimento: vencimento || p.vencimento } : p
+                  p.id === productId ? { ...p, is_verified: true, vencimento: vencimento || p.vencimento, preco_ml: preco_ml || p.preco_ml } : p
                 ),
               }
             : purchase
@@ -834,7 +831,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .maybeSingle();
 
       if (purchaseData) {
-        // CORREÇÃO 4: Mapeando 'observation' para o tipo Purchase
         const mappedPurchaseData: Purchase = {
           ...purchaseData,
           products: (purchaseData.products || []).map((p: any) => ({ ...p })) as PurchaseProduct[],
