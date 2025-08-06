@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Importando Tabs
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -24,25 +25,21 @@ interface TrackingDetailsDialogProps {
   type: 'purchase' | 'return' | 'transfer' | null;
 }
 
-// Assumindo que a estrutura do seu JSONB na coluna 'metadata' é assim:
 type TrackingHistoryEvent = {
   status: string;
   date: string;
   location?: string;
-  // Outras propriedades, como 'provider' ou 'description' podem ser adicionadas
 };
 
 interface ItemWithMetadata extends Purchase, Return, Transfer {
   metadata?: {
     tracking_history?: TrackingHistoryEvent[];
-    // Outras propriedades que você armazena em metadata...
   };
 }
 
 export function TrackingDetailsDialog({ open, onOpenChange, item, type }: TrackingDetailsDialogProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [vencimentoDate, setVencimentoDate] = useState<string>('');
-  const [productToVerify, setProductToVerify] = useState<PurchaseProduct | null>(null);
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [verificationObservations, setVerificationObservations] = useState('');
 
@@ -58,13 +55,12 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   const { toast } = useToast();
 
   useEffect(() => {
-    if (open && item && type) {
+    if (open) {
       setVencimentoDate('');
-      setProductToVerify(null);
       setShowVerificationDialog(false);
       setVerificationObservations('');
     }
-  }, [open, item, type]);
+  }, [open]);
 
   if (!item || !type) return null;
 
@@ -76,9 +72,9 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
         description: "O produto foi marcado como conferido com sucesso."
       });
       setVencimentoDate('');
-      setProductToVerify(null);
     } catch (error) {
       console.error('Error verifying product:', error);
+      toast({ title: "Erro", description: "Não foi possível conferir o produto.", variant: "destructive" });
     }
   };
 
@@ -93,6 +89,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       setVerificationObservations('');
     } catch (error) {
       console.error('Error verifying return:', error);
+      toast({ title: "Erro", description: "Não foi possível conferir a devolução.", variant: "destructive" });
     }
   };
 
@@ -112,6 +109,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       onOpenChange(false);
     } catch (error) {
       console.error('Error archiving item:', error);
+      toast({ title: "Erro", description: "Não foi possível arquivar o item.", variant: "destructive" });
     }
   };
 
@@ -138,13 +136,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
 
   const getStatusColor = (status: string) => {
     const lowerStatus = (status || '').toLowerCase();
-
-    if (
-      lowerStatus.includes('problema') ||
-      lowerStatus.includes('extraviado') ||
-      lowerStatus.includes('cancelado') ||
-      lowerStatus.includes('não entregue - carteiro não atendido')
-    ) {
+    if (lowerStatus.includes('problema') || lowerStatus.includes('extraviado') || lowerStatus.includes('cancelado') || lowerStatus.includes('não entregue - carteiro não atendido')) {
       return 'bg-red-100 text-red-800';
     } else if (lowerStatus.includes('entregue') || lowerStatus.includes('conferido') || lowerStatus.includes('estoque')) {
       return 'bg-green-100 text-green-800';
@@ -157,18 +149,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     }
   };
 
-  const renderPurchaseDetails = (purchase: Purchase) => {
-    const calculateTotalCost = () => {
-      const productTotal = purchase.products?.reduce((sum, p) => sum + (p.cost * p.quantity), 0) || 0;
-      const deliveryFee = purchase.delivery_fee || 0;
-      return productTotal + deliveryFee;
-    };
-
-    const allProductsVerified = purchase.products?.every(p => p.is_verified) || false;
-    const purchaseInInventory = purchase.status?.toLowerCase().includes('estoque');
-    const isDelivered = purchase.status?.toLowerCase().includes('entregue') || purchaseInInventory;
-    const trackingHistory = (purchase.metadata as any)?.tracking_history || [];
-
+  const renderGeneralDetails = (currentItem: Purchase | Return | Transfer) => {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -177,21 +158,21 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <Truck className="h-4 w-4" />
               <span>Transportadora:</span>
             </div>
-            <p className="font-medium">{purchase.carrier || 'Não informada'}</p>
+            <p className="font-medium">{currentItem.carrier || 'Não informada'}</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Package className="h-4 w-4" />
               <span>Loja:</span>
             </div>
-            <p className="font-medium">{purchase.storeName || 'Não informada'}</p>
+            <p className="font-medium">{currentItem.storeName || 'Não informada'}</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Package className="h-4 w-4" />
               <span>Cliente:</span>
             </div>
-            <p className="font-medium">{purchase.customer_name || 'Não informado'}</p>
+            <p className="font-medium">{currentItem.customer_name || 'Não informado'}</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -199,10 +180,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <span>Código de Rastreio:</span>
             </div>
             <div className="flex items-center gap-2">
-              <p className="font-medium">{purchase.trackingCode || 'Não informado'}</p>
-              {purchase.trackingCode && (
+              <p className="font-medium">{currentItem.trackingCode || 'Não informado'}</p>
+              {currentItem.trackingCode && (
                 <a
-                  href={getTrackingUrl(purchase.carrier, purchase.trackingCode)}
+                  href={getTrackingUrl(currentItem.carrier, currentItem.trackingCode)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-500 hover:text-blue-600"
@@ -217,237 +198,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <Package className="h-4 w-4" />
               <span>Status:</span>
             </div>
-            <Badge className={`${getStatusColor(purchase.status)} border-transparent`}>
-              {purchase.status || 'Não informado'}
-            </Badge>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>{isDelivered ? 'Entrega feita dia:' : 'Previsão de Entrega:'}</span>
-            </div>
-            <p className="font-medium">
-              {isDelivered
-                ? (purchase.updated_at ? new Date(purchase.updated_at).toLocaleDateString('pt-BR') : 'Não disponível')
-                : (purchase.estimated_delivery ? new Date(purchase.estimated_delivery).toLocaleDateString('pt-BR') : 'Não disponível')
-              }
-            </p>
-          </div>
-        </div>
-
-        {/* Adicionando a seção de Histórico de Rastreamento */}
-        {trackingHistory && trackingHistory.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
-              <List className="h-5 w-5" />
-              Histórico de Rastreamento
-            </h3>
-            <div className="space-y-3">
-              {trackingHistory
-                .slice()
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((event, index) => (
-                  <div key={index} className="flex items-start gap-4">
-                    <div className="relative pt-1">
-                      <div className="h-3 w-3 rounded-full bg-blue-500 ring-4 ring-blue-100" />
-                      {index < trackingHistory.length - 1 && (
-                        <div className="absolute top-4 left-1/2 -translate-x-1/2 h-full w-0.5 bg-blue-200" />
-                      )}
-                    </div>
-                    <div className="flex-1 pb-4">
-                      <p className="font-medium">{event.status}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                        <Clock className="h-3 w-3" />
-                        <span>{new Date(event.date).toLocaleDateString('pt-BR')}</span>
-                        {event.location && (
-                          <>
-                            <MapPin className="h-3 w-3" />
-                            <span>{event.location}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-        {/* Fim da seção de Histórico de Rastreamento */}
-
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold border-b pb-2">Produtos</h3>
-          <div className="space-y-3">
-            {purchase.products?.map((product) => (
-              <div
-                key={product.id}
-                className={`p-4 border rounded-lg ${product.is_verified ? 'bg-cyan-50 border-cyan-200' : 'bg-transparent'}`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold">
-                      {product.name || `Item ${product.id}`}
-                      {product.SKU && ` - ${product.SKU}`}
-                    </h4>
-                    <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
-                      <span>Quantidade: <span className="font-medium text-foreground">{product.quantity || 0}</span></span>
-                      <span>Custo: <span className="font-medium text-foreground">R$ {(product.cost || 0).toFixed(2)}</span></span>
-                      <span>Total: <span className="font-medium text-foreground">R$ {((product.cost || 0) * (product.quantity || 0)).toFixed(2)}</span></span>
-                      {product.vencimento && (
-                        <span>Vencimento: <span className="font-medium text-foreground">
-                          {new Date(product.vencimento).toLocaleDateString('pt-BR')}
-                        </span></span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {!product.is_verified ? (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <CheckSquare className="h-4 w-4 mr-2" />
-                            Conferir
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Confirmar Produto: {product.name}</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Para marcar o produto como conferido, insira a data de vencimento, se aplicável.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <div className="space-y-2 py-4">
-                            <Label htmlFor="vencimento-date" className="text-sm font-medium">
-                              Data de Vencimento (Opcional):
-                            </Label>
-                            <input
-                              id="vencimento-date"
-                              type="date"
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                              value={vencimentoDate}
-                              onChange={(e) => setVencimentoDate(e.target.value)}
-                            />
-                          </div>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setVencimentoDate('')}>
-                              Cancelar
-                            </AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleVerifyProduct(purchase.id, product.id, vencimentoDate || undefined)}
-                            >
-                              Confirmar
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    ) : (
-                      <Button variant="outline" size="sm" className="bg-white cursor-default pointer-events-none">
-                        <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                        Conferido
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex justify-between items-center pt-4 border-t">
-            <div>
-              <p className="text-sm text-muted-foreground">Taxa de Entrega: R$ {(purchase.delivery_fee || 0).toFixed(2)}</p>
-              <p className="text-lg font-bold">Total da Compra: R$ {calculateTotalCost().toFixed(2)}</p>
-            </div>
-            <div className="flex gap-2">
-              {allProductsVerified && !purchaseInInventory && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button>
-                      <Database className="h-4 w-4 mr-2" />
-                      Lançar Compra no Estoque
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Lançar Compra no Estoque</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Tem certeza que deseja lançar todos os produtos desta compra no estoque? Esta ação irá arquivar a compra.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => addProductToInventory(purchase.id)}>
-                        Confirmar e Arquivar
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-              {purchaseInInventory && (
-                <Badge className="bg-green-100 text-green-800 py-2 px-3 border-transparent">
-                  <Database className="h-4 w-4 mr-2" />
-                  Compra em Estoque
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderReturnDetails = (returnItem: Return) => {
-    const trackingHistory = (returnItem.metadata as any)?.tracking_history || [];
-
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Truck className="h-4 w-4" />
-              <span>Transportadora:</span>
-            </div>
-            <p className="font-medium">{returnItem.carrier || 'Não informada'}</p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Package className="h-4 w-4" />
-              <span>Loja:</span>
-            </div>
-            <p className="font-medium">{returnItem.storeName || 'Não informada'}</p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Package className="h-4 w-4" />
-              <span>Cliente:</span>
-            </div>
-            <p className="font-medium">{returnItem.customer_name || 'Não informado'}</p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Package className="h-4 w-4" />
-              <span>Código de Rastreio:</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <p className="font-medium">{returnItem.trackingCode || 'Não informado'}</p>
-              {returnItem.trackingCode && (
-                <a
-                  href={getTrackingUrl(returnItem.carrier, returnItem.trackingCode)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:text-blue-600"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              )}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Package className="h-4 w-4" />
-              <span>Status:</span>
-            </div>
-            <Badge className={`${getStatusColor(returnItem.status)} border-transparent`}>
-              {returnItem.status || 'Não informado'}
+            <Badge className={`${getStatusColor(currentItem.status)} border-transparent`}>
+              {currentItem.status || 'Não informado'}
             </Badge>
           </div>
           <div className="space-y-1">
@@ -456,53 +208,134 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <span>Previsão de Entrega:</span>
             </div>
             <p className="font-medium">
-              {returnItem.estimated_delivery
-                ? new Date(returnItem.estimated_delivery).toLocaleDateString('pt-BR')
+              {(currentItem as Purchase)?.estimated_delivery
+                ? new Date((currentItem as Purchase).estimated_delivery!).toLocaleDateString('pt-BR')
                 : 'Não disponível'
               }
             </p>
           </div>
         </div>
         
-        {/* Adicionando a seção de Histórico de Rastreamento */}
-        {trackingHistory && trackingHistory.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
-              <List className="h-5 w-5" />
-              Histórico de Rastreamento
-            </h3>
-            <div className="space-y-3">
-              {trackingHistory
-                .slice()
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((event, index) => (
-                  <div key={index} className="flex items-start gap-4">
-                    <div className="relative pt-1">
-                      <div className="h-3 w-3 rounded-full bg-blue-500 ring-4 ring-blue-100" />
-                      {index < trackingHistory.length - 1 && (
-                        <div className="absolute top-4 left-1/2 -translate-x-1/2 h-full w-0.5 bg-blue-200" />
-                      )}
-                    </div>
-                    <div className="flex-1 pb-4">
-                      <p className="font-medium">{event.status}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                        <Clock className="h-3 w-3" />
-                        <span>{new Date(event.date).toLocaleDateString('pt-BR')}</span>
-                        {event.location && (
-                          <>
-                            <MapPin className="h-3 w-3" />
-                            <span>{event.location}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-        {/* Fim da seção de Histórico de Rastreamento */}
+        {type === 'purchase' && renderPurchaseProducts(currentItem as Purchase)}
+        {type === 'return' && renderReturnObservations(currentItem as Return)}
 
+      </div>
+    );
+  };
+  
+  const renderPurchaseProducts = (purchase: Purchase) => {
+    const calculateTotalCost = () => {
+      const productTotal = purchase.products?.reduce((sum, p) => sum + (p.cost * p.quantity), 0) || 0;
+      const deliveryFee = purchase.delivery_fee || 0;
+      return productTotal + deliveryFee;
+    };
+    const allProductsVerified = purchase.products?.every(p => p.is_verified) || false;
+    const purchaseInInventory = purchase.status?.toLowerCase().includes('estoque');
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold border-b pb-2">Produtos</h3>
+        <div className="space-y-3">
+          {purchase.products?.map((product) => (
+            <div
+              key={product.id}
+              className={`p-4 border rounded-lg ${product.is_verified ? 'bg-cyan-50 border-cyan-200' : 'bg-transparent'}`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold">
+                    {product.name || `Item ${product.id}`}
+                    {product.SKU && ` - ${product.SKU}`}
+                  </h4>
+                  <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
+                    <span>Quantidade: <span className="font-medium text-foreground">{product.quantity || 0}</span></span>
+                    <span>Custo: <span className="font-medium text-foreground">R$ {(product.cost || 0).toFixed(2)}</span></span>
+                    <span>Total: <span className="font-medium text-foreground">R$ {((product.cost || 0) * (product.quantity || 0)).toFixed(2)}</span></span>
+                    {product.vencimento && (
+                      <span>Vencimento: <span className="font-medium text-foreground">
+                        {new Date(product.vencimento).toLocaleDateString('pt-BR')}
+                      </span></span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {!product.is_verified ? (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <CheckSquare className="h-4 w-4 mr-2" /> Conferir
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar Produto: {product.name}</AlertDialogTitle>
+                          <AlertDialogDescription>Para marcar o produto como conferido, insira a data de vencimento, se aplicável.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="space-y-2 py-4">
+                          <Label htmlFor="vencimento-date" className="text-sm font-medium">Data de Vencimento (Opcional):</Label>
+                          <input
+                            id="vencimento-date"
+                            type="date"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={vencimentoDate}
+                            onChange={(e) => setVencimentoDate(e.target.value)}
+                          />
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={() => setVencimentoDate('')}>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleVerifyProduct(purchase.id, product.id, vencimentoDate || undefined)}>Confirmar</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  ) : (
+                    <Button variant="outline" size="sm" className="bg-white cursor-default pointer-events-none">
+                      <CheckCircle className="h-4 w-4 mr-2 text-green-600" /> Conferido
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-between items-center pt-4 border-t">
+          <div>
+            <p className="text-sm text-muted-foreground">Taxa de Entrega: R$ {(purchase.delivery_fee || 0).toFixed(2)}</p>
+            <p className="text-lg font-bold">Total da Compra: R$ {calculateTotalCost().toFixed(2)}</p>
+          </div>
+          <div className="flex gap-2">
+            {allProductsVerified && !purchaseInInventory && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button>
+                    <Database className="h-4 w-4 mr-2" /> Lançar Compra no Estoque
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Lançar Compra no Estoque</AlertDialogTitle>
+                    <AlertDialogDescription>Tem certeza que deseja lançar todos os produtos desta compra no estoque? Esta ação irá arquivar a compra.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => addProductToInventory(purchase.id)}>Confirmar e Arquivar</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            {purchaseInInventory && (
+              <Badge className="bg-green-100 text-green-800 py-2 px-3 border-transparent">
+                <Database className="h-4 w-4 mr-2" /> Compra em Estoque
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  const renderReturnObservations = (returnItem: Return) => {
+    return (
+      <div className="space-y-4">
         {returnItem.observations && (
           <div className="space-y-2">
             <h4 className="font-medium">Observações:</h4>
@@ -511,7 +344,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             </p>
           </div>
         )}
-
         {returnItem.verification_observations && (
           <div className="space-y-2">
             <h4 className="font-medium">Observações da Conferência:</h4>
@@ -523,136 +355,63 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             </p>
           </div>
         )}
-
         {!returnItem.is_verified && (
           <div className="flex justify-end pt-4 border-t">
             <Button onClick={() => setShowVerificationDialog(true)}>
-              <CheckSquare className="h-4 w-4 mr-2" />
-              Conferir Devolução
+              <CheckSquare className="h-4 w-4 mr-2" /> Conferir Devolução
             </Button>
           </div>
         )}
-
         {returnItem.is_verified && (
           <div className="flex justify-end pt-4 border-t">
             <Badge className="bg-green-100 text-green-800 py-2 px-3 border-transparent">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Devolução Conferida
+              <CheckCircle className="h-4 w-4 mr-2" /> Devolução Conferida
             </Badge>
           </div>
         )}
       </div>
     );
   };
-
-  const renderTransferDetails = (transfer: Transfer) => {
-    const trackingHistory = (transfer.metadata as any)?.tracking_history || [];
-
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Truck className="h-4 w-4" />
-              <span>Transportadora:</span>
-            </div>
-            <p className="font-medium">{transfer.carrier || 'Não informada'}</p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Package className="h-4 w-4" />
-              <span>Loja:</span>
-            </div>
-            <p className="font-medium">{transfer.storeName || 'Não informada'}</p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Package className="h-4 w-4" />
-              <span>Cliente:</span>
-            </div>
-            <p className="font-medium">{transfer.customer_name || 'Não informado'}</p>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Package className="h-4 w-4" />
-              <span>Código de Rastreio:</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <p className="font-medium">{transfer.trackingCode || 'Não informado'}</p>
-              {transfer.trackingCode && (
-                <a
-                  href={getTrackingUrl(transfer.carrier, transfer.trackingCode)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:text-blue-600"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              )}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Package className="h-4 w-4" />
-              <span>Status:</span>
-            </div>
-            <Badge className={`${getStatusColor(transfer.status)} border-transparent`}>
-              {transfer.status || 'Não informado'}
-            </Badge>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>Previsão de Entrega:</span>
-            </div>
-            <p className="font-medium">
-              {transfer.estimated_delivery
-                ? new Date(transfer.estimated_delivery).toLocaleDateString('pt-BR')
-                : 'Não disponível'
-              }
-            </p>
-          </div>
+  
+  const renderTrackingHistory = (currentItem: ItemWithMetadata) => {
+    const trackingHistory = currentItem.metadata?.tracking_history || [];
+    if (!trackingHistory || trackingHistory.length === 0) {
+      return (
+        <div className="py-8 text-center text-muted-foreground">
+          Nenhum histórico de rastreamento disponível.
         </div>
-        
-        {/* Adicionando a seção de Histórico de Rastreamento */}
-        {trackingHistory && trackingHistory.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
-              <List className="h-5 w-5" />
-              Histórico de Rastreamento
-            </h3>
-            <div className="space-y-3">
-              {trackingHistory
-                .slice()
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((event, index) => (
-                  <div key={index} className="flex items-start gap-4">
-                    <div className="relative pt-1">
-                      <div className="h-3 w-3 rounded-full bg-blue-500 ring-4 ring-blue-100" />
-                      {index < trackingHistory.length - 1 && (
-                        <div className="absolute top-4 left-1/2 -translate-x-1/2 h-full w-0.5 bg-blue-200" />
-                      )}
-                    </div>
-                    <div className="flex-1 pb-4">
-                      <p className="font-medium">{event.status}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                        <Clock className="h-3 w-3" />
-                        <span>{new Date(event.date).toLocaleDateString('pt-BR')}</span>
-                        {event.location && (
-                          <>
-                            <MapPin className="h-3 w-3" />
-                            <span>{event.location}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+      );
+    }
+    return (
+      <div className="space-y-4 py-4">
+        <div className="space-y-3">
+          {trackingHistory
+            .slice()
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .map((event, index) => (
+              <div key={index} className="flex items-start gap-4">
+                <div className="relative pt-1">
+                  <div className="h-3 w-3 rounded-full bg-blue-500 ring-4 ring-blue-100" />
+                  {index < trackingHistory.length - 1 && (
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 h-full w-0.5 bg-blue-200" />
+                  )}
+                </div>
+                <div className="flex-1 pb-4">
+                  <p className="font-medium">{event.status}</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                    <Clock className="h-3 w-3" />
+                    <span>{new Date(event.date).toLocaleDateString('pt-BR')}</span>
+                    {event.location && (
+                      <>
+                        <MapPin className="h-3 w-3" />
+                        <span>{event.location}</span>
+                      </>
+                    )}
                   </div>
-                ))}
-            </div>
-          </div>
-        )}
-        {/* Fim da seção de Histórico de Rastreamento */}
-
+                </div>
+              </div>
+            ))}
+        </div>
       </div>
     );
   };
@@ -669,10 +428,19 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             </DialogTitle>
           </DialogHeader>
 
-          {type === 'purchase' && renderPurchaseDetails(item as Purchase)}
-          {type === 'return' && renderReturnDetails(item as Return)}
-          {type === 'transfer' && renderTransferDetails(item as Transfer)}
-          
+          <Tabs defaultValue="general" className="mt-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="general"><List className="h-4 w-4 mr-2" />Informações Gerais</TabsTrigger>
+              <TabsTrigger value="tracking"><Truck className="h-4 w-4 mr-2" />Rastreamento</TabsTrigger>
+            </TabsList>
+            <TabsContent value="general">
+              {renderGeneralDetails(item as ItemWithMetadata)}
+            </TabsContent>
+            <TabsContent value="tracking">
+              {renderTrackingHistory(item as ItemWithMetadata)}
+            </TabsContent>
+          </Tabs>
+
           <DialogFooter className="sm:justify-between mt-6 pt-4 border-t">
             <Button variant="ghost" onClick={handleRefreshTracking} disabled={refreshing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
@@ -685,8 +453,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" className='bg-red-700 hover:bg-red-800'>
-                    <Archive className="h-4 w-4 mr-2" />
-                    Arquivar
+                    <Archive className="h-4 w-4 mr-2" /> Arquivar
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
