@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Package, Truck, CheckSquare, Archive, ExternalLink, RefreshCw, CheckCircle, Database } from 'lucide-react';
+import {
+  Calendar, Package, Truck, CheckSquare, Archive, ExternalLink, RefreshCw,
+  CheckCircle, Database, MapPin, Clock, List
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 import { Purchase, Return, Transfer, PurchaseProduct } from '@/types/tracking';
 import { useTrackingStore } from '@/store/trackingStore';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +22,21 @@ interface TrackingDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   item: Purchase | Return | Transfer | null;
   type: 'purchase' | 'return' | 'transfer' | null;
+}
+
+// Assumindo que a estrutura do seu JSONB na coluna 'metadata' é assim:
+type TrackingHistoryEvent = {
+  status: string;
+  date: string;
+  location?: string;
+  // Outras propriedades, como 'provider' ou 'description' podem ser adicionadas
+};
+
+interface ItemWithMetadata extends Purchase, Return, Transfer {
+  metadata?: {
+    tracking_history?: TrackingHistoryEvent[];
+    // Outras propriedades que você armazena em metadata...
+  };
 }
 
 export function TrackingDetailsDialog({ open, onOpenChange, item, type }: TrackingDetailsDialogProps) {
@@ -61,11 +82,9 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     }
   };
 
-  // ## FUNÇÃO CORRIGIDA ##
-  // A correção está aqui: a variável 'observations' agora é passada para 'verifyReturn'.
   const handleVerifyReturn = async (returnId: string, observations?: string) => {
     try {
-      await verifyReturn(returnId, observations); // Passa as observações para o store
+      await verifyReturn(returnId, observations);
       toast({
         title: "Devolução Conferida",
         description: "A devolução foi marcada como conferida com sucesso."
@@ -148,6 +167,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     const allProductsVerified = purchase.products?.every(p => p.is_verified) || false;
     const purchaseInInventory = purchase.status?.toLowerCase().includes('estoque');
     const isDelivered = purchase.status?.toLowerCase().includes('entregue') || purchaseInInventory;
+    const trackingHistory = (purchase.metadata as any)?.tracking_history || [];
 
     return (
       <div className="space-y-6">
@@ -181,10 +201,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             <div className="flex items-center gap-2">
               <p className="font-medium">{purchase.trackingCode || 'Não informado'}</p>
               {purchase.trackingCode && (
-                <a 
-                  href={getTrackingUrl(purchase.carrier, purchase.trackingCode)} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  href={getTrackingUrl(purchase.carrier, purchase.trackingCode)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-blue-500 hover:text-blue-600"
                 >
                   <ExternalLink className="h-4 w-4" />
@@ -215,12 +235,51 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           </div>
         </div>
 
+        {/* Adicionando a seção de Histórico de Rastreamento */}
+        {trackingHistory && trackingHistory.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
+              <List className="h-5 w-5" />
+              Histórico de Rastreamento
+            </h3>
+            <div className="space-y-3">
+              {trackingHistory
+                .slice()
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((event, index) => (
+                  <div key={index} className="flex items-start gap-4">
+                    <div className="relative pt-1">
+                      <div className="h-3 w-3 rounded-full bg-blue-500 ring-4 ring-blue-100" />
+                      {index < trackingHistory.length - 1 && (
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 h-full w-0.5 bg-blue-200" />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-4">
+                      <p className="font-medium">{event.status}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                        <Clock className="h-3 w-3" />
+                        <span>{new Date(event.date).toLocaleDateString('pt-BR')}</span>
+                        {event.location && (
+                          <>
+                            <MapPin className="h-3 w-3" />
+                            <span>{event.location}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+        {/* Fim da seção de Histórico de Rastreamento */}
+
         <div className="space-y-4">
           <h3 className="text-lg font-semibold border-b pb-2">Produtos</h3>
           <div className="space-y-3">
             {purchase.products?.map((product) => (
-              <div 
-                key={product.id} 
+              <div
+                key={product.id}
                 className={`p-4 border rounded-lg ${product.is_verified ? 'bg-cyan-50 border-cyan-200' : 'bg-transparent'}`}
               >
                 <div className="flex items-center justify-between">
@@ -261,19 +320,19 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                             <Label htmlFor="vencimento-date" className="text-sm font-medium">
                               Data de Vencimento (Opcional):
                             </Label>
-                            <input 
-                              id="vencimento-date" 
-                              type="date" 
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" 
-                              value={vencimentoDate} 
-                              onChange={(e) => setVencimentoDate(e.target.value)} 
+                            <input
+                              id="vencimento-date"
+                              type="date"
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              value={vencimentoDate}
+                              onChange={(e) => setVencimentoDate(e.target.value)}
                             />
                           </div>
                           <AlertDialogFooter>
                             <AlertDialogCancel onClick={() => setVencimentoDate('')}>
                               Cancelar
                             </AlertDialogCancel>
-                            <AlertDialogAction 
+                            <AlertDialogAction
                               onClick={() => handleVerifyProduct(purchase.id, product.id, vencimentoDate || undefined)}
                             >
                               Confirmar
@@ -337,6 +396,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   };
 
   const renderReturnDetails = (returnItem: Return) => {
+    const trackingHistory = (returnItem.metadata as any)?.tracking_history || [];
+
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -369,10 +430,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             <div className="flex items-center gap-2">
               <p className="font-medium">{returnItem.trackingCode || 'Não informado'}</p>
               {returnItem.trackingCode && (
-                <a 
-                  href={getTrackingUrl(returnItem.carrier, returnItem.trackingCode)} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  href={getTrackingUrl(returnItem.carrier, returnItem.trackingCode)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-blue-500 hover:text-blue-600"
                 >
                   <ExternalLink className="h-4 w-4" />
@@ -395,13 +456,52 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <span>Previsão de Entrega:</span>
             </div>
             <p className="font-medium">
-              {returnItem.estimated_delivery 
-                ? new Date(returnItem.estimated_delivery).toLocaleDateString('pt-BR') 
+              {returnItem.estimated_delivery
+                ? new Date(returnItem.estimated_delivery).toLocaleDateString('pt-BR')
                 : 'Não disponível'
               }
             </p>
           </div>
         </div>
+        
+        {/* Adicionando a seção de Histórico de Rastreamento */}
+        {trackingHistory && trackingHistory.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
+              <List className="h-5 w-5" />
+              Histórico de Rastreamento
+            </h3>
+            <div className="space-y-3">
+              {trackingHistory
+                .slice()
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((event, index) => (
+                  <div key={index} className="flex items-start gap-4">
+                    <div className="relative pt-1">
+                      <div className="h-3 w-3 rounded-full bg-blue-500 ring-4 ring-blue-100" />
+                      {index < trackingHistory.length - 1 && (
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 h-full w-0.5 bg-blue-200" />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-4">
+                      <p className="font-medium">{event.status}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                        <Clock className="h-3 w-3" />
+                        <span>{new Date(event.date).toLocaleDateString('pt-BR')}</span>
+                        {event.location && (
+                          <>
+                            <MapPin className="h-3 w-3" />
+                            <span>{event.location}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+        {/* Fim da seção de Histórico de Rastreamento */}
 
         {returnItem.observations && (
           <div className="space-y-2">
@@ -446,6 +546,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   };
 
   const renderTransferDetails = (transfer: Transfer) => {
+    const trackingHistory = (transfer.metadata as any)?.tracking_history || [];
+
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -478,10 +580,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             <div className="flex items-center gap-2">
               <p className="font-medium">{transfer.trackingCode || 'Não informado'}</p>
               {transfer.trackingCode && (
-                <a 
-                  href={getTrackingUrl(transfer.carrier, transfer.trackingCode)} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  href={getTrackingUrl(transfer.carrier, transfer.trackingCode)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-blue-500 hover:text-blue-600"
                 >
                   <ExternalLink className="h-4 w-4" />
@@ -504,13 +606,53 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <span>Previsão de Entrega:</span>
             </div>
             <p className="font-medium">
-              {transfer.estimated_delivery 
-                ? new Date(transfer.estimated_delivery).toLocaleDateString('pt-BR') 
+              {transfer.estimated_delivery
+                ? new Date(transfer.estimated_delivery).toLocaleDateString('pt-BR')
                 : 'Não disponível'
               }
             </p>
           </div>
         </div>
+        
+        {/* Adicionando a seção de Histórico de Rastreamento */}
+        {trackingHistory && trackingHistory.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
+              <List className="h-5 w-5" />
+              Histórico de Rastreamento
+            </h3>
+            <div className="space-y-3">
+              {trackingHistory
+                .slice()
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((event, index) => (
+                  <div key={index} className="flex items-start gap-4">
+                    <div className="relative pt-1">
+                      <div className="h-3 w-3 rounded-full bg-blue-500 ring-4 ring-blue-100" />
+                      {index < trackingHistory.length - 1 && (
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 h-full w-0.5 bg-blue-200" />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-4">
+                      <p className="font-medium">{event.status}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                        <Clock className="h-3 w-3" />
+                        <span>{new Date(event.date).toLocaleDateString('pt-BR')}</span>
+                        {event.location && (
+                          <>
+                            <MapPin className="h-3 w-3" />
+                            <span>{event.location}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+        {/* Fim da seção de Histórico de Rastreamento */}
+
       </div>
     );
   };
@@ -521,9 +663,9 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {type === 'purchase' ? 'Detalhes da Compra' : 
-               type === 'return' ? 'Detalhes da Devolução' : 
-               'Detalhes da Transferência'}
+              {type === 'purchase' ? 'Detalhes da Compra' :
+                type === 'return' ? 'Detalhes da Devolução' :
+                  'Detalhes da Transferência'}
             </DialogTitle>
           </DialogHeader>
 
@@ -556,8 +698,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction 
-                      className='bg-red-700 hover:bg-red-800' 
+                    <AlertDialogAction
+                      className='bg-red-700 hover:bg-red-800'
                       onClick={() => handleArchiveItem(item.id, type)}
                     >
                       Sim, Arquivar
