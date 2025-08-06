@@ -436,37 +436,42 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       }
 
       // 4. Lógica de atualização do status no pedido de compra
-      // Buscamos o pedido de compra e seus produtos para verificar o estado de todos
       const { data: purchaseData, error: purchaseError } = await supabase
         .from('purchases')
-        .select('*, products:purchase_products(*)')
+        .select('status, is_archived, products:purchase_products(*)')
         .eq('id', purchaseId)
         .single();
 
       if (purchaseError) throw purchaseError;
 
       const currentPurchase = purchaseData as Purchase;
-      const updatedProductList = (currentPurchase.products || []).map(p =>
-          p.id === productId ? { ...p, is_verified: isVerified, vencimento: updatedVencimento, preco_ml: updatedPrecoMl } : p
-      );
+      const allProductsVerified = (currentPurchase.products || []).every(p => p.is_verified);
 
-      // Determinando o novo status do produto
+      // Determinando o novo status do pedido
       let newStatus = currentPurchase.status;
-      const hasVencimento = !!updatedVencimento;
-      const hasPrecoMl = updatedPrecoMl !== undefined && updatedPrecoMl !== null;
-      
-      if (isVerified) {
+
+      // Se todos os produtos foram verificados, atualiza o status do pedido para 'Produto entregue e conferido'
+      if (allProductsVerified) {
           newStatus = 'Produto entregue e conferido';
-      } else if (hasVencimento) {
-          newStatus = 'Produto entregue - Data de vencimento conferida';
-      } else if (hasPrecoMl) {
-          newStatus = 'Produto entregue - Preço mercado livre conferido';
       } else {
-          // Se nenhum dos campos está preenchido, o status volta a ser 'Entregue'
-          // A não ser que o status atual já seja um de problema ou arquivado
-          if (!currentPurchase.is_archived && currentPurchase.status?.toLowerCase().includes('entregue')) {
+        // Lógica para status intermediário
+        const isPartiallyVerified = updatedProductList.some(p => p.is_verified);
+        if (isPartiallyVerified) {
+          const hasVencimento = updatedProductList.some(p => p.vencimento);
+          const hasPrecoMl = updatedProductList.some(p => p.preco_ml !== undefined && p.preco_ml !== null);
+
+          if (hasVencimento && hasPrecoMl) {
+            newStatus = 'Produto entregue - Dados de conferência parciais';
+          } else if (hasVencimento) {
+            newStatus = 'Produto entregue - Data de vencimento conferida';
+          } else if (hasPrecoMl) {
+            newStatus = 'Produto entregue - Preço mercado livre conferido';
+          } else {
             newStatus = 'Entregue';
           }
+        } else {
+          newStatus = 'Entregue';
+        }
       }
 
       await supabase
