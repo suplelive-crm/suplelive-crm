@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Calendar, Package, Truck, CheckSquare, Archive, ExternalLink, RefreshCw,
-  CheckCircle, Database, MapPin, Clock, List
+  CheckCircle, Database, MapPin, Clock, List, FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,18 +25,16 @@ interface TrackingDetailsDialogProps {
   type: 'purchase' | 'return' | 'transfer' | null;
 }
 
-// A sua estrutura de evento de rastreamento
 type YourTrackingHistoryEvent = {
-  data: string; // "2025-08-05 17:08:20.000000"
-  detalhe: string; // "Aguardando postagem pelo remetente"
+  data: string;
+  detalhe: string;
   cidade?: string;
   uf?: string;
   tipo?: string;
   sigla?: string;
-  descricao?: string; // "Etiqueta emitida"
+  descricao?: string;
 };
 
-// A nova interface para lidar com a sua estrutura de metadata
 interface ItemWithYourMetadata extends Purchase, Return, Transfer {
   metadata?: YourTrackingHistoryEvent[];
 }
@@ -220,13 +218,24 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           </div>
         </div>
 
+        {/* Adicionando o campo de observação aqui, se for uma compra */}
+        {type === 'purchase' && (currentItem as Purchase).observation && (
+          <div className="space-y-2 mt-4">
+            <h4 className="font-medium flex items-center gap-2 text-muted-foreground">
+              <FileText className="h-4 w-4" /> Observações da Compra:
+            </h4>
+            <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+              {(currentItem as Purchase).observation}
+            </p>
+          </div>
+        )}
+
         {type === 'purchase' && renderPurchaseProducts(currentItem as Purchase)}
         {type === 'return' && renderReturnObservations(currentItem as Return)}
-
       </div>
     );
   };
-
+  
   const renderPurchaseProducts = (purchase: Purchase) => {
     const calculateTotalCost = () => {
       const productTotal = purchase.products?.reduce((sum, p) => sum + (p.cost * p.quantity), 0) || 0;
@@ -336,7 +345,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       </div>
     );
   };
-
+  
   const renderReturnObservations = (returnItem: Return) => {
     return (
       <div className="space-y-4">
@@ -376,7 +385,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       </div>
     );
   };
-
+  
   const renderTrackingHistory = (currentItem: ItemWithYourMetadata) => {
     // Acessando o metadata diretamente, pois ele é a array de eventos
     const trackingHistory: YourTrackingHistoryEvent[] = (currentItem.metadata as YourTrackingHistoryEvent[]) || [];
