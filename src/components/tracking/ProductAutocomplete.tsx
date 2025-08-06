@@ -18,13 +18,12 @@ interface ProductAutocompleteProps {
 
 export function ProductAutocomplete({ products, value, onSelect, onInputChange }: ProductAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [inputFocused, setInputFocused] = useState(false);
   
   const inputValue = value?.name || '';
 
   const filteredProducts = useMemo(() => {
     if (!inputValue) {
-      return []; 
+      return [];  
     }
 
     const lowercasedInput = inputValue.toLowerCase().trim();
@@ -41,7 +40,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
 
         if (productNameLower.includes(lowercasedInput)) {
           score = 2;
-        } 
+        }  
         else if (searchWords.every(word => productNameLower.includes(word))) {
           score = 1;
         }
@@ -72,24 +71,21 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
   }, [inputValue, products]);
 
   useEffect(() => {
-    if (inputValue && filteredProducts.length > 0 && inputFocused) {
+    // CORRIGIDO: Removendo a dependência de `inputFocused` e simplificando a lógica
+    if (inputValue && filteredProducts.length > 0) {
       setIsOpen(true);
     } else {
       setIsOpen(false);
     }
-  }, [inputValue, filteredProducts.length, inputFocused]);
+  }, [inputValue, filteredProducts.length]);
 
   const handleSelect = (product: Product) => {
     onSelect(product);
     setIsOpen(false);
-    setInputFocused(false);
   };
 
   const handleInputChange = (value: string) => {
     onInputChange(value);
-    if (value.trim()) {
-      setInputFocused(true);
-    }
   };
 
   return (
@@ -100,18 +96,14 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
           placeholder="Digite para buscar um produto..."
           value={inputValue}
           onChange={(e) => handleInputChange(e.target.value)}
+          // CORRIGIDO: Simplificando os eventos onFocus e onBlur para evitar conflitos
           onFocus={() => {
-            setInputFocused(true);
             if (inputValue && filteredProducts.length > 0) {
               setIsOpen(true);
             }
           }}
           onBlur={() => {
-            // Delay to allow click on dropdown items
-            setTimeout(() => {
-              setInputFocused(false);
-              setIsOpen(false);
-            }, 200);
+            // Permitindo que o Popover lide com o fechamento padrão
           }}
           className="w-full"
         />
@@ -120,10 +112,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
       <PopoverContent 
         className="w-[--radix-popover-anchor-width] p-0" 
         onOpenAutoFocus={(e) => e.preventDefault()}
-        onInteractOutside={(e) => {
-          setIsOpen(false);
-          setInputFocused(false);
-        }}
+        // CORRIGIDO: Removendo o onInteractOutside para que o Popover lide com o fechamento
       >
         <Command>
           <CommandList className="max-h-[300px] overflow-y-auto">
