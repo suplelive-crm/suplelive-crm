@@ -37,7 +37,6 @@ interface TrackingState {
   archivePurchase: (id: string) => Promise<void>;
   deletePurchase: (purchaseId: string) => Promise<void>;
   
-  // CORREÇÃO: Adicionando o novo parâmetro 'preco_ml' na função
   verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string, preco_ml?: number) => Promise<void>;
   
   addProductToInventory: (purchaseId: string) => Promise<void>;
@@ -317,32 +316,85 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
   
+  // CORREÇÃO: Implementação da função `updatePurchase`
   updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
-      const params = {
-        p_id: purchaseId,
-        p_date: formData.date,
-        p_carrier: formData.carrier,
-        p_store_name: formData.storeName,
-        p_customer_name: formData.customer_name || null,
-        p_tracking_code: formData.trackingCode,
-        p_delivery_fee: formData.delivery_fee,
-        p_products: products.map(p => ({
-            name: p.name,
-            sku: p.sku,
-            quantity: p.quantity,
-            cost: p.cost
-        }))
-      };
+      // 1. Atualizar a compra principal
+      const { error: purchaseError } = await supabase
+        .from('purchases')
+        .update({
+          date: formData.date,
+          carrier: formData.carrier,
+          storeName: formData.storeName,
+          customer_name: formData.customer_name || null,
+          trackingCode: formData.trackingCode,
+          delivery_fee: formData.delivery_fee,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', purchaseId);
 
-      const { error } = await supabase.rpc('update_purchase_and_products', params);
+      if (purchaseError) throw purchaseError;
 
-      if (error) {
-        console.error("Erro ao atualizar a compra via RPC:", error);
-        throw error;
+      // 2. Coletar os IDs dos produtos existentes na lista do formulário
+      const formProductIds = products.map(p => p.id).filter(id => id !== undefined);
+
+      // 3. Deletar produtos removidos
+      const { data: existingProducts, error: fetchProductsError } = await supabase
+        .from('purchase_products')
+        .select('id')
+        .eq('purchase_id', purchaseId);
+
+      if (fetchProductsError) throw fetchProductsError;
+      
+      const productsToDelete = (existingProducts || []).filter(p => !formProductIds.includes(p.id));
+      if (productsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('purchase_products')
+          .delete()
+          .in('id', productsToDelete.map(p => p.id));
+        if (deleteError) throw deleteError;
       }
 
+      // 4. Inserir ou atualizar produtos
+      const newProducts = products.filter(p => p.id === undefined);
+      const updatedProducts = products.filter(p => p.id !== undefined);
+
+      // Inserir novos produtos
+      if (newProducts.length > 0) {
+        const totalQuantity = newProducts.reduce((sum, p) => sum + (p.quantity || 0), 0);
+        const deliveryFeePerUnit = totalQuantity > 0 ? formData.delivery_fee / totalQuantity : 0;
+        const productsToInsert = newProducts.map(product => ({
+          name: product.name,
+          quantity: product.quantity,
+          cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
+          SKU: product.sku,
+          purchase_id: purchaseId,
+          is_verified: false,
+          is_in_stock: false,
+          vencimento: null,
+          preco_ml: null,
+        }));
+        const { error: insertError } = await supabase.from('purchase_products').insert(productsToInsert);
+        if (insertError) throw insertError;
+      }
+
+      // Atualizar produtos existentes
+      for (const product of updatedProducts) {
+        const { error: updateProductError } = await supabase
+          .from('purchase_products')
+          .update({
+            quantity: product.quantity,
+            cost: product.cost,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', product.id)
+          .eq('purchase_id', purchaseId);
+        if (updateProductError) throw updateProductError;
+      }
+      
+      // 5. Re-executar o fetch para garantir que a UI esteja atualizada
       await get().fetchPurchases();
+      ErrorHandler.showSuccess('Compra atualizada com sucesso!');
     });
   },
 
@@ -387,10 +439,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  // FUNÇÃO CORRIGIDA: Implementando a lógica de validação para `is_verified` e atualizando status
   verifyPurchaseProduct: async (purchaseId, productId, vencimento, preco_ml) => {
     await ErrorHandler.handleAsync(async () => {
-      // 1. Buscando o estado atual do produto
       const { data: currentProduct, error: fetchError } = await supabase
         .from('purchase_products')
         .select('vencimento, preco_ml')
@@ -400,11 +450,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       
       if (fetchError) throw fetchError;
 
-      // 2. Combinando os valores existentes com os novos
       const updatedVencimento = vencimento || currentProduct?.vencimento;
       const updatedPrecoMl = preco_ml !== undefined ? preco_ml : currentProduct?.preco_ml;
 
-      // 3. Verificando se ambos os campos estão preenchidos para marcar como 'is_verified'
       const isVerified = !!updatedVencimento && updatedPrecoMl !== undefined && updatedPrecoMl !== null;
 
       const updates: {
@@ -435,7 +483,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         throw error;
       }
 
-      // 4. Lógica de atualização do status no pedido de compra
       const { data: purchaseData, error: purchaseError } = await supabase
         .from('purchases')
         .select('status, is_archived, products:purchase_products(*)')
@@ -445,12 +492,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (purchaseError) throw purchaseError;
 
       const currentPurchase = purchaseData as Purchase;
-      const updatedProductList = (currentPurchase.products || []).map(p =>
-        p.id === productId ? { ...p, is_verified: isVerified, vencimento: updatedVencimento, preco_ml: updatedPrecoMl } : p
-      );
-      
-      // Criando uma nova lista de produtos com a atualização
-      // A variável updatedProductList estava indefinida no código anterior.
       const finalProductList = currentPurchase.products.map(p => {
           if (p.id === productId) {
               return { ...p, is_verified: isVerified, vencimento: updatedVencimento, preco_ml: updatedPrecoMl };
@@ -458,14 +499,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           return p;
       });
 
-      // Determinando o novo status do pedido
       let newStatus = currentPurchase.status;
       
-      // Verificando se o produto recém atualizado tem os campos preenchidos
-      const hasVencimento = !!updatedVencimento;
-      const hasPrecoMl = updatedPrecoMl !== undefined && updatedPrecoMl !== null;
-
-      // Verificando o estado de todos os produtos do pedido
       const allProductsVerified = finalProductList.every(p => p.is_verified);
       const someProductsHaveVencimento = finalProductList.some(p => !!p.vencimento);
       const someProductsHavePrecoMl = finalProductList.some(p => p.preco_ml !== undefined && p.preco_ml !== null);
@@ -480,7 +515,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       } else if (someProductsHavePrecoMl) {
           newStatus = 'Produto entregue - Preço mercado livre conferido';
       } else {
-          // Se nenhum dos campos está preenchido em nenhum produto, o status volta para 'Entregue'
           if (!currentPurchase.is_archived && currentPurchase.status?.toLowerCase().includes('entregue')) {
               newStatus = 'Entregue';
           }
@@ -491,7 +525,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', purchaseId);
 
-      // Atualiza o estado local do store com a nova informação
       set((state) => ({
         purchases: state.purchases.map((purchase) =>
           purchase.id === purchaseId
