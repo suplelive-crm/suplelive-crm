@@ -298,15 +298,12 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <Calendar className="h-4 w-4 text-gray-500" />
                               Data de Vencimento (Opcional):
                             </Label>
-                            {/* CORRIGIDO: Adicionando onFocus e onBlur para o input date e onChange */}
+                            {/* CORRIGIDO: Removendo onFocus/onBlur e usando type="date" para melhor UX em mobile e desktop */}
                             <Input
                               id="vencimento-date"
-                              type="text"
+                              type="date"
                               value={vencimentoDate}
                               onChange={(e) => setVencimentoDate(e.target.value)}
-                              placeholder="dd/mm/aaaa"
-                              onFocus={(e) => e.target.type = 'date'}
-                              onBlur={(e) => e.target.type = 'text'}
                             />
                           </div>
                           <div className="space-y-2">
@@ -314,13 +311,13 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <DollarSign className="h-4 w-4 text-gray-500" />
                               Preço do produto - Mercado Livre (Opcional):
                             </Label>
-                            {/* CORRIGIDO: Adicionando onChange para o input de preço */}
+                            {/* CORRIGIDO: Adicionando o 'value' e 'onChange' corretamente */}
                             <Input
                               id="preco-ml"
                               type="number"
                               step="0.01"
                               value={precoMl}
-                              onChange={(e) => setPrecoMl(parseFloat(e.target.value) || '')}
+                              onChange={(e) => setPrecoMl(parseFloat(e.target.value))}
                               placeholder="R$ 0.00"
                             />
                           </div>
