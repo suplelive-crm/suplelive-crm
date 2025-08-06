@@ -89,22 +89,20 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}> {/* onOpenChange já lida com o fechamento ao clicar fora */}
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverAnchor asChild>
         <Input
           type="text"
           placeholder="Digite para buscar um produto..."
           value={inputValue}
           onChange={(e) => handleInputChange(e.target.value)}
-          // Removendo onFocus e onBlur manuais para evitar conflitos com o Popover
-          // O Popover já gerencia o estado 'open' com base no clique no PopoverAnchor
           className="w-full"
         />
       </PopoverAnchor>
 
       <PopoverContent 
         // CORRIGIDO: Aumentando o z-index para garantir que apareça acima dos modais
-        className="w-[--radix-popover-anchor-width] p-0 z-[52]" 
+        className="w-[--radix-popover-anchor-width] p-0 z-[10000]"
         onOpenAutoFocus={(e) => e.preventDefault()}
         // Removendo onInteractOutside para que o Popover lide com o fechamento padrão
       >
