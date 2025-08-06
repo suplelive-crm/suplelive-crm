@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Package, DollarSign, Truck } from 'lucide-react';
+import { Plus, Trash2, Calendar, Package, DollarSign, Truck, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea'; // Importando Textarea
 import { useTrackingStore } from '@/store/trackingStore';
 import { useCrmStore } from '@/store/crmStore';
 import { useToast } from '@/hooks/use-toast';
-import { ProductAutocomplete } from './ProductAutocomplete'; 
+import { ProductAutocomplete } from './ProductAutocomplete';
 
 interface CreatePurchaseDialogProps {
   open: boolean;
@@ -16,11 +17,11 @@ interface CreatePurchaseDialogProps {
 }
 
 type FormProduct = Partial<{
-    id: string | number;
-    name: string;
-    sku: string;
-    quantity: number;
-    cost: number;
+  id: string | number;
+  name: string;
+  sku: string;
+  quantity: number;
+  cost: number;
 }>
 
 export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialogProps) {
@@ -31,12 +32,13 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     customer_name: '',
     trackingCode: '',
     delivery_fee: 0,
+    observation: '' // 1. Adicionando o novo campo de observação
   });
 
   const [products, setProducts] = useState<FormProduct[]>([
     { name: '', quantity: 1, cost: 0, sku: '' }
   ]);
-  
+
   const [loading, setLoading] = useState(false);
   const { createPurchase } = useTrackingStore();
   const { products: dbProducts, fetchProducts } = useCrmStore();
@@ -68,7 +70,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
   const handleProductSelect = (index: number, selectedProduct: any) => {
     const newProducts = [...products];
     newProducts[index] = {
-      ...newProducts[index], 
+      ...newProducts[index],
       id: selectedProduct.id,
       name: selectedProduct.name,
       sku: selectedProduct.sku || '',
@@ -79,7 +81,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.date || !formData.carrier || !formData.storeName || !formData.trackingCode || formData.deliveryFee < 0) {
+    if (!formData.date || !formData.carrier || !formData.storeName || !formData.trackingCode || formData.delivery_fee < 0) {
       toast({ title: 'Erro', description: 'Por favor, preencha todos os campos obrigatórios da compra', variant: 'destructive' });
       return;
     }
@@ -93,7 +95,16 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     try {
       await createPurchase(formData, products as any);
 
-      setFormData({ date: new Date().toISOString().split('T')[0], carrier: '', storeName: '', customer_name: '', trackingCode: '', delivery_fee: 0 });
+      // Resetando o estado do formulário, incluindo o novo campo
+      setFormData({ 
+        date: new Date().toISOString().split('T')[0], 
+        carrier: '', 
+        storeName: '', 
+        customer_name: '', 
+        trackingCode: '', 
+        delivery_fee: 0,
+        observation: '' // Resetando o campo de observação
+      });
       setProducts([{ name: '', quantity: 1, cost: 0, sku: '' }]);
       onOpenChange(false);
       toast({ title: 'Sucesso', description: 'Compra criada com sucesso' });
@@ -123,46 +134,59 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
               <Input id="date" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} required />
             </div>
             <div className="space-y-2">
-                <Label htmlFor="carrier" className="flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
-                </Label>
-                <Select value={formData.carrier} onValueChange={(value) => setFormData({ ...formData, carrier: value })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione a transportadora" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Correios">Correios</SelectItem>
-                        <SelectItem value="Jadlog">Jadlog</SelectItem>
-                        <SelectItem value="Total Express">Total Express</SelectItem>
-                        <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
-                        <SelectItem value="Braspress">Braspress</SelectItem>
-                        <SelectItem value="Outra">Outra</SelectItem>
-                    </SelectContent>
-                </Select>
+              <Label htmlFor="carrier" className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
+              </Label>
+              <Select value={formData.carrier} onValueChange={(value) => setFormData({ ...formData, carrier: value })}>
+                <SelectTrigger><SelectValue placeholder="Selecione a transportadora" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Correios">Correios</SelectItem>
+                  <SelectItem value="Jadlog">Jadlog</SelectItem>
+                  <SelectItem value="Total Express">Total Express</SelectItem>
+                  <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
+                  <SelectItem value="Braspress">Braspress</SelectItem>
+                  <SelectItem value="Outra">Outra</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="storeName" className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-gray-500" /> Nome da Loja *
-                </Label>
-                <Input id="storeName" value={formData.storeName} onChange={(e) => setFormData({ ...formData, storeName: e.target.value })} placeholder="Ex: Mercado Livre" required />
+              <Label htmlFor="storeName" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" /> Nome da Loja *
+              </Label>
+              <Input id="storeName" value={formData.storeName} onChange={(e) => setFormData({ ...formData, storeName: e.target.value })} placeholder="Ex: Mercado Livre" required />
             </div>
             <div className="space-y-2">
-                <Label htmlFor="customerName" className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-gray-500" /> Nome do Cliente (Opcional)
-                </Label>
-                <Input id="customerName" value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} placeholder="Ex: João Silva"/>
-                <Input id="customerName" value={formData.customer_name} onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })} placeholder="Ex: João Silva"/>
+              <Label htmlFor="customerName" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" /> Nome do Cliente (Opcional)
+              </Label>
+              <Input id="customerName" value={formData.customer_name} onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })} placeholder="Ex: João Silva"/>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="trackingCode" className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-gray-500" /> Código de Rastreio *
-                </Label>
-                <Input id="trackingCode" value={formData.trackingCode} onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })} placeholder="Ex: AA123456789BR" required/>
+              <Label htmlFor="trackingCode" className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" /> Código de Rastreio *
+              </Label>
+              <Input id="trackingCode" value={formData.trackingCode} onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })} placeholder="Ex: AA123456789BR" required/>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="deliveryFee" className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
-                </Label>
-                <Input id="deliveryFee" type="number" min="0" step="0.01" value={formData.delivery_fee} onChange={(e) => setFormData({ ...formData, delivery_fee: parseFloat(e.target.value) || 0 })} required/>
+              <Label htmlFor="deliveryFee" className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
+              </Label>
+              <Input id="deliveryFee" type="number" min="0" step="0.01" value={formData.delivery_fee} onChange={(e) => setFormData({ ...formData, delivery_fee: parseFloat(e.target.value) || 0 })} required/>
             </div>
+          </div>
+          
+          {/* 2. Adicionando o campo de observação */}
+          <div className="space-y-2">
+            <Label htmlFor="observation" className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-gray-500" /> Observação (Opcional)
+            </Label>
+            <Textarea
+              id="observation"
+              value={formData.observation}
+              onChange={(e) => setFormData({ ...formData, observation: e.target.value })}
+              placeholder="Adicione observações sobre a compra..."
+              rows={3}
+            />
           </div>
 
           <div className="space-y-4">
