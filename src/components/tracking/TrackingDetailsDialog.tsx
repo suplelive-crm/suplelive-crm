@@ -356,7 +356,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                             +1
                           </Button>
                           <Button 
-                          <Button 
                             type="button" 
                             variant="secondary" 
                             onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 10)}
