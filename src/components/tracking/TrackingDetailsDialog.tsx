@@ -292,7 +292,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                             Para marcar o produto como conferido, insira a data de vencimento e o preço de venda no Mercado Livre.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
-                        <div className="space-y-4 py-4">
+                        <div className="space-y-4 py-4" style="z-index: 9999;">
                           <div className="space-y-2">
                             <Label htmlFor="vencimento-date" className="flex items-center gap-2 text-sm font-medium">
                               <Calendar className="h-4 w-4 text-gray-500" />
