@@ -281,7 +281,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                   {!product.is_verified ? (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setVencimentoDate(product.vencimento || '');
+                          setPrecoMl(product.preco_ml || '');
+                        }}>
                           <CheckSquare className="h-4 w-4 mr-2" /> Conferir
                         </Button>
                       </AlertDialogTrigger>
