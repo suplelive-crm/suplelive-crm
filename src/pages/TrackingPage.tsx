@@ -39,8 +39,18 @@ import { useToast } from '@/hooks/use-toast';
 import { getTrackingUrl } from '@/lib/tracking-api';
 
 // #region Funções de Helper
+// CORRIGIDO: Adicionando as novas categorias de status para o filtro
 const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
   const statusLower = (item.status || '').toLowerCase();
+  
+  if (statusLower.includes('saiu para entrega')) {
+    return 'Saiu para entrega';
+  }
+  
+  if (statusLower.includes('pagamento')) {
+    return 'Aguardando pagamento';
+  }
+
   if (
     statusLower.includes('problema') ||
     statusLower.includes('não autorizada') ||
@@ -52,27 +62,36 @@ const getItemStatusCategory = (item: Purchase | Return | Transfer): string => {
   ) {
     return 'Pausado/Problema';
   }
+
   const isFinalStatus = statusLower.includes('entregue') || statusLower.includes('conferido') || statusLower.includes('estoque');
   if (isFinalStatus) {
     return 'Entregue';
   }
+  
   if (item.estimated_delivery && new Date(item.estimated_delivery) < new Date()) {
     return 'Atrasado';
   }
-  if (statusLower.includes('trânsito') || statusLower.includes('transferência') || statusLower.includes('saiu para entrega')) {
+  
+  if (statusLower.includes('trânsito') || statusLower.includes('transferência')) {
     return 'Em trânsito';
   }
+  
   if (statusLower.includes('aguardando') || statusLower.includes('aguarde')) {
     return 'Aguardando';
   }
+  
   return 'Outro';
 };
 
 
+// CORRIGIDO: Adicionando as novas cores para os novos status
 const getStatusColor = (status: string) => {
   const statusLower = (status || '').toLowerCase();
+  
   if (statusLower.includes('saiu para entrega')) {
-    return 'bg-[#4169E1] text-white';
+    return 'bg-[#03A9F4] text-white'; // Azul claro para 'Saiu para entrega'
+  } else if (statusLower.includes('pagamento')) {
+    return 'bg-[#FFC107] text-gray-900'; // Amarelo para 'Aguardando pagamento'
   } else if (statusLower.includes('entregue') || statusLower.includes('conferido')) {
     return 'bg-green-100 text-green-800';
   } else if (statusLower.includes('trânsito')) {
@@ -200,9 +219,6 @@ export function TrackingPage() {
     fetchPurchases();
     fetchReturns();
     fetchTransfers();
-    // Removendo o setInterval para não chamar updateAllTrackingStatuses automaticamente
-    // const interval = setInterval(() => { updateAllTrackingStatuses(); }, 30 * 60 * 1000);
-    // return () => clearInterval(interval);
   }, [fetchPurchases, fetchReturns, fetchTransfers]);
 
   const filteredData = useMemo(() => {
@@ -238,7 +254,6 @@ export function TrackingPage() {
     rowsPerPage, changeRowsPerPage, totalRows
   } = useTable(filteredData, 'date');
 
-  // Corrigindo a função para chamar as buscas do banco de dados em vez de updateAllTrackingStatuses
   const handleRefreshTracking = () => {
     if (activeTab === 'purchases') fetchPurchases();
     if (activeTab === 'returns') fetchReturns();
@@ -246,10 +261,8 @@ export function TrackingPage() {
     toast({ title: "Atualizando...", description: `Aguarde, os dados da aba ${activeTab} estão sendo buscados.` });
   };
   
-  // A função handleRunAutomation foi removida pois o usuário não deseja mais a automação
   const handleViewDetails = (item: GenericItem) => {
     setSelectedItem(item);
-    // Determinar o tipo baseado na presença de propriedades específicas
     if ('products' in item) {
       setSelectedItemType('purchase');
     } else if (activeTab === 'returns') {
@@ -260,19 +273,17 @@ export function TrackingPage() {
     setDetailsOpen(true);
   };
 
-  // Função para abrir o diálogo de EDIÇÃO
   const handleEditPurchase = (purchase: Purchase) => {
     setPurchaseToEdit(purchase);
     setIsEditPurchaseOpen(true);
   };
 
-  // Função para confirmar e executar a DELEÇÃO - com chamada para fetchPurchases
   const handleDeletePurchaseConfirm = async () => {
     if (!purchaseToDelete) return;
     try {
       await deletePurchase(purchaseToDelete.id);
       toast({ title: "Sucesso!", description: "Pedido deletado com sucesso." });
-      fetchPurchases(); // Chamada para atualizar a lista após a deleção
+      fetchPurchases();
     } catch (error) {
       console.error("Falha ao deletar o pedido:", error);
       toast({ title: "Erro", description: "Falha ao deletar o pedido.", variant: "destructive" });
@@ -282,7 +293,6 @@ export function TrackingPage() {
   };
 
   const handleVerifyReturn = async (returnId: string, observations?: string) => {
-    // Esta função será implementada no store se necessário
     console.log('Verify return:', returnId, observations);
   };
 
@@ -615,7 +625,7 @@ export function TrackingPage() {
           setIsEditPurchaseOpen(isOpen);
           if (!isOpen) {
             setPurchaseToEdit(null);
-            fetchPurchases(); // Adicionando a atualização ao fechar o diálogo
+            fetchPurchases();
           }
         }}
         purchase={purchaseToEdit}
