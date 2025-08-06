@@ -6,6 +6,7 @@ import { Purchase, PurchaseProduct, Return, Transfer, TrackingResponse } from '@
 import { trackPackage, parseTrackingResponse, getTrackingUrl, runTrackingAutomation } from '@/lib/tracking-api';
 
 // Tipos para os dados do formulário, para clareza
+// CORREÇÃO 1: Adicionando o campo 'observation' na interface de dados do formulário
 interface PurchaseFormData {
   date: string;
   carrier: string;
@@ -13,6 +14,7 @@ interface PurchaseFormData {
   customer_name?: string;
   trackingCode: string;
   delivery_fee: number;
+  observation?: string; // Novo campo não obrigatório
 }
 
 // Omit<> remove campos do tipo original para criar um novo tipo
@@ -116,7 +118,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     fetchTransfers();
   },
   
-  // FUNÇÃO CORRIGIDA: Inclui a coluna metadata no select
+  // FUNÇÃO CORRIGIDA: Inclui a coluna metadata no select e mapeia 'observation'
   fetchPurchases: async () => {
     await ErrorHandler.handleAsync(async () => {
       set({ loading: true });
@@ -156,8 +158,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         created_at: purchase.created_at,
         updated_at: purchase.updated_at,
         workspace_id: purchase.workspace_id,
-        // Adicionando a propriedade metadata
         metadata: purchase.metadata,
+        // CORREÇÃO 2: Mapeando a coluna 'observation'
+        observation: purchase.observation,
         products: (purchase.products || []).map((product: any) => ({
           id: product.id,
           purchase_id: product.purchase_id,
@@ -216,7 +219,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         is_verified: item.is_verified,
         verification_observations: item.verification_observations,
         verified_at: item.verified_at,
-        // Adicionando a propriedade metadata
         metadata: item.metadata,
       }));
 
@@ -263,7 +265,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         is_verified: item.is_verified,
         verification_observations: item.verification_observations,
         verified_at: item.verified_at,
-        // Adicionando a propriedade metadata
         metadata: item.metadata,
       }));
 
@@ -272,6 +273,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
+  // CORREÇÃO 3: Adicionando 'observation' ao objeto de inserção
   createPurchase: async (purchaseData, products) => {
     return await ErrorHandler.handleAsync(async () => {
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
@@ -287,7 +289,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         status: 'Aguardando rastreamento',
         is_archived: false,
         workspace_id: currentWorkspace.id,
-        metadata: [] // Inicializa a coluna metadata como uma array vazia
+        metadata: [],
+        observation: purchaseData.observation || null, // Adicionando a observação
       };
 
       const { data: purchase, error: purchaseError } = await supabase
@@ -565,7 +568,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         status: 'Aguardando rastreamento',
         is_archived: false,
         workspace_id: currentWorkspace.id,
-        metadata: [] // Inicializa a coluna metadata como uma array vazia
+        metadata: []
       };
 
       console.log("Creating return with data:", dbReturnData);
@@ -692,7 +695,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         status: 'Aguardando rastreamento',
         is_archived: false,
         workspace_id: currentWorkspace.id,
-        metadata: [] // Inicializa a coluna metadata como uma array vazia
+        metadata: []
       };
 
       console.log("Creating transfer with data:", dbTransferData);
@@ -770,7 +773,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  // FUNÇÃO CORRIGIDA: Atualiza o status e a coluna metadata
   updateTrackingStatus: async (type, id) => {
     await ErrorHandler.handleAsync(async () => {
       const { data: item } = await supabase
@@ -795,18 +797,16 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
         console.log(`Got tracking info for ${type} ${id}:`, trackingInfo);
 
-        // Atualiza o item no banco de dados com o novo status e o histórico completo
         await supabase
           .from(type === 'purchase' ? 'purchases' : type === 'return' ? 'returns' : 'transfers')
           .update({
             status: trackingInfo.data.status,
             estimated_delivery: trackingInfo.data.estimatedDelivery,
-            metadata: trackingInfo.data.history, // Adiciona o histórico completo aqui
+            metadata: trackingInfo.data.history,
             updated_at: new Date().toISOString()
           })
           .eq('id', id);
 
-        // Dispara o fetch da lista relevante para atualizar a UI
         if (type === 'purchase') get().fetchPurchases();
         else if (type === 'return') get().fetchReturns();
         else if (type === 'transfer') get().fetchTransfers();
@@ -819,7 +819,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
-  // FUNÇÃO CORRIGIDA: Agora busca o item completo para encontrar o histórico
   findItemByTrackingCode: async (trackingCode: string) => {
     return await ErrorHandler.handleAsync(async () => {
       if (!trackingCode) return null;
@@ -827,7 +826,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) return null;
 
-      // Buscando compra com metadata
       const { data: purchaseData } = await supabase
         .from('purchases')
         .select(`*, products:purchase_products(*), metadata`)
@@ -836,10 +834,17 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .maybeSingle();
 
       if (purchaseData) {
-        return { type: 'purchase' as const, item: purchaseData as Purchase };
+        // CORREÇÃO 4: Mapeando 'observation' para o tipo Purchase
+        const mappedPurchaseData: Purchase = {
+          ...purchaseData,
+          products: (purchaseData.products || []).map((p: any) => ({ ...p })) as PurchaseProduct[],
+          metadata: purchaseData.metadata,
+          observation: purchaseData.observation,
+        } as Purchase;
+
+        return { type: 'purchase' as const, item: mappedPurchaseData };
       }
 
-      // Buscando devolução com metadata
       const { data: returnData } = await supabase
         .from('returns')
         .select('*, metadata')
@@ -851,7 +856,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         return { type: 'return' as const, item: returnData as Return };
       }
 
-      // Buscando transferência com metadata
       const { data: transferData } = await supabase
         .from('transfers')
         .select('*, metadata')
@@ -867,7 +871,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     }) || null;
   },
   
-  // As funções abaixo foram removidas para atender ao pedido do usuário
   updateAllTrackingStatuses: async () => {
     console.warn("updateAllTrackingStatuses was called but is not implemented per user request.");
   },
