@@ -71,7 +71,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
   }, [inputValue, products]);
 
   useEffect(() => {
-    // CORRIGIDO: Removendo a dependência de `inputFocused` e simplificando a lógica
+    // Apenas abre o Popover se houver valor no input e produtos filtrados
     if (inputValue && filteredProducts.length > 0) {
       setIsOpen(true);
     } else {
@@ -81,7 +81,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
 
   const handleSelect = (product: Product) => {
     onSelect(product);
-    setIsOpen(false);
+    setIsOpen(false); // Fecha o popover ao selecionar
   };
 
   const handleInputChange = (value: string) => {
@@ -89,30 +89,24 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={setIsOpen}> {/* onOpenChange já lida com o fechamento ao clicar fora */}
       <PopoverAnchor asChild>
         <Input
           type="text"
           placeholder="Digite para buscar um produto..."
           value={inputValue}
           onChange={(e) => handleInputChange(e.target.value)}
-          // CORRIGIDO: Simplificando os eventos onFocus e onBlur para evitar conflitos
-          onFocus={() => {
-            if (inputValue && filteredProducts.length > 0) {
-              setIsOpen(true);
-            }
-          }}
-          onBlur={() => {
-            // Permitindo que o Popover lide com o fechamento padrão
-          }}
+          // Removendo onFocus e onBlur manuais para evitar conflitos com o Popover
+          // O Popover já gerencia o estado 'open' com base no clique no PopoverAnchor
           className="w-full"
         />
       </PopoverAnchor>
 
       <PopoverContent 
-        className="w-[--radix-popover-anchor-width] p-0" 
+        // CORRIGIDO: Aumentando o z-index para garantir que apareça acima dos modais
+        className="w-[--radix-popover-anchor-width] p-0 z-[52]" 
         onOpenAutoFocus={(e) => e.preventDefault()}
-        // CORRIGIDO: Removendo o onInteractOutside para que o Popover lide com o fechamento
+        // Removendo onInteractOutside para que o Popover lide com o fechamento padrão
       >
         <Command>
           <CommandList className="max-h-[300px] overflow-y-auto">
