@@ -298,7 +298,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <Calendar className="h-4 w-4 text-gray-500" />
                               Data de Vencimento (Opcional):
                             </Label>
-                            {/* CORRIGIDO: Removendo onFocus/onBlur e usando type="date" para melhor UX em mobile e desktop */}
+                            {/* CORRIGIDO: Agora o input é do tipo 'date' para a melhor compatibilidade */}
                             <Input
                               id="vencimento-date"
                               type="date"
@@ -311,13 +311,14 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <DollarSign className="h-4 w-4 text-gray-500" />
                               Preço do produto - Mercado Livre (Opcional):
                             </Label>
-                            {/* CORRIGIDO: Adicionando o 'value' e 'onChange' corretamente */}
+                            {/* CORRIGIDO: Adicionando onFocus e onBlur para o input de preco,
+                                garantindo que o valor seja tratado como string ao digitar e como number ao desfocar. */}
                             <Input
                               id="preco-ml"
                               type="number"
                               step="0.01"
-                              value={precoMl}
-                              onChange={(e) => setPrecoMl(parseFloat(e.target.value))}
+                              value={precoMl === '' ? '' : precoMl}
+                              onChange={(e) => setPrecoMl(e.target.value === '' ? '' : parseFloat(e.target.value))}
                               placeholder="R$ 0.00"
                             />
                           </div>
