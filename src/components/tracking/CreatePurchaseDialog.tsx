@@ -139,7 +139,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
               {/* CORRIGIDO: Certificando que o value é uma string e a tipagem é correta */}
               <Select value={formData.carrier || ''} onValueChange={(value: string) => setFormData({ ...formData, carrier: value })}>
                 <SelectTrigger><SelectValue placeholder="Selecione a transportadora" /></SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[10000]"> {/* CORRIGIDO: Aumentando o z-index do SelectContent */}
                   <SelectItem value="Correios">Correios</SelectItem>
                   <SelectItem value="Jadlog">Jadlog</SelectItem>
                   <SelectItem value="Total Express">Total Express</SelectItem>
