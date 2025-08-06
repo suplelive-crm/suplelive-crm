@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input'; // Mantendo a importação do Input caso queira reintroduzir classes depois
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -298,7 +298,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <Calendar className="h-4 w-4 text-gray-500" />
                               Data de Vencimento (Opcional):
                             </Label>
-                            {/* CORRIGIDO: Adicionando tabIndex para garantir que o campo seja focável */}
+                            {/* CORRIGIDO: Adicionando tabIndex={0} para garantir que o campo é focável */}
                             <Input
                               id="vencimento-date"
                               type="date"
@@ -312,7 +312,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <DollarSign className="h-4 w-4 text-gray-500" />
                               Preço do produto - Mercado Livre (Opcional):
                             </Label>
-                            {/* CORRIGIDO: Adicionando tabIndex para garantir que o campo é focável */}
+                            {/* CORRIGIDO: Adicionando tabIndex={0} para garantir que o campo é focável */}
                             <Input
                               id="preco-ml"
                               type="number"
