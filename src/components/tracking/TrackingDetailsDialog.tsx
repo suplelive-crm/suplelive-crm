@@ -282,8 +282,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" onClick={() => {
-                          setVencimentoDate(product.vencimento || '');
-                          setPrecoMl(product.preco_ml || '');
+                          setVencimentoDate(product.vencimento || ''); // CORRIGIDO: Define o estado com o valor do banco
+                          setPrecoMl(product.preco_ml || ''); // CORRIGIDO: Define o estado com o valor do banco
                         }}>
                           <CheckSquare className="h-4 w-4 mr-2" /> Conferir
                         </Button>
