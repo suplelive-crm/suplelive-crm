@@ -95,7 +95,6 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     try {
       await createPurchase(formData, products as any);
 
-      // Resetando o estado do formulário, incluindo o novo campo
       setFormData({ 
         date: new Date().toISOString().split('T')[0], 
         carrier: '', 
@@ -137,7 +136,8 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
               <Label htmlFor="carrier" className="flex items-center gap-2">
                 <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
               </Label>
-              <Select value={formData.carrier} onValueChange={(value) => setFormData({ ...formData, carrier: value })}>
+              {/* CORRIGIDO: Certificando que o value é uma string e a tipagem é correta */}
+              <Select value={formData.carrier || ''} onValueChange={(value: string) => setFormData({ ...formData, carrier: value })}>
                 <SelectTrigger><SelectValue placeholder="Selecione a transportadora" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Correios">Correios</SelectItem>
@@ -175,7 +175,6 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
             </div>
           </div>
           
-          {/* 2. Adicionando o campo de observação */}
           <div className="space-y-2">
             <Label htmlFor="observation" className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-gray-500" /> Observação (Opcional)
