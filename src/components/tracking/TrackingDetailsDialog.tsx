@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
   Calendar, Package, Truck, CheckSquare, Archive, ExternalLink, RefreshCw,
-  CheckCircle, Database, MapPin, Clock, List, FileText
+  CheckCircle, Database, MapPin, Clock, List, FileText, DollarSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input'; // Importando Input para o campo de preço
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -42,6 +43,8 @@ interface ItemWithYourMetadata extends Purchase, Return, Transfer {
 export function TrackingDetailsDialog({ open, onOpenChange, item, type }: TrackingDetailsDialogProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [vencimentoDate, setVencimentoDate] = useState<string>('');
+  // NOVO ESTADO: para o preço do produto no Mercado Livre
+  const [precoMl, setPrecoMl] = useState<number | ''>('');
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [verificationObservations, setVerificationObservations] = useState('');
 
@@ -59,6 +62,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   useEffect(() => {
     if (open) {
       setVencimentoDate('');
+      setPrecoMl(''); // Resetando o novo estado
       setShowVerificationDialog(false);
       setVerificationObservations('');
     }
@@ -66,14 +70,16 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
 
   if (!item || !type) return null;
 
-  const handleVerifyProduct = async (purchaseId: string, productId: string, vencimento?: string) => {
+  // FUNÇÃO CORRIGIDA: Agora aceita o novo campo 'precoMl'
+  const handleVerifyProduct = async (purchaseId: string, productId: string, vencimento?: string, preco_ml?: number) => {
     try {
-      await verifyPurchaseProduct(purchaseId, productId, vencimento);
+      await verifyPurchaseProduct(purchaseId, productId, vencimento, preco_ml);
       toast({
         title: "Produto Conferido",
         description: "O produto foi marcado como conferido com sucesso."
       });
       setVencimentoDate('');
+      setPrecoMl('');
     } catch (error) {
       console.error('Error verifying product:', error);
       toast({ title: "Erro", description: "Não foi possível conferir o produto.", variant: "destructive" });
@@ -218,7 +224,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           </div>
         </div>
 
-        {/* Adicionando o campo de observação aqui, se for uma compra */}
         {type === 'purchase' && (currentItem as Purchase).observation && (
           <div className="space-y-2 mt-4">
             <h4 className="font-medium flex items-center gap-2 text-muted-foreground">
@@ -269,6 +274,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                         {new Date(product.vencimento).toLocaleDateString('pt-BR')}
                       </span></span>
                     )}
+                    {/* NOVO CAMPO: Exibindo preco_ml se existir */}
+                    {product.preco_ml && (
+                      <span>Preço ML: <span className="font-medium text-foreground">R$ {(product.preco_ml || 0).toFixed(2)}</span></span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -282,21 +291,51 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Produto: {product.name}</AlertDialogTitle>
-                          <AlertDialogDescription>Para marcar o produto como conferido, insira a data de vencimento, se aplicável.</AlertDialogDescription>
+                          <AlertDialogDescription>
+                            Para marcar o produto como conferido, insira a data de vencimento e o preço de venda no Mercado Livre.
+                          </AlertDialogDescription>
                         </AlertDialogHeader>
-                        <div className="space-y-2 py-4">
-                          <Label htmlFor="vencimento-date" className="text-sm font-medium">Data de Vencimento (Opcional):</Label>
-                          <input
-                            id="vencimento-date"
-                            type="date"
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                            value={vencimentoDate}
-                            onChange={(e) => setVencimentoDate(e.target.value)}
-                          />
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="vencimento-date" className="flex items-center gap-2 text-sm font-medium">
+                              <Calendar className="h-4 w-4 text-gray-500" />
+                              Data de Vencimento (Opcional):
+                            </Label>
+                            {/* CORRIGIDO: Usando Input com type="text" para permitir entrada manual e calendário */}
+                            <Input
+                              id="vencimento-date"
+                              type="text"
+                              value={vencimentoDate}
+                              onChange={(e) => setVencimentoDate(e.target.value)}
+                              placeholder="dd/mm/aaaa"
+                              onFocus={(e) => e.target.type = 'date'}
+                              onBlur={(e) => e.target.type = 'text'}
+                            />
+                          </div>
+                          {/* NOVO CAMPO: Input para o preço do Mercado Livre */}
+                          <div className="space-y-2">
+                            <Label htmlFor="preco-ml" className="flex items-center gap-2 text-sm font-medium">
+                              <DollarSign className="h-4 w-4 text-gray-500" />
+                              Preço do produto - Mercado Livre (Opcional):
+                            </Label>
+                            <Input
+                              id="preco-ml"
+                              type="number"
+                              step="0.01"
+                              value={precoMl}
+                              onChange={(e) => setPrecoMl(parseFloat(e.target.value) || '')}
+                              placeholder="R$ 0.00"
+                            />
+                          </div>
                         </div>
                         <AlertDialogFooter>
-                          <AlertDialogCancel onClick={() => setVencimentoDate('')}>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleVerifyProduct(purchase.id, product.id, vencimentoDate || undefined)}>Confirmar</AlertDialogAction>
+                          <AlertDialogCancel onClick={() => { setVencimentoDate(''); setPrecoMl(''); }}>Cancelar</AlertDialogCancel>
+                          {/* CORRIGIDO: Passando o novo valor de precoMl */}
+                          <AlertDialogAction
+                            onClick={() => handleVerifyProduct(purchase.id, product.id, vencimentoDate || undefined, precoMl !== '' ? parseFloat(String(precoMl)) : undefined)}
+                          >
+                            Confirmar
+                          </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
@@ -387,7 +426,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   };
   
   const renderTrackingHistory = (currentItem: ItemWithYourMetadata) => {
-    // Acessando o metadata diretamente, pois ele é a array de eventos
     const trackingHistory: YourTrackingHistoryEvent[] = (currentItem.metadata as YourTrackingHistoryEvent[]) || [];
     
     if (!trackingHistory || trackingHistory.length === 0) {
@@ -403,7 +441,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
         <div className="space-y-3">
           {trackingHistory
             .slice()
-            // Ordenando por data de forma decrescente (mais recente primeiro)
             .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
             .map((event, index) => (
               <div key={index} className="flex items-start gap-4">
@@ -414,11 +451,9 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                   )}
                 </div>
                 <div className="flex-1 pb-4">
-                  {/* Usando 'detalhe' e 'descricao' para compor o status */}
                   <p className="font-medium">{event.detalhe} - {event.descricao}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                     <Clock className="h-3 w-3" />
-                    {/* Usando 'data' para a data do evento */}
                     <span>{new Date(event.data).toLocaleDateString('pt-BR')}</span>
                     {event.cidade && (
                       <>
