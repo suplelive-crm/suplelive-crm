@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Importando Tabs
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -25,16 +25,20 @@ interface TrackingDetailsDialogProps {
   type: 'purchase' | 'return' | 'transfer' | null;
 }
 
-type TrackingHistoryEvent = {
-  status: string;
-  date: string;
-  location?: string;
+// A sua estrutura de evento de rastreamento
+type YourTrackingHistoryEvent = {
+  data: string; // "2025-08-05 17:08:20.000000"
+  detalhe: string; // "Aguardando postagem pelo remetente"
+  cidade?: string;
+  uf?: string;
+  tipo?: string;
+  sigla?: string;
+  descricao?: string; // "Etiqueta emitida"
 };
 
-interface ItemWithMetadata extends Purchase, Return, Transfer {
-  metadata?: {
-    tracking_history?: TrackingHistoryEvent[];
-  };
+// A nova interface para lidar com a sua estrutura de metadata
+interface ItemWithYourMetadata extends Purchase, Return, Transfer {
+  metadata?: YourTrackingHistoryEvent[];
 }
 
 export function TrackingDetailsDialog({ open, onOpenChange, item, type }: TrackingDetailsDialogProps) {
@@ -215,14 +219,14 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             </p>
           </div>
         </div>
-        
+
         {type === 'purchase' && renderPurchaseProducts(currentItem as Purchase)}
         {type === 'return' && renderReturnObservations(currentItem as Return)}
 
       </div>
     );
   };
-  
+
   const renderPurchaseProducts = (purchase: Purchase) => {
     const calculateTotalCost = () => {
       const productTotal = purchase.products?.reduce((sum, p) => sum + (p.cost * p.quantity), 0) || 0;
@@ -332,7 +336,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       </div>
     );
   };
-  
+
   const renderReturnObservations = (returnItem: Return) => {
     return (
       <div className="space-y-4">
@@ -372,9 +376,11 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       </div>
     );
   };
-  
-  const renderTrackingHistory = (currentItem: ItemWithMetadata) => {
-    const trackingHistory = currentItem.metadata?.tracking_history || [];
+
+  const renderTrackingHistory = (currentItem: ItemWithYourMetadata) => {
+    // Acessando o metadata diretamente, pois ele é a array de eventos
+    const trackingHistory: YourTrackingHistoryEvent[] = (currentItem.metadata as YourTrackingHistoryEvent[]) || [];
+    
     if (!trackingHistory || trackingHistory.length === 0) {
       return (
         <div className="py-8 text-center text-muted-foreground">
@@ -382,12 +388,14 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
         </div>
       );
     }
+    
     return (
       <div className="space-y-4 py-4">
         <div className="space-y-3">
           {trackingHistory
             .slice()
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            // Ordenando por data de forma decrescente (mais recente primeiro)
+            .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
             .map((event, index) => (
               <div key={index} className="flex items-start gap-4">
                 <div className="relative pt-1">
@@ -397,14 +405,16 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                   )}
                 </div>
                 <div className="flex-1 pb-4">
-                  <p className="font-medium">{event.status}</p>
+                  {/* Usando 'detalhe' e 'descricao' para compor o status */}
+                  <p className="font-medium">{event.detalhe} - {event.descricao}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                     <Clock className="h-3 w-3" />
-                    <span>{new Date(event.date).toLocaleDateString('pt-BR')}</span>
-                    {event.location && (
+                    {/* Usando 'data' para a data do evento */}
+                    <span>{new Date(event.data).toLocaleDateString('pt-BR')}</span>
+                    {event.cidade && (
                       <>
                         <MapPin className="h-3 w-3" />
-                        <span>{event.location}</span>
+                        <span>{event.cidade}</span>
                       </>
                     )}
                   </div>
@@ -434,10 +444,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <TabsTrigger value="tracking"><Truck className="h-4 w-4 mr-2" />Rastreamento</TabsTrigger>
             </TabsList>
             <TabsContent value="general">
-              {renderGeneralDetails(item as ItemWithMetadata)}
+              {renderGeneralDetails(item as ItemWithYourMetadata)}
             </TabsContent>
             <TabsContent value="tracking">
-              {renderTrackingHistory(item as ItemWithMetadata)}
+              {renderTrackingHistory(item as ItemWithYourMetadata)}
             </TabsContent>
           </Tabs>
 
