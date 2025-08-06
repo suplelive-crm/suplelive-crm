@@ -38,16 +38,16 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-[51] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
-        "pointer-events-auto",
+        'fixed left-[50%] top-[50%] z-[9999] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
+        "pointer-events-auto", // Garante que o conteúdo do modal seja clicável
         className
       )}
-      // CORREÇÃO: Adicionando onOpenAutoFocus para forçar o foco no AlertDialog
+      // CORREÇÃO: Força o foco no primeiro elemento interativo ao abrir
       onOpenAutoFocus={(event) => {
         event.preventDefault(); // Previne o foco padrão do Radix
         // Tenta focar o primeiro elemento interativo dentro do AlertDialog
         const firstFocusableElement = (ref as React.RefObject<HTMLElement>)?.current?.querySelector(
-          'input, button, select, textarea, [tabindex]:not([tabindex="-1"])'
+          'input:not([disabled]), button:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
         ) as HTMLElement;
         if (firstFocusableElement) {
           firstFocusableElement.focus();
