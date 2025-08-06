@@ -315,7 +315,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               id="preco-ml"
                               type="number"
                               // CORRIGIDO: Alterando o step para 0.10
-                              step="1.0"
+                              step="1.01"
                               value={precoMl}
                               onChange={(e) => setPrecoMl(e.target.value === '' ? '' : parseFloat(e.target.value))}
                               placeholder="R$ 0.00"
