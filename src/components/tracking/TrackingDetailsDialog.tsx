@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input'; // Importando Input para o campo de preço
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -43,7 +43,6 @@ interface ItemWithYourMetadata extends Purchase, Return, Transfer {
 export function TrackingDetailsDialog({ open, onOpenChange, item, type }: TrackingDetailsDialogProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [vencimentoDate, setVencimentoDate] = useState<string>('');
-  // NOVO ESTADO: para o preço do produto no Mercado Livre
   const [precoMl, setPrecoMl] = useState<number | ''>('');
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [verificationObservations, setVerificationObservations] = useState('');
@@ -62,7 +61,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   useEffect(() => {
     if (open) {
       setVencimentoDate('');
-      setPrecoMl(''); // Resetando o novo estado
+      setPrecoMl('');
       setShowVerificationDialog(false);
       setVerificationObservations('');
     }
@@ -70,7 +69,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
 
   if (!item || !type) return null;
 
-  // FUNÇÃO CORRIGIDA: Agora aceita o novo campo 'precoMl'
   const handleVerifyProduct = async (purchaseId: string, productId: string, vencimento?: string, preco_ml?: number) => {
     try {
       await verifyPurchaseProduct(purchaseId, productId, vencimento, preco_ml);
@@ -274,7 +272,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                         {new Date(product.vencimento).toLocaleDateString('pt-BR')}
                       </span></span>
                     )}
-                    {/* NOVO CAMPO: Exibindo preco_ml se existir */}
                     {product.preco_ml && (
                       <span>Preço ML: <span className="font-medium text-foreground">R$ {(product.preco_ml || 0).toFixed(2)}</span></span>
                     )}
@@ -301,7 +298,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               <Calendar className="h-4 w-4 text-gray-500" />
                               Data de Vencimento (Opcional):
                             </Label>
-                            {/* CORRIGIDO: Usando Input com type="text" para permitir entrada manual e calendário */}
+                            {/* CORRIGIDO: Adicionando onFocus e onBlur para o input date e onChange */}
                             <Input
                               id="vencimento-date"
                               type="text"
@@ -312,12 +309,12 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               onBlur={(e) => e.target.type = 'text'}
                             />
                           </div>
-                          {/* NOVO CAMPO: Input para o preço do Mercado Livre */}
                           <div className="space-y-2">
                             <Label htmlFor="preco-ml" className="flex items-center gap-2 text-sm font-medium">
                               <DollarSign className="h-4 w-4 text-gray-500" />
                               Preço do produto - Mercado Livre (Opcional):
                             </Label>
+                            {/* CORRIGIDO: Adicionando onChange para o input de preço */}
                             <Input
                               id="preco-ml"
                               type="number"
@@ -330,7 +327,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                         </div>
                         <AlertDialogFooter>
                           <AlertDialogCancel onClick={() => { setVencimentoDate(''); setPrecoMl(''); }}>Cancelar</AlertDialogCancel>
-                          {/* CORRIGIDO: Passando o novo valor de precoMl */}
                           <AlertDialogAction
                             onClick={() => handleVerifyProduct(purchase.id, product.id, vencimentoDate || undefined, precoMl !== '' ? parseFloat(String(precoMl)) : undefined)}
                           >
