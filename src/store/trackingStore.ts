@@ -445,33 +445,45 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       if (purchaseError) throw purchaseError;
 
       const currentPurchase = purchaseData as Purchase;
-      const allProductsVerified = (currentPurchase.products || []).every(p => p.is_verified);
+      const updatedProductList = (currentPurchase.products || []).map(p =>
+        p.id === productId ? { ...p, is_verified: isVerified, vencimento: updatedVencimento, preco_ml: updatedPrecoMl } : p
+      );
+      
+      // Criando uma nova lista de produtos com a atualização
+      // A variável updatedProductList estava indefinida no código anterior.
+      const finalProductList = currentPurchase.products.map(p => {
+          if (p.id === productId) {
+              return { ...p, is_verified: isVerified, vencimento: updatedVencimento, preco_ml: updatedPrecoMl };
+          }
+          return p;
+      });
 
       // Determinando o novo status do pedido
       let newStatus = currentPurchase.status;
+      
+      // Verificando se o produto recém atualizado tem os campos preenchidos
+      const hasVencimento = !!updatedVencimento;
+      const hasPrecoMl = updatedPrecoMl !== undefined && updatedPrecoMl !== null;
 
-      // Se todos os produtos foram verificados, atualiza o status do pedido para 'Produto entregue e conferido'
+      // Verificando o estado de todos os produtos do pedido
+      const allProductsVerified = finalProductList.every(p => p.is_verified);
+      const someProductsHaveVencimento = finalProductList.some(p => !!p.vencimento);
+      const someProductsHavePrecoMl = finalProductList.some(p => p.preco_ml !== undefined && p.preco_ml !== null);
+
+
       if (allProductsVerified) {
           newStatus = 'Produto entregue e conferido';
+      } else if (someProductsHaveVencimento && someProductsHavePrecoMl) {
+          newStatus = 'Produto entregue - Dados de conferência parciais';
+      } else if (someProductsHaveVencimento) {
+          newStatus = 'Produto entregue - Data de vencimento conferida';
+      } else if (someProductsHavePrecoMl) {
+          newStatus = 'Produto entregue - Preço mercado livre conferido';
       } else {
-        // Lógica para status intermediário
-        const isPartiallyVerified = updatedProductList.some(p => p.is_verified);
-        if (isPartiallyVerified) {
-          const hasVencimento = updatedProductList.some(p => p.vencimento);
-          const hasPrecoMl = updatedProductList.some(p => p.preco_ml !== undefined && p.preco_ml !== null);
-
-          if (hasVencimento && hasPrecoMl) {
-            newStatus = 'Produto entregue - Dados de conferência parciais';
-          } else if (hasVencimento) {
-            newStatus = 'Produto entregue - Data de vencimento conferida';
-          } else if (hasPrecoMl) {
-            newStatus = 'Produto entregue - Preço mercado livre conferido';
-          } else {
-            newStatus = 'Entregue';
+          // Se nenhum dos campos está preenchido em nenhum produto, o status volta para 'Entregue'
+          if (!currentPurchase.is_archived && currentPurchase.status?.toLowerCase().includes('entregue')) {
+              newStatus = 'Entregue';
           }
-        } else {
-          newStatus = 'Entregue';
-        }
       }
 
       await supabase
@@ -483,7 +495,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       set((state) => ({
         purchases: state.purchases.map((purchase) =>
           purchase.id === purchaseId
-            ? { ...purchase, status: newStatus, products: updatedProductList }
+            ? { ...purchase, status: newStatus, products: finalProductList }
             : purchase
         ),
       }));
