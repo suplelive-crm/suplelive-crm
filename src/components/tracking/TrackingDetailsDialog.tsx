@@ -36,7 +36,16 @@ type YourTrackingHistoryEvent = {
   descricao?: string;
 };
 
-interface ItemWithYourMetadata extends Purchase, Return, Transfer {
+// Certifique-se de que sua definição de PurchaseProduct em '@/types/tracking' inclua 'is_in_stock'
+interface ExtendedPurchaseProduct extends PurchaseProduct {
+  is_in_stock?: boolean;
+}
+
+interface ExtendedPurchase extends Purchase {
+  products?: ExtendedPurchaseProduct[];
+}
+
+interface ItemWithYourMetadata extends ExtendedPurchase, Return, Transfer {
   metadata?: YourTrackingHistoryEvent[];
 }
 
@@ -233,13 +242,13 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           </div>
         )}
 
-        {type === 'purchase' && renderPurchaseProducts(currentItem as Purchase)}
+        {type === 'purchase' && renderPurchaseProducts(currentItem as ExtendedPurchase)}
         {type === 'return' && renderReturnObservations(currentItem as Return)}
       </div>
     );
   };
-  
-  const renderPurchaseProducts = (purchase: Purchase) => {
+ 
+  const renderPurchaseProducts = (purchase: ExtendedPurchase) => {
     const calculateTotalCost = () => {
       const productTotal = purchase.products?.reduce((sum, p) => sum + (p.cost * p.quantity), 0) || 0;
       const deliveryFee = purchase.delivery_fee || 0;
@@ -255,7 +264,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           {purchase.products?.map((product) => (
             <div
               key={product.id}
-              className={`p-4 border rounded-lg ${product.is_verified ? 'bg-cyan-50 border-cyan-200' : 'bg-transparent'}`}
+              className={`p-4 border rounded-lg ${product.is_verified ? (product.is_in_stock ? 'bg-green-50 border-green-200' : 'bg-cyan-50 border-cyan-200') : 'bg-transparent'}`}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -278,12 +287,15 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* ****************************************************** */}
+                  {/* INÍCIO DA ALTERAÇÃO DA LÓGICA DE EXIBIÇÃO DO STATUS    */}
+                  {/* ****************************************************** */}
                   {!product.is_verified ? (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" onClick={() => {
-                          setVencimentoDate(product.vencimento || ''); // CORRIGIDO: Define o estado com o valor do banco
-                          setPrecoMl(product.preco_ml || ''); // CORRIGIDO: Define o estado com o valor do banco
+                          setVencimentoDate(product.vencimento || '');
+                          setPrecoMl(product.preco_ml || '');
                         }}>
                           <CheckSquare className="h-4 w-4 mr-2" /> Conferir
                         </Button>
@@ -325,46 +337,45 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                             />
                           </div>
                         </div>
-                        {/* Botões de incremento e decremento adicionados aqui */}
                         <div className="flex justify-end space-x-2">
-                          <Button 
-                            type="button" 
-                            variant="secondary" 
+                          <Button
+                            type="button"
+                            variant="secondary"
                             onClick={() => setPrecoMl(p => p !== '' ? (p > 50 ? p - 50 : 0) : 0)}
                           >
                             -50
                           </Button>
-                          <Button 
-                            type="button" 
-                            variant="secondary" 
+                          <Button
+                            type="button"
+                            variant="secondary"
                             onClick={() => setPrecoMl(p => p !== '' ? (p > 10 ? p - 10 : 0) : 0)}
                           >
                             -10
                           </Button>
-                          <Button 
-                            type="button" 
-                            variant="secondary" 
+                          <Button
+                            type="button"
+                            variant="secondary"
                             onClick={() => setPrecoMl(p => p !== '' ? (p > 1 ? p - 1 : 0) : 0)}
                           >
                             -1
                           </Button>
-                          <Button 
-                            type="button" 
-                            variant="secondary" 
+                          <Button
+                            type="button"
+                            variant="secondary"
                             onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 1)}
                           >
                             +1
                           </Button>
-                          <Button 
-                            type="button" 
-                            variant="secondary" 
+                          <Button
+                            type="button"
+                            variant="secondary"
                             onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 10)}
                           >
                             +10
                           </Button>
-                          <Button 
-                            type="button" 
-                            variant="secondary" 
+                          <Button
+                            type="button"
+                            variant="secondary"
                             onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 50)}
                           >
                             +50
@@ -380,11 +391,18 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+                  ) : product.is_in_stock ? (
+                    <Badge className="bg-green-100 text-green-800 py-2 px-3 border-transparent pointer-events-none">
+                      <Database className="h-4 w-4 mr-2" /> No Estoque
+                    </Badge>
                   ) : (
                     <Button variant="outline" size="sm" className="bg-white cursor-default pointer-events-none">
                       <CheckCircle className="h-4 w-4 mr-2 text-green-600" /> Conferido
                     </Button>
                   )}
+                  {/* ****************************************************** */}
+                  {/* FIM DA ALTERAÇÃO DA LÓGICA DE EXIBIÇÃO DO STATUS      */}
+                  {/* ****************************************************** */}
                 </div>
               </div>
             </div>
@@ -425,7 +443,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       </div>
     );
   };
-  
+ 
   const renderReturnObservations = (returnItem: Return) => {
     return (
       <div className="space-y-4">
@@ -465,10 +483,10 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
       </div>
     );
   };
-  
+ 
   const renderTrackingHistory = (currentItem: ItemWithYourMetadata) => {
     const trackingHistory: YourTrackingHistoryEvent[] = (currentItem.metadata as YourTrackingHistoryEvent[]) || [];
-    
+   
     if (!trackingHistory || trackingHistory.length === 0) {
       return (
         <div className="py-8 text-center text-muted-foreground">
@@ -476,7 +494,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
         </div>
       );
     }
-    
+   
     return (
       <div className="space-y-4 py-4">
         <div className="space-y-3">
