@@ -53,6 +53,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   const [refreshing, setRefreshing] = useState(false);
   const [vencimentoDate, setVencimentoDate] = useState<string>('');
   const [precoMl, setPrecoMl] = useState<number | ''>('');
+  // NOVO ESTADO: para o preço de atacado
+  const [precoAtacado, setPrecoAtacado] = useState<number | ''>('');
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [verificationObservations, setVerificationObservations] = useState('');
 
@@ -71,6 +73,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     if (open) {
       setVencimentoDate('');
       setPrecoMl('');
+      // NOVO: Resetando o estado do preço de atacado ao abrir
+      setPrecoAtacado('');
       setShowVerificationDialog(false);
       setVerificationObservations('');
     }
@@ -78,15 +82,25 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
 
   if (!item || !type) return null;
 
-  const handleVerifyProduct = async (purchaseId: string, productId: string, vencimento?: string, preco_ml?: number) => {
+  // FUNÇÃO ATUALIZADA: para incluir preco_atacado
+  const handleVerifyProduct = async (
+    purchaseId: string,
+    productId: string,
+    vencimento?: string,
+    preco_ml?: number,
+    preco_atacado?: number // NOVO PARÂMETRO
+  ) => {
     try {
-      await verifyPurchaseProduct(purchaseId, productId, vencimento, preco_ml);
+      // Passando o novo parâmetro para a função do store
+      await verifyPurchaseProduct(purchaseId, productId, vencimento, preco_ml, preco_atacado);
       toast({
         title: "Produto Conferido",
         description: "O produto foi marcado como conferido com sucesso."
       });
       setVencimentoDate('');
       setPrecoMl('');
+      // NOVO: Resetando o estado do preço de atacado após o sucesso
+      setPrecoAtacado('');
     } catch (error) {
       console.error('Error verifying product:', error);
       toast({ title: "Erro", description: "Não foi possível conferir o produto.", variant: "destructive" });
@@ -284,18 +298,21 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                     {product.preco_ml && (
                       <span>Preço ML: <span className="font-medium text-foreground">R$ {(product.preco_ml || 0).toFixed(2)}</span></span>
                     )}
+                    {/* NOVO: Exibindo o preço de atacado */}
+                    {product.preco_atacado && (
+                      <span>Preço Atacado: <span className="font-medium text-foreground">R$ {(product.preco_atacado || 0).toFixed(2)}</span></span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* ****************************************************** */}
-                  {/* INÍCIO DA ALTERAÇÃO DA LÓGICA DE EXIBIÇÃO DO STATUS    */}
-                  {/* ****************************************************** */}
                   {!product.is_verified ? (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
+                        {/* ATUALIZADO: para popular também o estado do preço de atacado */}
                         <Button variant="outline" size="sm" onClick={() => {
                           setVencimentoDate(product.vencimento || '');
                           setPrecoMl(product.preco_ml || '');
+                          setPrecoAtacado(product.preco_atacado || '');
                         }}>
                           <CheckSquare className="h-4 w-4 mr-2" /> Conferir
                         </Button>
@@ -304,7 +321,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar Produto: {product.name}</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Para marcar o produto como conferido, insira a data de vencimento e o preço de venda no Mercado Livre.
+                            Para marcar o produto como conferido, insira os preços e a data de vencimento.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <div className="space-y-4 py-4">
@@ -335,56 +352,51 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                               placeholder="R$ 0.00"
                               tabIndex={0}
                             />
+                             <div className="flex justify-end space-x-2">
+                                <Button type="button" variant="secondary" onClick={() => setPrecoMl(p => p !== '' ? (p > 50 ? p - 50 : 0) : 0)} >-50</Button>
+                                <Button type="button" variant="secondary" onClick={() => setPrecoMl(p => p !== '' ? (p > 10 ? p - 10 : 0) : 0)} >-10</Button>
+                                <Button type="button" variant="secondary" onClick={() => setPrecoMl(p => p !== '' ? (p > 1 ? p - 1 : 0) : 0)} >-1</Button>
+                                <Button type="button" variant="secondary" onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 1)} >+1</Button>
+                                <Button type="button" variant="secondary" onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 10)} >+10</Button>
+                                <Button type="button" variant="secondary" onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 50)} >+50</Button>
+                              </div>
+                          </div>
+                          {/* NOVO: Campo de input para Preço de Atacado com controles */}
+                          <div className="space-y-2">
+                            <Label htmlFor="preco-atacado" className="flex items-center gap-2 text-sm font-medium">
+                              <DollarSign className="h-4 w-4 text-gray-500" />
+                              Preço para o Atacado (Opcional):
+                            </Label>
+                            <Input
+                              id="preco-atacado"
+                              type="number"
+                              step="0.10"
+                              value={precoAtacado}
+                              onChange={(e) => setPrecoAtacado(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                              placeholder="R$ 0.00"
+                              tabIndex={0}
+                            />
+                             <div className="flex justify-end space-x-2">
+                                <Button type="button" variant="secondary" onClick={() => setPrecoAtacado(p => p !== '' ? (p > 50 ? p - 50 : 0) : 0)} >-50</Button>
+                                <Button type="button" variant="secondary" onClick={() => setPrecoAtacado(p => p !== '' ? (p > 10 ? p - 10 : 0) : 0)} >-10</Button>
+                                <Button type="button" variant="secondary" onClick={() => setPrecoAtacado(p => p !== '' ? (p > 1 ? p - 1 : 0) : 0)} >-1</Button>
+                                <Button type="button" variant="secondary" onClick={() => setPrecoAtacado(p => (p !== '' ? p : 0) + 1)} >+1</Button>
+                                <Button type="button" variant="secondary" onClick={() => setPrecoAtacado(p => (p !== '' ? p : 0) + 10)} >+10</Button>
+                                <Button type="button" variant="secondary" onClick={() => setPrecoAtacado(p => (p !== '' ? p : 0) + 50)} >+50</Button>
+                              </div>
                           </div>
                         </div>
-                        <div className="flex justify-end space-x-2">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setPrecoMl(p => p !== '' ? (p > 50 ? p - 50 : 0) : 0)}
-                          >
-                            -50
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setPrecoMl(p => p !== '' ? (p > 10 ? p - 10 : 0) : 0)}
-                          >
-                            -10
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setPrecoMl(p => p !== '' ? (p > 1 ? p - 1 : 0) : 0)}
-                          >
-                            -1
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 1)}
-                          >
-                            +1
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 10)}
-                          >
-                            +10
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setPrecoMl(p => (p !== '' ? p : 0) + 50)}
-                          >
-                            +50
-                          </Button>
-                        </div>
                         <AlertDialogFooter>
-                          <AlertDialogCancel onClick={() => { setVencimentoDate(''); setPrecoMl(''); }}>Cancelar</AlertDialogCancel>
+                          <AlertDialogCancel onClick={() => { setVencimentoDate(''); setPrecoMl(''); setPrecoAtacado(''); }}>Cancelar</AlertDialogCancel>
+                          {/* ATUALIZADO: Enviando o novo valor de precoAtacado */}
                           <AlertDialogAction
-                            onClick={() => handleVerifyProduct(purchase.id, product.id, vencimentoDate || undefined, precoMl !== '' ? parseFloat(String(precoMl)) : undefined)}
+                            onClick={() => handleVerifyProduct(
+                              purchase.id,
+                              product.id,
+                              vencimentoDate || undefined,
+                              precoMl !== '' ? parseFloat(String(precoMl)) : undefined,
+                              precoAtacado !== '' ? parseFloat(String(precoAtacado)) : undefined
+                            )}
                           >
                             Confirmar
                           </AlertDialogAction>
@@ -400,9 +412,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                       <CheckCircle className="h-4 w-4 mr-2 text-green-600" /> Conferido
                     </Button>
                   )}
-                  {/* ****************************************************** */}
-                  {/* FIM DA ALTERAÇÃO DA LÓGICA DE EXIBIÇÃO DO STATUS      */}
-                  {/* ****************************************************** */}
                 </div>
               </div>
             </div>
