@@ -36,9 +36,10 @@ interface TrackingState {
   updatePurchase: (purchaseId: string, formData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
   archivePurchase: (id: string) => Promise<void>;
   deletePurchase: (purchaseId: string) => Promise<void>;
-  
-  verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string, preco_ml?: number) => Promise<void>;
-  
+ 
+  // ATUALIZADO: Assinatura da função para incluir o novo campo
+  verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string, preco_ml?: number, preco_atacado?: number) => Promise<void>;
+ 
   addProductToInventory: (purchaseId: string) => Promise<void>;
   updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>;
   createReturn: (returnData: {
@@ -104,7 +105,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     fetchReturns();
     fetchTransfers();
   },
-  
+ 
   fetchPurchases: async () => {
     await ErrorHandler.handleAsync(async () => {
       set({ loading: true });
@@ -157,7 +158,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           is_in_stock: product.is_in_stock,
           vencimento: product.vencimento,
           SKU: product.SKU,
-          preco_ml: product.preco_ml // Mapeando a nova coluna
+          preco_ml: product.preco_ml,
+          // NOVO: Mapeando a coluna de preço de atacado
+          preco_atacado: product.preco_atacado 
         }))
       }));
 
@@ -296,7 +299,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         is_verified: false,
         is_in_stock: false,
         vencimento: product.vencimento || null,
-        preco_ml: product.preco_ml || null, // Adicionando o novo campo
+        preco_ml: product.preco_ml || null,
+        // NOVO: Adicionando o novo campo
+        preco_atacado: product.preco_atacado || null, 
       }));
 
       const { error: productsError } = await supabase
@@ -315,8 +320,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       ErrorHandler.showSuccess('Compra criada com sucesso!');
     });
   },
-  
-  // CORREÇÃO: Implementação da função `updatePurchase`
+ 
   updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
       // 1. Atualizar a compra principal
@@ -335,17 +339,15 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       if (purchaseError) throw purchaseError;
 
-      // 2. Coletar os IDs dos produtos existentes na lista do formulário
       const formProductIds = products.map(p => p.id).filter(id => id !== undefined);
 
-      // 3. Deletar produtos removidos
       const { data: existingProducts, error: fetchProductsError } = await supabase
         .from('purchase_products')
         .select('id')
         .eq('purchase_id', purchaseId);
 
       if (fetchProductsError) throw fetchProductsError;
-      
+     
       const productsToDelete = (existingProducts || []).filter(p => !formProductIds.includes(p.id));
       if (productsToDelete.length > 0) {
         const { error: deleteError } = await supabase
@@ -355,11 +357,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         if (deleteError) throw deleteError;
       }
 
-      // 4. Inserir ou atualizar produtos
       const newProducts = products.filter(p => p.id === undefined);
       const updatedProducts = products.filter(p => p.id !== undefined);
 
-      // Inserir novos produtos
       if (newProducts.length > 0) {
         const totalQuantity = newProducts.reduce((sum, p) => sum + (p.quantity || 0), 0);
         const deliveryFeePerUnit = totalQuantity > 0 ? formData.delivery_fee / totalQuantity : 0;
@@ -373,12 +373,13 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           is_in_stock: false,
           vencimento: null,
           preco_ml: null,
+          // NOVO: Adicionando o novo campo
+          preco_atacado: null,
         }));
         const { error: insertError } = await supabase.from('purchase_products').insert(productsToInsert);
         if (insertError) throw insertError;
       }
 
-      // Atualizar produtos existentes
       for (const product of updatedProducts) {
         const { error: updateProductError } = await supabase
           .from('purchase_products')
@@ -391,8 +392,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           .eq('purchase_id', purchaseId);
         if (updateProductError) throw updateProductError;
       }
-      
-      // 5. Re-executar o fetch para garantir que a UI esteja atualizada
+     
       await get().fetchPurchases();
       ErrorHandler.showSuccess('Compra atualizada com sucesso!');
     });
@@ -434,42 +434,52 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       set((state) => ({
         purchases: state.purchases.filter((p) => p.id !== purchaseId),
       }));
-      
+     
       ErrorHandler.showSuccess('Pedido de compra deletado com sucesso!');
     });
   },
 
-  verifyPurchaseProduct: async (purchaseId, productId, vencimento, preco_ml) => {
+  // ATUALIZADO: Função inteira para lidar com a nova lógica
+  verifyPurchaseProduct: async (purchaseId, productId, vencimento, preco_ml, preco_atacado) => {
     await ErrorHandler.handleAsync(async () => {
       const { data: currentProduct, error: fetchError } = await supabase
         .from('purchase_products')
-        .select('vencimento, preco_ml')
+        .select('vencimento, preco_ml, preco_atacado')
         .eq('id', productId)
         .eq('purchase_id', purchaseId)
         .single();
-      
+       
       if (fetchError) throw fetchError;
 
       const updatedVencimento = vencimento || currentProduct?.vencimento;
       const updatedPrecoMl = preco_ml !== undefined ? preco_ml : currentProduct?.preco_ml;
+      const updatedPrecoAtacado = preco_atacado !== undefined ? preco_atacado : currentProduct?.preco_atacado;
 
-      const isVerified = !!updatedVencimento && updatedPrecoMl !== undefined && updatedPrecoMl !== null;
+      // ATUALIZADO: `isVerified` agora depende dos 3 campos
+      const isVerified = !!updatedVencimento && 
+                         (updatedPrecoMl !== undefined && updatedPrecoMl !== null) && 
+                         (updatedPrecoAtacado !== undefined && updatedPrecoAtacado !== null);
 
       const updates: {
         is_verified: boolean;
         updated_at: string;
         vencimento?: string | null;
         preco_ml?: number | null;
+        preco_atacado?: number | null; // NOVO
       } = {
         is_verified: isVerified,
         updated_at: new Date().toISOString()
       };
-      
+       
       if (updatedVencimento !== undefined) {
         updates.vencimento = updatedVencimento;
       }
       if (updatedPrecoMl !== undefined) {
         updates.preco_ml = updatedPrecoMl;
+      }
+      // NOVO: Adicionando o preco_atacado ao objeto de update
+      if (updatedPrecoAtacado !== undefined) {
+        updates.preco_atacado = updatedPrecoAtacado;
       }
 
       const { error } = await supabase
@@ -494,7 +504,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentPurchase = purchaseData as Purchase;
       const finalProductList = currentPurchase.products.map(p => {
           if (p.id === productId) {
-              return { ...p, is_verified: isVerified, vencimento: updatedVencimento, preco_ml: updatedPrecoMl };
+            // ATUALIZADO: Incluindo preco_atacado na atualização do estado local
+            return { ...p, is_verified: isVerified, vencimento: updatedVencimento, preco_ml: updatedPrecoMl, preco_atacado: updatedPrecoAtacado };
           }
           return p;
       });
@@ -502,22 +513,27 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       let newStatus = currentPurchase.status;
       
       const allProductsVerified = finalProductList.every(p => p.is_verified);
-      const someProductsHaveVencimento = finalProductList.some(p => !!p.vencimento);
-      const someProductsHavePrecoMl = finalProductList.some(p => p.preco_ml !== undefined && p.preco_ml !== null);
-
-
+      
+      // ATUALIZADO: Lógica de status mais inteligente e escalável
       if (allProductsVerified) {
-          newStatus = 'Produto entregue e conferido';
-      } else if (someProductsHaveVencimento && someProductsHavePrecoMl) {
-          newStatus = 'Produto entregue - Dados de conferência parciais';
-      } else if (someProductsHaveVencimento) {
-          newStatus = 'Produto entregue - Data de vencimento conferida';
-      } else if (someProductsHavePrecoMl) {
-          newStatus = 'Produto entregue - Preço mercado livre conferido';
+        newStatus = 'Produto entregue e conferido';
       } else {
-          if (!currentPurchase.is_archived && currentPurchase.status?.toLowerCase().includes('entregue')) {
-              newStatus = 'Entregue';
-          }
+        const someProductsHaveVencimento = finalProductList.some(p => !!p.vencimento);
+        const someProductsHavePrecoMl = finalProductList.some(p => p.preco_ml !== undefined && p.preco_ml !== null);
+        const someProductsHavePrecoAtacado = finalProductList.some(p => p.preco_atacado !== undefined && p.preco_atacado !== null);
+
+        const conferredParts = [];
+        if (someProductsHaveVencimento) conferredParts.push('Vencimento');
+        if (someProductsHavePrecoMl) conferredParts.push('Preço ML');
+        if (someProductsHavePrecoAtacado) conferredParts.push('Preço Atacado');
+
+        if (conferredParts.length > 0) {
+            newStatus = `Produto entregue - ${conferredParts.join(' & ')} conferido(s)`;
+        } else {
+            if (!currentPurchase.is_archived && currentPurchase.status?.toLowerCase().includes('entregue')) {
+                newStatus = 'Entregue';
+            }
+        }
       }
 
       await supabase
@@ -944,7 +960,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       return null;
     }) || null;
   },
-  
+ 
   updateAllTrackingStatuses: async () => {
     console.warn("updateAllTrackingStatuses was called but is not implemented per user request.");
   },
