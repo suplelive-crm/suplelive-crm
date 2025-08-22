@@ -328,7 +328,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                           <div className="space-y-2">
                             <Label htmlFor="vencimento-date" className="flex items-center gap-2 text-sm font-medium">
                               <Calendar className="h-4 w-4 text-gray-500" />
-                              Data de Vencimento (Opcional):
+                              Data de Vencimento:
                             </Label>
                             <Input
                               id="vencimento-date"
@@ -341,7 +341,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                           <div className="space-y-2">
                             <Label htmlFor="preco-ml" className="flex items-center gap-2 text-sm font-medium">
                               <DollarSign className="h-4 w-4 text-gray-500" />
-                              Preço do produto - Mercado Livre (Opcional):
+                              Preço do produto - Mercado Livre:
                             </Label>
                             <Input
                               id="preco-ml"
@@ -365,7 +365,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                           <div className="space-y-2">
                             <Label htmlFor="preco-atacado" className="flex items-center gap-2 text-sm font-medium">
                               <DollarSign className="h-4 w-4 text-gray-500" />
-                              Preço para o Atacado (Opcional):
+                              Preço para o Atacado:
                             </Label>
                             <Input
                               id="preco-atacado"
