@@ -47,6 +47,10 @@ interface CrmState {
   // RFM Analysis
   fetchClientRFMAnalysis: (clientId: string) => Promise<RFMAnalysis>;
   calculateRFMScores: () => Promise<void>;
+
+  // --- ADIÇÃO NECESSÁRIA ---
+  // Função para buscar todos os pedidos de um cliente específico
+  fetchClientOrders: (clientId: string) => Promise<Order[]>;
 }
 
 // RFM Analysis helper functions
@@ -569,5 +573,20 @@ export const useCrmStore = create<CrmState>((set, get) => ({
       
       set({ clients: clientsWithRFM });
     });
+  },
+  
+  // --- IMPLEMENTAÇÃO DA NOVA FUNÇÃO ---
+  fetchClientOrders: async (clientId) => {
+    return await ErrorHandler.handleAsync(async () => {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*') // Seleciona todos os campos do pedido
+        .eq('client_id', clientId)
+        .order('order_date', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    }) || []; // Retorna um array vazio em caso de erro na manipulação
   },
 }));
