@@ -54,7 +54,7 @@ const useCrmStore = () => {
 };
 
 
-export default function App() {
+export function OrdersPage() {
   const { orders, fetchOrders } = useCrmStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
