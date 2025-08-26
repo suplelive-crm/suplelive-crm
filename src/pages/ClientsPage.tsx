@@ -1,17 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Eye, UserPlus, Filter, Download, MoreHorizontal, Phone, Mail, Tag, CheckCircle, XCircle, User, Calendar, ArrowUpDown, ShoppingBag } from 'lucide-react';
+import { Search, Eye, UserPlus, Filter, Download, MoreHorizontal, Phone, Mail, Tag, CheckCircle, XCircle, User, Calendar, ArrowUpDown, ShoppingBag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddClientDialog } from '@/components/clients/AddClientDialog';
 import { RFMAnalysisCard } from '@/components/rfm/RFMAnalysisCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCrmStore } from '@/store/crmStore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
@@ -30,7 +31,11 @@ export function ClientsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [sortConfig, setSortConfig] = useState<{ key: SortableKey; direction: 'asc' | 'desc' }>({ key: 'created_at', direction: 'desc' });
   
-  // Estados para a tabela de pedidos do cliente
+  // --- Estados para a Paginação ---
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number | 'all'>(10);
+
+  // Estados para a tabela de pedidos do cliente no modal
   const [clientOrders, setClientOrders] = useState<Order[]>([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -41,12 +46,12 @@ export function ClientsPage() {
     fetchLeads();
   }, [fetchClients, fetchLeads]);
 
-  const allContacts = [
+  const allContacts = useMemo(() => [
     ...leads.map(lead => ({ ...lead, type: 'lead', status: lead.status })),
     ...clients.map(client => ({ ...client, type: 'client', status: 'converted' }))
-  ];
+  ], [leads, clients]);
 
-  const filteredContacts = allContacts.filter(contact => {
+  const filteredContacts = useMemo(() => allContacts.filter(contact => {
     const matchesSearch =
       contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -57,7 +62,7 @@ export function ClientsPage() {
       (activeTab === 'leads' && contact.type === 'lead') ||
       (activeTab === 'clients' && contact.type === 'client');
     return matchesSearch && matchesStatus && matchesTab;
-  });
+  }), [allContacts, searchTerm, statusFilter, activeTab]);
 
   const sortedContacts = useMemo(() => {
     const sortableItems = [...filteredContacts];
@@ -78,6 +83,25 @@ export function ClientsPage() {
     }
     return sortableItems;
   }, [filteredContacts, sortConfig]);
+  
+  // --- Lógica de Paginação ---
+  const totalPages = rowsPerPage === 'all' ? 1 : Math.ceil(sortedContacts.length / (rowsPerPage as number));
+
+  const paginatedContacts = useMemo(() => {
+    if (rowsPerPage === 'all') {
+      return sortedContacts;
+    }
+    const startIndex = (page - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return sortedContacts.slice(startIndex, endIndex);
+  }, [sortedContacts, page, rowsPerPage]);
+
+  // Efeito para corrigir a página atual se ela se tornar inválida após uma filtragem
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages > 0 ? totalPages : 1);
+    }
+  }, [page, totalPages]);
 
   const requestSort = (key: SortableKey) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -85,10 +109,16 @@ export function ClientsPage() {
       direction = 'desc';
     }
     setSortConfig({ key, direction });
+    setPage(1); // Reseta para a primeira página ao reordenar
   };
   
+  const handleRowsPerPageChange = (value: string) => {
+    setRowsPerPage(value === 'all' ? 'all' : Number(value));
+    setPage(1); // Reseta para a primeira página ao mudar itens por página
+  };
+
   const getSortIcon = (key: SortableKey) => {
-    if (sortConfig.key !== key) {
+    if (!sortConfig || sortConfig.key !== key) {
         return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
     }
     return <ArrowUpDown className="ml-2 h-4 w-4" />;
@@ -175,33 +205,23 @@ export function ClientsPage() {
   return (
     <DashboardLayout>
       <div className="w-full h-full">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="w-full h-full space-y-6"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Clientes & Leads</h1>
               <p className="text-muted-foreground mt-1">Gerencie seus contatos e clientes potenciais</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
+              <Button variant="outline"><Download className="h-4 w-4 mr-2" />Exportar</Button>
               <AddClientDialog />
             </div>
           </div>
 
-          {/* Stats Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <UserPlus className="h-5 w-5 text-blue-600" />
-                  </div>
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center"><UserPlus className="h-5 w-5 text-blue-600" /></div>
                   <div>
                     <div className="text-2xl font-bold text-blue-600">{leads.filter(l => l.status === 'new').length}</div>
                     <div className="text-sm text-muted-foreground">Novos Leads</div>
@@ -212,9 +232,7 @@ export function ClientsPage() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                    <Phone className="h-5 w-5 text-amber-600" />
-                  </div>
+                  <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center"><Phone className="h-5 w-5 text-amber-600" /></div>
                   <div>
                     <div className="text-2xl font-bold text-amber-600">{leads.filter(l => l.status === 'contacted').length}</div>
                     <div className="text-sm text-muted-foreground">Contatados</div>
@@ -225,9 +243,7 @@ export function ClientsPage() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  </div>
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle className="h-5 w-5 text-green-600" /></div>
                   <div>
                     <div className="text-2xl font-bold text-green-600">{leads.filter(l => l.status === 'qualified').length}</div>
                     <div className="text-sm text-muted-foreground">Qualificados</div>
@@ -238,9 +254,7 @@ export function ClientsPage() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                    <User className="h-5 w-5 text-indigo-600" />
-                  </div>
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center"><User className="h-5 w-5 text-indigo-600" /></div>
                   <div>
                     <div className="text-2xl font-bold text-indigo-600">{clients.length}</div>
                     <div className="text-sm text-muted-foreground">Clientes</div>
@@ -251,9 +265,7 @@ export function ClientsPage() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                    <XCircle className="h-5 w-5 text-red-600" />
-                  </div>
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center"><XCircle className="h-5 w-5 text-red-600" /></div>
                   <div>
                     <div className="text-2xl font-bold text-red-600">{leads.filter(l => l.status === 'lost').length}</div>
                     <div className="text-sm text-muted-foreground">Perdidos</div>
@@ -262,8 +274,7 @@ export function ClientsPage() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Tabs and Filters */}
+          
           <div className="flex flex-col gap-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="flex items-center justify-between">
@@ -275,19 +286,10 @@ export function ClientsPage() {
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      placeholder="Buscar por nome, email ou telefone..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 w-[250px]"
-                    />
+                    <Input placeholder="Buscar por nome, email ou telefone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-[250px]" />
                   </div>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon">
-                        <Filter className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="outline" size="icon"><Filter className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => setStatusFilter('all')}>Todos os Status</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setStatusFilter('new')}>Novos</DropdownMenuItem>
@@ -302,11 +304,8 @@ export function ClientsPage() {
             </Tabs>
           </div>
 
-          {/* Contacts Table */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Contatos ({filteredContacts.length})</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-3"><CardTitle>Contatos ({filteredContacts.length})</CardTitle></CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <Table>
@@ -322,31 +321,21 @@ export function ClientsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedContacts.length === 0 ? (
+                    {paginatedContacts.length === 0 ? (
                       <TableRow><TableCell colSpan={7} className="h-24 text-center">Nenhum contato encontrado.</TableCell></TableRow>
                     ) : (
-                      sortedContacts.map((contact) => (
+                      paginatedContacts.map((contact) => (
                         <TableRow key={`${contact.type}-${contact.id}`}>
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <Avatar className="h-9 w-9">
-                                <AvatarFallback className={contact.type === 'client' ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'}>
-                                  {getInitials(contact.name)}
-                                </AvatarFallback>
+                                <AvatarFallback className={contact.type === 'client' ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'}>{getInitials(contact.name)}</AvatarFallback>
                               </Avatar>
                               <div>
                                 <div className="font-medium">{contact.name}</div>
                                 <div className="flex items-center gap-1 mt-0.5">
-                                  <Badge variant={contact.type === 'client' ? 'default' : 'secondary'} className="text-xs">
-                                    {contact.type === 'client' ? 'Cliente' : 'Lead'}
-                                  </Badge>
-                                  {contact.tags && contact.tags.length > 0 && (
-                                    <Badge variant="outline" className="text-xs">
-                                      <Tag className="h-3 w-3 mr-1" />
-                                      {contact.tags[0]}
-                                      {contact.tags.length > 1 && `+${contact.tags.length - 1}`}
-                                    </Badge>
-                                  )}
+                                  <Badge variant={contact.type === 'client' ? 'default' : 'secondary'} className="text-xs">{contact.type === 'client' ? 'Cliente' : 'Lead'}</Badge>
+                                  {contact.tags && contact.tags.length > 0 && (<Badge variant="outline" className="text-xs"><Tag className="h-3 w-3 mr-1" />{contact.tags[0]}{contact.tags.length > 1 && `+${contact.tags.length - 1}`}</Badge>)}
                                 </div>
                               </div>
                             </div>
@@ -364,9 +353,7 @@ export function ClientsPage() {
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
                               <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button size="sm" variant="outline" onClick={() => handleViewContact(contact)}><Eye className="h-4 w-4" /></Button>
-                                </DialogTrigger>
+                                <DialogTrigger asChild><Button size="sm" variant="outline" onClick={() => handleViewContact(contact)}><Eye className="h-4 w-4" /></Button></DialogTrigger>
                                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                                   <DialogHeader><DialogTitle>{selectedClient?.name} - Detalhes do Contato</DialogTitle></DialogHeader>
                                   <div className="space-y-6 mt-4">
@@ -375,11 +362,7 @@ export function ClientsPage() {
                                         <CardHeader><CardTitle className="text-base">Informações de Contato</CardTitle></CardHeader>
                                         <CardContent className="space-y-4">
                                           <div className="flex items-center gap-4">
-                                            <Avatar className="h-16 w-16">
-                                              <AvatarFallback className={selectedClient?.type === 'client' ? 'bg-indigo-100 text-indigo-600 text-xl' : 'bg-blue-100 text-blue-600 text-xl'}>
-                                                {getInitials(selectedClient?.name || '')}
-                                              </AvatarFallback>
-                                            </Avatar>
+                                            <Avatar className="h-16 w-16"><AvatarFallback className={selectedClient?.type === 'client' ? 'bg-indigo-100 text-indigo-600 text-xl' : 'bg-blue-100 text-blue-600 text-xl'}>{getInitials(selectedClient?.name || '')}</AvatarFallback></Avatar>
                                             <div>
                                               <h3 className="text-lg font-semibold">{selectedClient?.name}</h3>
                                               <Badge className={getStatusColor(selectedClient?.status || '')}>{getStatusIcon(selectedClient?.status || '')}{getStatusText(selectedClient?.status || '')}</Badge>
@@ -434,9 +417,7 @@ export function ClientsPage() {
                                                     <TableCell>{formatDate(order.order_date)}</TableCell>
                                                     <TableCell className="text-center">{countOrderItems(order)}</TableCell>
                                                     <TableCell className="text-right font-medium">{formatCurrency(order.total_amount)}</TableCell>
-                                                    <TableCell className="text-right">
-                                                      <Button size="icon" variant="ghost" onClick={() => handleViewOrder(order)}><Eye className="h-4 w-4" /></Button>
-                                                    </TableCell>
+                                                    <TableCell className="text-right"><Button size="icon" variant="ghost" onClick={() => handleViewOrder(order)}><Eye className="h-4 w-4" /></Button></TableCell>
                                                   </TableRow>
                                                 ))}
                                               </TableBody>
@@ -469,14 +450,36 @@ export function ClientsPage() {
                 </Table>
               </div>
             </CardContent>
+            <CardFooter>
+              <div className="w-full flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Total de {sortedContacts.length} contatos.
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Itens por página:</span>
+                    <Select value={String(rowsPerPage)} onValueChange={handleRowsPerPageChange}>
+                      <SelectTrigger className="w-[80px]"><SelectValue placeholder={rowsPerPage} /></SelectTrigger>
+                      <SelectContent>
+                        {[10, 20, 50, 100, 200].map(size => (<SelectItem key={size} value={String(size)}>{size}</SelectItem>))}
+                        <SelectItem value="all">Todos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="text-sm font-medium">
+                    Página {page} de {totalPages}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" onClick={() => setPage(p => p - 1)} disabled={page <= 1}><ChevronLeft className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="icon" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}><ChevronRight className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+              </div>
+            </CardFooter>
           </Card>
         </motion.div>
       </div>
-      <OrderDetailsDialog
-        open={isOrderModalOpen}
-        onOpenChange={setIsOrderModalOpen}
-        order={selectedOrder}
-      />
+      <OrderDetailsDialog open={isOrderModalOpen} onOpenChange={setIsOrderModalOpen} order={selectedOrder} />
     </DashboardLayout>
   );
 }
