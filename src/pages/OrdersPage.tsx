@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, ArrowUp, ArrowDown } from 'lucide-react';
+// Adicionado o ícone ExternalLink
+import { Search, ArrowUp, ArrowDown, ExternalLink } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddOrderDialog } from '@/components/orders/AddOrderDialog';
 import { OrderDetailsDialog } from '@/components/orders/OrderDetailsDialog';
@@ -19,7 +20,7 @@ export function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   // State to manage sorting configuration { key: 'column_name', direction: 'ascending' | 'descending' }
-  const [sortConfig, setSortConfig] = useState(null);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -42,7 +43,7 @@ export function OrdersPage() {
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         // Helper to access nested properties like 'client.name'
-        const getNestedValue = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+        const getNestedValue = (obj: any, path: string) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
 
         const aValue = getNestedValue(a, sortConfig.key);
         const bValue = getNestedValue(b, sortConfig.key);
@@ -60,8 +61,8 @@ export function OrdersPage() {
   }, [filteredOrders, sortConfig]);
 
   // Function to handle clicks on table headers for sorting
-  const requestSort = (key) => {
-    let direction = 'ascending';
+  const requestSort = (key: string) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
     // If clicking the same column, toggle direction
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
       direction = 'descending';
@@ -70,7 +71,7 @@ export function OrdersPage() {
   };
 
   // Helper function to render the sort icon
-  const getSortIcon = (key) => {
+  const getSortIcon = (key: string) => {
     if (!sortConfig || sortConfig.key !== key) {
       return null;
     }
@@ -82,7 +83,7 @@ export function OrdersPage() {
     setOrderDetailsOpen(true);
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'completed': return 'bg-green-100 text-green-800';
@@ -204,7 +205,20 @@ export function OrdersPage() {
                   {sortedOrders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">
-                        #{order.order_id_base || order.id.slice(0, 8)}
+                        {/* --- MODIFICAÇÃO AQUI --- */}
+                        {order.order_id_base ? (
+                          <a
+                            href={`https://panel-u.baselinker.com/orders.php#order:${order.order_id_base}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            #{order.order_id_base}
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        ) : (
+                          <span>#{order.id.slice(0, 8)}</span>
+                        )}
                       </TableCell>
                       <TableCell>{order.client?.name || 'Unknown Client'}</TableCell>
                       <TableCell>${order.total_amount.toFixed(2)}</TableCell>
