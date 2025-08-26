@@ -3,17 +3,21 @@ import { motion } from 'framer-motion';
 import { Search, ArrowUp, ArrowDown } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddOrderDialog } from '@/components/orders/AddOrderDialog';
+import { OrderDetailsDialog } from '@/components/orders/OrderDetailsDialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCrmStore } from '@/store/crmStore';
+import { Order } from '@/types';
 
 export function OrdersPage() {
   const { orders, fetchOrders } = useCrmStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   // State to manage sorting configuration { key: 'column_name', direction: 'ascending' | 'descending' }
   const [sortConfig, setSortConfig] = useState(null);
 
@@ -71,6 +75,11 @@ export function OrdersPage() {
       return null;
     }
     return sortConfig.direction === 'ascending' ? <ArrowUp className="inline-block ml-1 h-4 w-4" /> : <ArrowDown className="inline-block ml-1 h-4 w-4" />;
+  };
+
+  const handleViewOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setOrderDetailsOpen(true);
   };
 
   const getStatusColor = (status) => {
@@ -173,8 +182,8 @@ export function OrdersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead onClick={() => requestSort('id')} className="cursor-pointer hover:bg-gray-100">
-                      Order ID{getSortIcon('id')}
+                    <TableHead onClick={() => requestSort('order_id_base')} className="cursor-pointer hover:bg-gray-100">
+                      Order ID{getSortIcon('order_id_base')}
                     </TableHead>
                     <TableHead onClick={() => requestSort('client.name')} className="cursor-pointer hover:bg-gray-100">
                       Client{getSortIcon('client.name')}
@@ -195,7 +204,7 @@ export function OrdersPage() {
                   {sortedOrders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">
-                        {order.id.slice(0, 8)}
+                        #{order.order_id_base || order.id.slice(0, 8)}
                       </TableCell>
                       <TableCell>{order.client?.name || 'Unknown Client'}</TableCell>
                       <TableCell>${order.total_amount.toFixed(2)}</TableCell>
@@ -212,7 +221,11 @@ export function OrdersPage() {
                           <Button size="sm" variant="outline">
                             Edit
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleViewOrder(order)}
+                          >
                             View
                           </Button>
                         </div>
@@ -224,6 +237,12 @@ export function OrdersPage() {
             </CardContent>
           </Card>
         </motion.div>
+        
+        <OrderDetailsDialog
+          open={orderDetailsOpen}
+          onOpenChange={setOrderDetailsOpen}
+          order={selectedOrder}
+        />
       </div>
     </DashboardLayout>
   );

@@ -262,6 +262,18 @@ export interface Order {
   external_id?: string;
   metadata?: Record<string, any>;
   client?: Client;
+  order_id_base?: number;
+  mensagem_enviada?: boolean;
+  atualizado_chatwoot?: string;
+  canal_venda?: string;
+  taxas?: number;
+  id_anuncio?: string;
+  conta?: string;
+  id_pedido_marktplace?: string;
+  faturamento_liquido?: number;
+  'custo_frete(taxa)'?: number;
+  produtos_order?: boolean;
+  metadata_feita?: boolean;
 }
 
 export interface Product {
