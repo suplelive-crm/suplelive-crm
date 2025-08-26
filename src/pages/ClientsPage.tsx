@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Eye, UserPlus, Filter, Download, MoreHorizontal, Phone, Mail, Tag, CheckCircle, XCircle, User, Calendar, ArrowUpDown, ShoppingBag, ChevronLeft, ChevronRight } from 'lucide-react';
+// Adicionado o ícone ExternalLink
+import { Search, Eye, UserPlus, Filter, Download, MoreHorizontal, Phone, Mail, Tag, CheckCircle, XCircle, User, Calendar, ArrowUpDown, ShoppingBag, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddClientDialog } from '@/components/clients/AddClientDialog';
 import { RFMAnalysisCard } from '@/components/rfm/RFMAnalysisCard';
@@ -413,7 +414,22 @@ export function ClientsPage() {
                                               <TableBody>
                                                 {clientOrders.map((order) => (
                                                   <TableRow key={order.id}>
-                                                    <TableCell className="font-mono text-xs">#{order.order_id_base || order.id.slice(0, 8)}</TableCell>
+                                                    <TableCell className="font-mono text-xs">
+                                                      {/* --- MODIFICAÇÃO AQUI --- */}
+                                                      {order.order_id_base ? (
+                                                        <a
+                                                          href={`https://panel-u.baselinker.com/orders.php#order:${order.order_id_base}`}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                          className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline"
+                                                        >
+                                                          #{order.order_id_base}
+                                                          <ExternalLink className="h-3.5 w-3.5" />
+                                                        </a>
+                                                      ) : (
+                                                        <span>#{order.id.slice(0, 8)}</span>
+                                                      )}
+                                                    </TableCell>
                                                     <TableCell>{formatDate(order.order_date)}</TableCell>
                                                     <TableCell className="text-center">{countOrderItems(order)}</TableCell>
                                                     <TableCell className="text-right font-medium">{formatCurrency(order.total_amount)}</TableCell>
