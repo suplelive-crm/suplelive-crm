@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-// Adicionados ícones para paginação
 import { Search, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddOrderDialog } from '@/components/orders/AddOrderDialog';
@@ -8,10 +7,8 @@ import { OrderDetailsDialog } from '@/components/orders/OrderDetailsDialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-// Adicionado CardFooter para a paginação
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-// Adicionados componentes do Select para o dropdown de itens por página
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCrmStore } from '@/store/crmStore';
 import { Order } from '@/types';
@@ -24,7 +21,6 @@ export function OrdersPage() {
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>({ key: 'order_date', direction: 'descending' });
 
-  // --- Estados para a Paginação ---
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<number | 'all'>(10);
 
@@ -59,21 +55,16 @@ export function OrdersPage() {
     return sortableItems;
   }, [filteredOrders, sortConfig]);
 
-  // --- Lógica de Paginação ---
   const totalPages = rowsPerPage === 'all' ? 1 : Math.ceil(sortedOrders.length / (rowsPerPage as number));
   const paginatedOrders = useMemo(() => {
-    if (rowsPerPage === 'all') {
-      return sortedOrders;
-    }
+    if (rowsPerPage === 'all') return sortedOrders;
     const startIndex = (page - 1) * (rowsPerPage as number);
     const endIndex = startIndex + (rowsPerPage as number);
     return sortedOrders.slice(startIndex, endIndex);
   }, [sortedOrders, page, rowsPerPage]);
 
   useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages > 0 ? totalPages : 1);
-    }
+    if (page > totalPages) setPage(totalPages > 0 ? totalPages : 1);
   }, [page, totalPages]);
 
   const requestSort = (key: string) => {
@@ -99,13 +90,15 @@ export function OrdersPage() {
     setSelectedOrder(order);
     setOrderDetailsOpen(true);
   };
+  
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
 
-  const getStatusColor = (status: string) => {
+  const getStatusInfo = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'pending': return { text: 'Pendente', className: 'bg-yellow-100 text-yellow-800' };
+      case 'completed': return { text: 'Concluído', className: 'bg-green-100 text-green-800' };
+      case 'cancelled': return { text: 'Cancelado', className: 'bg-red-100 text-red-800' };
+      default: return { text: status, className: 'bg-gray-100 text-gray-800' };
     }
   };
 
@@ -119,8 +112,8 @@ export function OrdersPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
-              <p className="text-gray-600 mt-2">Track customer orders and sales</p>
+              <h1 className="text-3xl font-bold text-gray-900">Pedidos</h1>
+              <p className="text-gray-600 mt-2">Acompanhe os pedidos e vendas dos clientes</p>
             </div>
             <AddOrderDialog />
           </div>
@@ -129,104 +122,92 @@ export function OrdersPage() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-yellow-600">{orders.filter(o => o.status === 'pending').length}</div>
-                <div className="text-sm text-gray-600">Pending Orders</div>
+                <div className="text-sm text-gray-600">Pedidos Pendentes</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-green-600">{orders.filter(o => o.status === 'completed').length}</div>
-                <div className="text-sm text-gray-600">Completed Orders</div>
+                <div className="text-sm text-gray-600">Pedidos Concluídos</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="text-2xl font-bold text-blue-600">${totalRevenue.toFixed(2)}</div>
-                <div className="text-sm text-gray-600">Total Revenue</div>
+                <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalRevenue)}</div>
+                <div className="text-sm text-gray-600">Receita Total</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="text-2xl font-bold text-purple-600">${orders.length > 0 ? (totalRevenue / orders.filter(o => o.status === 'completed').length || 1).toFixed(2) : '0.00'}</div>
-                <div className="text-sm text-gray-600">Avg Order Value</div>
+                <div className="text-2xl font-bold text-purple-600">{formatCurrency(orders.length > 0 ? (totalRevenue / orders.filter(o => o.status === 'completed').length || 1) : 0)}</div>
+                <div className="text-sm text-gray-600">Ticket Médio</div>
               </CardContent>
             </Card>
           </div>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Search & Filter</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Busca & Filtros</CardTitle></CardHeader>
             <CardContent>
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      placeholder="Search orders..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
+                    <Input placeholder="Buscar pedidos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  {['all', 'pending', 'completed', 'cancelled'].map((status) => (
-                    <Button
-                      key={status}
-                      variant={statusFilter === status ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setStatusFilter(status)}
-                    >
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </Button>
-                  ))}
+                  <Button variant={statusFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('all')}>Todos</Button>
+                  <Button variant={statusFilter === 'pending' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('pending')}>Pendentes</Button>
+                  <Button variant={statusFilter === 'completed' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('completed')}>Concluídos</Button>
+                  <Button variant={statusFilter === 'cancelled' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('cancelled')}>Cancelados</Button>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>All Orders ({sortedOrders.length})</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Todos os Pedidos ({sortedOrders.length})</CardTitle></CardHeader>
             <CardContent className='p-0'>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead onClick={() => requestSort('order_id_base')} className="cursor-pointer hover:bg-gray-100">Order ID{getSortIcon('order_id_base')}</TableHead>
-                      <TableHead onClick={() => requestSort('client.name')} className="cursor-pointer hover:bg-gray-100">Client{getSortIcon('client.name')}</TableHead>
-                      <TableHead onClick={() => requestSort('total_amount')} className="cursor-pointer hover:bg-gray-100">Amount{getSortIcon('total_amount')}</TableHead>
+                      <TableHead onClick={() => requestSort('order_id_base')} className="cursor-pointer hover:bg-gray-100">ID do Pedido{getSortIcon('order_id_base')}</TableHead>
+                      <TableHead onClick={() => requestSort('client.name')} className="cursor-pointer hover:bg-gray-100">Cliente{getSortIcon('client.name')}</TableHead>
+                      <TableHead onClick={() => requestSort('total_amount')} className="cursor-pointer hover:bg-gray-100">Valor{getSortIcon('total_amount')}</TableHead>
                       <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-gray-100">Status{getSortIcon('status')}</TableHead>
-                      <TableHead onClick={() => requestSort('order_date')} className="cursor-pointer hover:bg-gray-100">Date{getSortIcon('order_date')}</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead onClick={() => requestSort('order_date')} className="cursor-pointer hover:bg-gray-100">Data{getSortIcon('order_date')}</TableHead>
+                      <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedOrders.map((order) => (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-medium">
-                          {order.order_id_base ? (
-                            <a href={`https://panel-u.baselinker.com/orders.php#order:${order.order_id_base}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline">
-                              #{order.order_id_base}
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          ) : (
-                            <span>#{order.id.slice(0, 8)}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{order.client?.name || 'Unknown Client'}</TableCell>
-                        <TableCell>${order.total_amount.toFixed(2)}</TableCell>
-                        <TableCell><Badge className={getStatusColor(order.status)}>{order.status}</Badge></TableCell>
-                        <TableCell>{new Date(order.order_date).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline">Edit</Button>
-                            <Button size="sm" variant="outline" onClick={() => handleViewOrder(order)}>View</Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {paginatedOrders.map((order) => {
+                      const statusInfo = getStatusInfo(order.status);
+                      return (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-medium">
+                            {order.order_id_base ? (
+                              <a href={`https://panel-u.baselinker.com/orders.php#order:${order.order_id_base}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline">
+                                #{order.order_id_base}
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            ) : (
+                              <span>#{order.id.slice(0, 8)}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{order.client?.name || 'Cliente Desconhecido'}</TableCell>
+                          <TableCell>{formatCurrency(order.total_amount)}</TableCell>
+                          <TableCell><Badge className={statusInfo.className}>{statusInfo.text}</Badge></TableCell>
+                          <TableCell>{new Date(order.order_date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline">Editar</Button>
+                              <Button size="sm" variant="outline" onClick={() => handleViewOrder(order)}>Ver</Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
