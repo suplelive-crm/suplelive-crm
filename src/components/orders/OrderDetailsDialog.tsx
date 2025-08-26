@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-// Adicionado o ícone ShoppingCart para a nova seção de produtos
-import { Eye, Package, User, Calendar, CreditCard, MapPin, Phone, Mail, FileText, DollarSign, ShoppingCart } from 'lucide-react';
+// Adicionado o ícone ExternalLink
+import { Eye, Package, User, Calendar, CreditCard, MapPin, Phone, Mail, FileText, DollarSign, ShoppingCart, ExternalLink } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,6 +53,7 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
   };
 
   const formatCurrency = (amount: number) => {
+    if (typeof amount !== 'number') return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
@@ -60,6 +61,7 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'Data indisponível';
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -81,10 +83,24 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Detalhes do Pedido #{order.order_id_base || order.id.slice(0, 8)}
-          </DialogTitle>
+            {/* --- MODIFICAÇÃO AQUI --- */}
+            <DialogTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                <span>Detalhes do Pedido</span>
+                {order.order_id_base ? (
+                <a
+                    href={`https://panel-u.baselinker.com/orders.php#order:${order.order_id_base}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                    #{order.order_id_base}
+                    <ExternalLink className="h-4 w-4" />
+                </a>
+                ) : (
+                <span>#{order.id.slice(0, 8)}</span>
+                )}
+            </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -165,7 +181,7 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
             </CardContent>
           </Card>
 
-          {/* Produtos do Pedido (anteriormente Dados Técnicos) */}
+          {/* Produtos do Pedido */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -242,13 +258,13 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
                       <h4 className="text-sm font-medium text-muted-foreground mb-1">Cliente desde</h4>
                       <p className="font-medium">{formatDate(order.client.created_at)}</p>
                     </div>
-                    {order.client.total_orders && (
+                    {typeof order.client.total_orders !== 'undefined' && (
                       <div>
                         <h4 className="text-sm font-medium text-muted-foreground mb-1">Total de Pedidos</h4>
                         <p className="font-medium">{order.client.total_orders}</p>
                       </div>
                     )}
-                    {order.client.total_spent && (
+                    {typeof order.client.total_spent !== 'undefined' && (
                       <div>
                         <h4 className="text-sm font-medium text-muted-foreground mb-1">Total Gasto</h4>
                         <p className="font-medium text-green-600">{formatCurrency(order.client.total_spent)}</p>
@@ -270,7 +286,51 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {/* O restante do código permanece o mesmo... */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      {baselinkerData.delivery_fullname && (
+                        <div>
+                          <h4 className="text-sm font-medium text-muted-foreground mb-1">Nome para Entrega</h4>
+                          <p className="font-medium">{baselinkerData.delivery_fullname}</p>
+                        </div>
+                      )}
+                      {baselinkerData.delivery_address && (
+                        <div>
+                          <h4 className="text-sm font-medium text-muted-foreground mb-1">Endereço</h4>
+                          <p className="font-medium">{baselinkerData.delivery_address}</p>
+                        </div>
+                      )}
+                      {baselinkerData.delivery_city && (
+                        <div>
+                          <h4 className="text-sm font-medium text-muted-foreground mb-1">Cidade</h4>
+                          <p className="font-medium">
+                            {baselinkerData.delivery_city}
+                            {baselinkerData.delivery_postcode && ` - ${baselinkerData.delivery_postcode}`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-4">
+                      {baselinkerData.invoice_company && (
+                        <div>
+                          <h4 className="text-sm font-medium text-muted-foreground mb-1">Empresa</h4>
+                          <p className="font-medium">{baselinkerData.invoice_company}</p>
+                        </div>
+                      )}
+                      {baselinkerData.delivery_country && (
+                        <div>
+                          <h4 className="text-sm font-medium text-muted-foreground mb-1">País</h4>
+                          <p className="font-medium">{baselinkerData.delivery_country}</p>
+                        </div>
+                      )}
+                      {baselinkerData.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{baselinkerData.phone}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
               </CardContent>
             </Card>
           )}
@@ -284,7 +344,41 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* O restante do código permanece o mesmo... */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-blue-800 mb-1">Valor Total</h4>
+                      <p className="text-xl font-bold text-blue-600">
+                        {formatCurrency(order.total_amount)}
+                      </p>
+                    </div>
+
+                    {order.taxas && (
+                      <div className="bg-red-50 p-4 rounded-lg">
+                        <h4 className="text-sm font-medium text-red-800 mb-1">Taxas</h4>
+                        <p className="text-xl font-bold text-red-600">
+                          {formatCurrency(order.taxas)}
+                        </p>
+                      </div>
+                    )}
+
+                    {order.faturamento_liquido && (
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <h4 className="text-sm font-medium text-green-800 mb-1">Faturamento Líquido</h4>
+                        <p className="text-xl font-bold text-green-600">
+                          {formatCurrency(order.faturamento_liquido)}
+                        </p>
+                      </div>
+                    )}
+
+                    {order['custo_frete(taxa)'] && (
+                      <div className="bg-orange-50 p-4 rounded-lg">
+                        <h4 className="text-sm font-medium text-orange-800 mb-1">Custo do Frete</h4>
+                        <p className="text-xl font-bold text-orange-600">
+                          {formatCurrency(order['custo_frete(taxa)'])}
+                        </p>
+                      </div>
+                    )}
+                  </div>
             </CardContent>
           </Card>
         </div>
