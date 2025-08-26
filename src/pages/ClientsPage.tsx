@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react'; // Adicionado useMemo
 import { motion } from 'framer-motion';
-import { Search, Eye, UserPlus, Filter, Download, MoreHorizontal, Phone, Mail, Tag, CheckCircle, XCircle, User, Calendar } from 'lucide-react';
+// Adicionado ArrowUpDown para indicar a ordenação
+import { Search, Eye, UserPlus, Filter, Download, MoreHorizontal, Phone, Mail, Tag, CheckCircle, XCircle, User, Calendar, ArrowUpDown } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddClientDialog } from '@/components/clients/AddClientDialog';
 import { RFMAnalysisCard } from '@/components/rfm/RFMAnalysisCard';
@@ -10,15 +11,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCrmStore } from '@/store/crmStore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
+// Definindo as chaves que podem ser ordenadas
+type SortableKey = 'name' | 'status' | 'total_orders' | 'total_spent' | 'created_at';
 
 export function ClientsPage() {
   const { clients, leads, fetchClients, fetchLeads, fetchClientRFMAnalysis, convertLeadToClient } = useCrmStore();
@@ -26,6 +30,9 @@ export function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('all');
+
+  // Estado para controlar a ordenação
+  const [sortConfig, setSortConfig] = useState<{ key: SortableKey; direction: 'asc' | 'desc' }>({ key: 'created_at', direction: 'desc' });
 
   useEffect(() => {
     fetchClients();
@@ -39,20 +46,61 @@ export function ClientsPage() {
   ];
 
   const filteredContacts = allContacts.filter(contact => {
-    const matchesSearch = 
+    const matchesSearch =
       contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.phone?.includes(searchTerm);
-    
+
     const matchesStatus = statusFilter === 'all' || contact.status === statusFilter;
-    
-    const matchesTab = 
-      activeTab === 'all' || 
-      (activeTab === 'leads' && contact.type === 'lead') || 
+
+    const matchesTab =
+      activeTab === 'all' ||
+      (activeTab === 'leads' && contact.type === 'lead') ||
       (activeTab === 'clients' && contact.type === 'client');
-    
+
     return matchesSearch && matchesStatus && matchesTab;
   });
+
+  // Memoiza os contatos ordenados para evitar recálculos desnecessários
+  const sortedContacts = useMemo(() => {
+    const sortableItems = [...filteredContacts];
+    if (sortConfig) {
+      sortableItems.sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        // Trata valores nulos ou indefinidos para evitar erros
+        if (aValue == null) return 1;
+        if (bValue == null) return -1;
+        
+        let comparison = 0;
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            comparison = aValue - bValue;
+        } else {
+            comparison = String(aValue).localeCompare(String(bValue));
+        }
+
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  }, [filteredContacts, sortConfig]);
+
+  // Função para solicitar uma nova ordenação ou inverter a atual
+  const requestSort = (key: SortableKey) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const getSortIcon = (key: SortableKey) => {
+    if (sortConfig.key !== key) {
+        return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
+    }
+    return <ArrowUpDown className="ml-2 h-4 w-4" />;
+  };
 
   const handleViewContact = async (contact: any) => {
     setSelectedClient(contact);
@@ -263,24 +311,49 @@ export function ClientsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome</TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => requestSort('name')} className="-ml-4">
+                            Nome
+                            {getSortIcon('name')}
+                        </Button>
+                      </TableHead>
                       <TableHead>Contato</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Pedidos</TableHead>
-                      <TableHead>Total Gasto</TableHead>
-                      <TableHead>Criado</TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => requestSort('status')} className="-ml-4">
+                            Status
+                            {getSortIcon('status')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => requestSort('total_orders')} className="-ml-4">
+                            Pedidos
+                            {getSortIcon('total_orders')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => requestSort('total_spent')} className="-ml-4">
+                            Total Gasto
+                            {getSortIcon('total_spent')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => requestSort('created_at')} className="-ml-4">
+                            Criado
+                            {getSortIcon('created_at')}
+                        </Button>
+                      </TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredContacts.length === 0 ? (
+                    {sortedContacts.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="h-24 text-center">
                           Nenhum contato encontrado.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredContacts.map((contact) => (
+                      sortedContacts.map((contact) => (
                         <TableRow key={`${contact.type}-${contact.id}`}>
                           <TableCell>
                             <div className="flex items-center gap-3">
