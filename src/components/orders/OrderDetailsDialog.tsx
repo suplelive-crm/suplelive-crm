@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Eye, Package, User, Calendar, CreditCard, MapPin, Phone, Mail, FileText, DollarSign } from 'lucide-react';
+import { Eye, Package, User, Calendar, CreditCard, MapPin, Phone, Mail, FileText, DollarSign, Wrench } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+// Adicionando importações para a Tabela
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Order } from '@/types';
 
 interface OrderDetailsDialogProps {
@@ -145,6 +154,47 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
               </div>
             </CardContent>
           </Card>
+          
+          {/* Dados Técnicos (MOVido para cá e alterado para tabela) */}
+          {metadata && Object.keys(metadata).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wrench className="h-5 w-5" /> {/* Ícone alterado para melhor contexto */}
+                  Dados Técnicos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[250px]">Chave</TableHead>
+                        <TableHead>Valor</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Object.entries(metadata).map(([key, value]) => (
+                        <TableRow key={key}>
+                          <TableCell className="font-medium break-all">{key}</TableCell>
+                          <TableCell>
+                            {/* Verifica se o valor é um objeto para formatá-lo com <pre> */}
+                            {typeof value === 'object' && value !== null ? (
+                              <pre className="text-xs bg-gray-50 p-2 rounded-md whitespace-pre-wrap break-all">
+                                {JSON.stringify(value, null, 2)}
+                              </pre>
+                            ) : (
+                              <span className="break-all">{String(value)}</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Customer Information */}
           {order.client && (
@@ -305,85 +355,9 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
               </div>
             </CardContent>
           </Card>
-
-          {/* Additional Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Informações Adicionais
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  {order.id_pedido_marktplace && (
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-1">ID do Marketplace</h4>
-                      <p className="font-medium">{order.id_pedido_marktplace}</p>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Produtos Processados:</span>
-                      <Badge variant={order.produtos_order ? 'default' : 'secondary'}>
-                        {order.produtos_order ? 'Sim' : 'Não'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Metadata Processada:</span>
-                      <Badge variant={order.metadata_feita ? 'default' : 'secondary'}>
-                        {order.metadata_feita ? 'Sim' : 'Não'}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Mensagem Enviada:</span>
-                      <Badge variant={order.mensagem_enviada ? 'default' : 'secondary'}>
-                        {order.mensagem_enviada ? 'Sim' : 'Não'}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {order.atualizado_chatwoot && (
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-1">Última Atualização Chatwoot</h4>
-                      <p className="font-medium">{formatDate(order.atualizado_chatwoot)}</p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Criado em</h4>
-                    <p className="font-medium">{formatDate(order.order_date)}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Raw Metadata (for debugging/admin purposes) */}
-          {metadata && Object.keys(metadata).length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Dados Técnicos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <pre className="text-xs overflow-auto max-h-40">
-                    {JSON.stringify(metadata, null, 2)}
-                  </pre>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          
+          {/* A SEÇÃO DE INFORMAÇÕES ADICIONAIS FOI REMOVIDA DAQUI */}
+          
         </div>
       </DialogContent>
     </Dialog>
