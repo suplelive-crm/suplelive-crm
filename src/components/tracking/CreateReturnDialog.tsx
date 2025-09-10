@@ -188,5 +188,3 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
     </Dialog>
   );
 }
-
-
