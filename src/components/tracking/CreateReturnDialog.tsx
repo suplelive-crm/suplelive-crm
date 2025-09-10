@@ -23,14 +23,14 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
     trackingCode: '',
     observations: '',
   });
-  
+
   const [loading, setLoading] = useState(false);
   const { createReturn } = useTrackingStore();
   const { toast } = useToast();
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate form
     if (!formData.date || !formData.carrier || !formData.storeName || !formData.customer_name || !formData.trackingCode) {
       toast({
@@ -40,11 +40,11 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
       });
       return;
     }
-    
+
     setLoading(true);
     try {
       await createReturn(formData);
-      
+
       // Reset form
       setFormData({
         date: new Date().toISOString().split('T')[0],
@@ -54,9 +54,9 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
         trackingCode: '',
         observations: '',
       });
-      
+
       onOpenChange(false);
-      
+
       toast({
         title: 'Sucesso',
         description: 'Devolução criada com sucesso',
@@ -72,7 +72,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
       setLoading(false);
     }
   };
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -82,7 +82,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
             Adicione uma nova devolução para rastreamento
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -98,27 +98,26 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
                 required
               />
             </div>
-            
-<div className="space-y-2">
-  <Label htmlFor="carrier" className="flex items-center gap-2">
-    <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
-  </Label>
-  {/* A MUDANÇA É AQUI 👇, NA PRIMEIRA LINHA DO SELECT */}
-  <Select modal={false} value={formData.carrier || ''} onValueChange={(value: string) => setFormData({ ...formData, carrier: value })}>
-    <SelectTrigger>
-      <SelectValue placeholder="Selecione a transportadora" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="Correios">Correios</SelectItem>
-      <SelectItem value="Jadlog">Jadlog</SelectItem>
-      <SelectItem value="Total Express">Total Express</SelectItem>
-      <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
-      <SelectItem value="Braspress">Braspress</SelectItem>
-      <SelectItem value="Outra">Outra</SelectItem>
-    </SelectContent>
-  </Select>
-</div>
-            
+
+            <div className="space-y-2">
+              <Label htmlFor="carrier" className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
+              </Label>
+              <Select modal={false} value={formData.carrier || ''} onValueChange={(value: string) => setFormData({ ...formData, carrier: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a transportadora" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Correios">Correios</SelectItem>
+                  <SelectItem value="Jadlog">Jadlog</SelectItem>
+                  <SelectItem value="Total Express">Total Express</SelectItem>
+                  <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
+                  <SelectItem value="Braspress">Braspress</SelectItem>
+                  <SelectItem value="Outra">Outra</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="storeName" className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-gray-500" />
@@ -132,7 +131,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="customerName" className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-gray-500" />
@@ -146,7 +145,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
                 required
               />
             </div>
-            
+
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="trackingCode" className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-gray-500" />
@@ -160,7 +159,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
                 required
               />
             </div>
-            
+
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="observations" className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-gray-500" />
@@ -175,7 +174,7 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
               />
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
@@ -189,3 +188,5 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
     </Dialog>
   );
 }
+
+
