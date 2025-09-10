@@ -145,8 +145,10 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                 <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
               </Label>
               <Select value={formData.carrier || ''} onValueChange={(value: string) => setFormData({ ...formData, carrier: value })}>
-                <SelectTrigger><SelectValue placeholder="Selecione a transportadora" /></SelectTrigger>
-                <SelectContent className="z-[10000]">
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a transportadora" />
+                </SelectTrigger>
+                <SelectContent>
                   <SelectItem value="Correios">Correios</SelectItem>
                   <SelectItem value="Jadlog">Jadlog</SelectItem>
                   <SelectItem value="Total Express">Total Express</SelectItem>

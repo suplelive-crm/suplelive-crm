@@ -101,10 +101,15 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
       </PopoverAnchor>
 
       <PopoverContent 
-        // CORRIGIDO: Aumentando o z-index para garantir que apareça acima dos modais
-        className="w-[--radix-popover-anchor-width] p-0 z-[10000]"
+        className="w-[--radix-popover-anchor-width] p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
-        // Removendo onInteractOutside para que o Popover lide com o fechamento padrão
+        onInteractOutside={(e) => {
+          // Only close if clicking outside the input or popover
+          const target = e.target as Element;
+          if (!target.closest('[data-radix-popover-content]') && !target.closest('input')) {
+            setIsOpen(false);
+          }
+        }}
       >
         <Command>
           <CommandList className="max-h-[300px] overflow-y-auto">
