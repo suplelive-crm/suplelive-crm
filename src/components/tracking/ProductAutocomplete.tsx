@@ -18,12 +18,12 @@ interface ProductAutocompleteProps {
 
 export function ProductAutocomplete({ products, value, onSelect, onInputChange }: ProductAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
-  
+
   const inputValue = value?.name || '';
 
   const filteredProducts = useMemo(() => {
     if (!inputValue) {
-      return [];  
+      return [];
     }
 
     const lowercasedInput = inputValue.toLowerCase().trim();
@@ -40,7 +40,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
 
         if (productNameLower.includes(lowercasedInput)) {
           score = 2;
-        }  
+        }
         else if (searchWords.every(word => productNameLower.includes(word))) {
           score = 1;
         }
@@ -56,12 +56,12 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
       return [];
     }
 
-    const hasFlavorVariantInResults = initialResults.some(p => 
+    const hasFlavorVariantInResults = initialResults.some(p =>
       p.name?.toLowerCase().includes('sabor')
     );
 
     if (hasFlavorVariantInResults) {
-      return initialResults.filter(p => 
+      return initialResults.filter(p =>
         p.name?.toLowerCase().includes('sabor')
       );
     } else {
@@ -100,8 +100,9 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
         />
       </PopoverAnchor>
 
-      <PopoverContent 
-        className="w-[--radix-popover-anchor-width] p-0"
+      {/* AQUI ESTÁ A CORREÇÃO: Adicionamos a classe z-[9999] */}
+      <PopoverContent
+        className="w-[--radix-popover-anchor-width] p-0 z-[9999]"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onInteractOutside={(e) => {
           // Only close if clicking outside the input or popover
