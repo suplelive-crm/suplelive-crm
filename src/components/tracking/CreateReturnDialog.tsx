@@ -99,28 +99,25 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="carrier" className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-gray-500" />
-                Transportadora *
-              </Label>
-              <Select 
-                value={formData.carrier} 
-                onValueChange={(value) => setFormData({ ...formData, carrier: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a transportadora" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Correios">Correios</SelectItem>
-                  <SelectItem value="Jadlog">Jadlog</SelectItem>
-                  <SelectItem value="Total Express">Total Express</SelectItem>
-                  <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
-                  <SelectItem value="Braspress">Braspress</SelectItem>
-                  <SelectItem value="Outra">Outra</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+<div className="space-y-2">
+  <Label htmlFor="carrier" className="flex items-center gap-2">
+    <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
+  </Label>
+  {/* A MUDANÇA É AQUI 👇, NA PRIMEIRA LINHA DO SELECT */}
+  <Select modal={false} value={formData.carrier || ''} onValueChange={(value: string) => setFormData({ ...formData, carrier: value })}>
+    <SelectTrigger>
+      <SelectValue placeholder="Selecione a transportadora" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="Correios">Correios</SelectItem>
+      <SelectItem value="Jadlog">Jadlog</SelectItem>
+      <SelectItem value="Total Express">Total Express</SelectItem>
+      <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
+      <SelectItem value="Braspress">Braspress</SelectItem>
+      <SelectItem value="Outra">Outra</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
             
             <div className="space-y-2">
               <Label htmlFor="storeName" className="flex items-center gap-2">
