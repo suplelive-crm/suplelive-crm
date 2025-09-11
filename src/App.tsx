@@ -8,55 +8,6 @@ import {
   useNavigate,
 } from 'react-router-dom';
 
-// --- Início das Simulações (Apenas para este ambiente) ---
-// O erro anterior era de compilação, pois este ambiente não encontra seus arquivos.
-// Estas simulações permitem que o código seja validado aqui.
-// No seu projeto, seus imports originais funcionarão normalmente.
-
-const Toaster = () => <div id="toaster-placeholder" style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 100 }}></div>;
-const ProtectedRoute = ({ children }) => children;
-
-const createPlaceholderPage = (name) => () => (
-    <div className="flex items-center justify-center min-h-screen"><div className="p-8 bg-white rounded-lg shadow-md"><h1 className="text-2xl font-bold text-gray-800">{name}</h1></div></div>
-);
-
-const LoginPage = createPlaceholderPage('Página de Login');
-const SignUpPage = createPlaceholderPage('Página de Cadastro');
-const OnboardingPage = createPlaceholderPage('Página de Onboarding');
-const DashboardPage = createPlaceholderPage('Página do Dashboard');
-const InboxPage = createPlaceholderPage('Página de Inbox');
-const ClientsPage = createPlaceholderPage('Página de Clientes');
-const KanbanPage = createPlaceholderPage('Página Kanban');
-const OrdersPage = createPlaceholderPage('Página de Pedidos');
-const MessagesPage = createPlaceholderPage('Página de Mensagens');
-const CampaignsPage = createPlaceholderPage('Página de Campanhas');
-const IntegrationsPage = createPlaceholderPage('Página de Integrações');
-const AutomationPage = createPlaceholderPage('Página de Automação');
-const AnalyticsPage = createPlaceholderPage('Página de Analytics');
-const SettingsPage = createPlaceholderPage('Página de Configurações');
-const TrackingPage = createPlaceholderPage('Página de Rastreamento');
-
-const useAuthStore = () => ({
-  user: { email: 'usuario@exemplo.com', uid: '12345' },
-  loading: false,
-  initialize: async () => {},
-});
-
-const mockWorkspacesData = [{ id: 'ws_1', name: 'Workspace Principal' }];
-const useWorkspaceStore = () => {
-    const [currentWorkspace, setCurrentWorkspace] = useState(null);
-    return {
-        currentWorkspace,
-        workspaces: mockWorkspacesData,
-        fetchWorkspaces: async () => Promise.resolve(),
-        setCurrentWorkspace,
-    };
-};
-useWorkspaceStore.getState = () => ({ workspaces: mockWorkspacesData });
-
-// --- Fim das Simulações ---
-
-
 function AppContent() {
   const { currentWorkspace, workspaces, fetchWorkspaces, setCurrentWorkspace } =
     useWorkspaceStore();
