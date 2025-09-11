@@ -80,17 +80,23 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
   
+  // ALTERADO: A função foi reescrita para espelhar a implementação que funciona no CreatePurchaseDialog.
   const handleProductSelect = (index: number, selectedProduct: any) => {
-    setProducts(products.map((p, i) => (
-      i === index 
-      ? { 
-          ...p,
-          id: selectedProduct.id, 
-          name: selectedProduct.name, 
-          SKU: selectedProduct.SKU || selectedProduct.sku || '' // Mais robusto, aceita SKU ou sku
-        } 
-      : p
-    )));
+    // Linha de depuração: verifique o console do navegador (F12) ao selecionar um item.
+    console.log("Produto selecionado:", selectedProduct, "no índice:", index);
+
+    const newProducts = [...products];
+    const productToUpdate = newProducts[index];
+
+    if (productToUpdate) {
+        newProducts[index] = {
+            ...productToUpdate, // Preserva dados como quantidade e custo que o usuário já possa ter digitado
+            id: selectedProduct.id,
+            name: selectedProduct.name,
+            SKU: selectedProduct.SKU || selectedProduct.sku || ''
+        };
+        setProducts(newProducts);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -236,3 +242,4 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     </Dialog>
   );
 }
+
