@@ -53,7 +53,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         trackingCode: purchase.trackingCode || '',
         delivery_fee: purchase.delivery_fee || 0,
       });
-      // structuredClone é uma forma segura de copiar o array sem referenciar o original
       setProducts(structuredClone(purchase.products || []));
     }
     if (open) {
@@ -62,7 +61,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   }, [purchase, open, fetchProducts]);
 
   const handleAddProduct = () => {
-    // Adiciona um produto "novo" (sem id) à lista
     setProducts([...products, { name: '', quantity: 1, cost: 0, sku: '' }]);
   };
 
@@ -71,27 +69,28 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   };
 
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => {
-    const newProducts = [...products];
-    const product = newProducts[index];
-    if (product) {
-      (product as any)[field] = value;
-      setProducts(newProducts);
-    }
+    const newProducts = products.map((p, i) => i === index ? { ...p, [field]: value } : p);
+    setProducts(newProducts);
   };
   
   const handleProductSelect = (index: number, selectedProduct: any) => {
-    const newProducts = [...products];
-    const existingProduct = newProducts[index];
-    if (existingProduct) {
-        existingProduct.id = selectedProduct.id; // Pode ser o ID do produto no CRM, mas não o da linha de compra
-        existingProduct.name = selectedProduct.name;
-        existingProduct.sku = selectedProduct.sku || '';
-        // Opcional: buscar e preencher o custo padrão do produto aqui
-    }
+    const newProducts = products.map((p, i) => {
+      if (i === index) {
+        return {
+          ...p,
+          id: selectedProduct.id,
+          name: selectedProduct.name,
+          sku: selectedProduct.sku || '',
+        };
+      }
+      return p;
+    });
     setProducts(newProducts);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+    alert('--- O BOTÃO FUNCIONA! A FUNÇÃO handleSubmit FOI CHAMADA! ---'); // <--- TESTE DEFINITIVO
+    
     e.preventDefault();
     if (!purchase) return;
 
@@ -107,15 +106,20 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
 
     setLoading(true);
     try {
-      console.log('Calling updatePurchase with:', { purchaseId: purchase.id, formData, products });
+      console.log('--- PASSO 2: CHAMANDO updatePurchase com estes dados: ---', {
+        id: purchase.id,
+        formData: formData,
+        products: products
+      });
+
       await updatePurchase(purchase.id, formData, products as any);
-      toast({ title: 'Sucesso', description: 'Compra atualizada com sucesso!' });
+      
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Falha ao submeter a atualização:', error);
       toast({ 
-        title: 'Erro', 
-        description: error?.message || 'Falha ao atualizar a compra. Tente novamente.', 
+        title: 'Erro ao Salvar', 
+        description: error.message || 'Ocorreu um erro inesperado.', 
         variant: 'destructive' 
       });
     } finally {
@@ -132,6 +136,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* O restante do seu JSX (inputs, selects, etc.) permanece exatamente o mesmo */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date" className="flex items-center gap-2">
@@ -251,7 +256,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                       type="number"
                       min="1"
                       value={product.quantity || 1}
-                      onChange={(e) => handleProductFieldChange(index, 'quantity', parseInt(e.target.value) || 1)}
+                      onChange={(e) => handleProductFieldChange(index, 'quantity', parseInt(e.target.value, 10) || 1)}
                     />
                   </div>
                   <div className="space-y-2 flex items-end gap-2">
