@@ -36,10 +36,10 @@ interface TrackingState {
   updatePurchase: (purchaseId: string, formData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
   archivePurchase: (id: string) => Promise<void>;
   deletePurchase: (purchaseId: string) => Promise<void>;
- 
+
   // ATUALIZADO: Assinatura da função para incluir o novo campo
   verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string, preco_ml?: number, preco_atacado?: number) => Promise<void>;
- 
+
   addProductToInventory: (purchaseId: string) => Promise<void>;
   updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>;
   createReturn: (returnData: {
@@ -105,7 +105,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     fetchReturns();
     fetchTransfers();
   },
- 
+
   fetchPurchases: async () => {
     await ErrorHandler.handleAsync(async () => {
       set({ loading: true });
@@ -160,7 +160,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           SKU: product.SKU,
           preco_ml: product.preco_ml,
           // NOVO: Mapeando a coluna de preço de atacado
-          preco_atacado: product.preco_atacado 
+          preco_atacado: product.preco_atacado
         }))
       }));
 
@@ -301,7 +301,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         vencimento: product.vencimento || null,
         preco_ml: product.preco_ml || null,
         // NOVO: Adicionando o novo campo
-        preco_atacado: product.preco_atacado || null, 
+        preco_atacado: product.preco_atacado || null,
       }));
 
       const { error: productsError } = await supabase
@@ -320,10 +320,13 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       ErrorHandler.showSuccess('Compra criada com sucesso!');
     });
   },
- 
+
+  // ========================================================================
+  // ========= INÍCIO DA SEÇÃO ALTERADA =====================================
+  // ========================================================================
   updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
-      // 1. Atualizar a compra principal
+      // 1. Atualiza os dados principais da compra (como data, rastreio, etc.)
       const { error: purchaseError } = await supabase
         .from('purchases')
         .update({
@@ -336,67 +339,80 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           updated_at: new Date().toISOString(),
         })
         .eq('id', purchaseId);
-
+  
       if (purchaseError) throw purchaseError;
-
-      const formProductIds = products.map(p => p.id).filter(id => id !== undefined);
-
-      const { data: existingProducts, error: fetchProductsError } = await supabase
+  
+      // 2. Lógica para deletar produtos que foram removidos do formulário
+      const formProductIds = products.map(p => p.id).filter(Boolean); // Pega apenas IDs que existem
+      const { data: existingDbProducts, error: fetchError } = await supabase
         .from('purchase_products')
         .select('id')
         .eq('purchase_id', purchaseId);
-
-      if (fetchProductsError) throw fetchProductsError;
-     
-      const productsToDelete = (existingProducts || []).filter(p => !formProductIds.includes(p.id));
-      if (productsToDelete.length > 0) {
+  
+      if (fetchError) throw fetchError;
+  
+      const dbProductIds = existingDbProducts.map(p => p.id);
+      const productsToDeleteIds = dbProductIds.filter(id => !formProductIds.includes(id));
+  
+      if (productsToDeleteIds.length > 0) {
         const { error: deleteError } = await supabase
           .from('purchase_products')
           .delete()
-          .in('id', productsToDelete.map(p => p.id));
+          .in('id', productsToDeleteIds);
         if (deleteError) throw deleteError;
       }
-
-      const newProducts = products.filter(p => p.id === undefined);
-      const updatedProducts = products.filter(p => p.id !== undefined);
-
-      if (newProducts.length > 0) {
-        const totalQuantity = newProducts.reduce((sum, p) => sum + (p.quantity || 0), 0);
-        const deliveryFeePerUnit = totalQuantity > 0 ? formData.delivery_fee / totalQuantity : 0;
-        const productsToInsert = newProducts.map(product => ({
-          name: product.name,
-          quantity: product.quantity,
-          cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
-          SKU: product.sku,
+  
+      // 3. LÓGICA CORRIGIDA: Recalcular o custo unitário com a taxa de entrega
+      // A taxa de entrega deve ser dividida entre TODOS os itens da compra
+      const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+      const deliveryFeePerUnit = totalQuantity > 0 ? formData.delivery_fee / totalQuantity : 0;
+  
+      // 4. Prepara os dados dos produtos para o "upsert"
+      // Upsert = Se o produto com esse ID já existe, atualiza. Se não, insere.
+      const productsToUpsert = products.map(product => {
+        const baseCost = product.cost || 0;
+        // O custo final é o custo base + a taxa de entrega rateada.
+        // Para produtos existentes, o `product.cost` vindo do form não inclui a taxa,
+        // então precisamos recalcular para garantir a precisão.
+        // O Supabase exige que o campo de conflito (o ID) esteja presente.
+        const productData: any = { // Usando 'any' para facilitar a deleção do id
+          id: product.id, // ID pode ser undefined para novos produtos
           purchase_id: purchaseId,
-          is_verified: false,
-          is_in_stock: false,
-          vencimento: null,
-          preco_ml: null,
-          // NOVO: Adicionando o novo campo
-          preco_atacado: null,
-        }));
-        const { error: insertError } = await supabase.from('purchase_products').insert(productsToInsert);
-        if (insertError) throw insertError;
-      }
-
-      for (const product of updatedProducts) {
-        const { error: updateProductError } = await supabase
+          name: product.name,
+          SKU: product.sku,
+          quantity: product.quantity,
+          // O custo de um produto existente SÓ muda se a taxa de entrega ou a quantidade total mudar.
+          // Isso é diferente de deixar o usuário digitar um novo custo.
+          cost: parseFloat((baseCost + deliveryFeePerUnit).toFixed(2)),
+          // Valores padrão para produtos novos
+          is_verified: product.id ? product.is_verified : false,
+          is_in_stock: product.id ? product.is_in_stock : false,
+        };
+  
+        // Remove o ID se ele for undefined, para o Supabase tratar como um novo item
+        if (!productData.id) {
+          delete productData.id;
+        }
+  
+        return productData;
+      });
+  
+      if (productsToUpsert.length > 0) {
+        const { error: upsertError } = await supabase
           .from('purchase_products')
-          .update({
-            quantity: product.quantity,
-            cost: product.cost,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', product.id)
-          .eq('purchase_id', purchaseId);
-        if (updateProductError) throw updateProductError;
+          .upsert(productsToUpsert, { onConflict: 'id' }); // Conflito no ID para saber se deve atualizar
+  
+        if (upsertError) throw upsertError;
       }
-     
+      
+      // 5. Atualiza o estado local e exibe a mensagem de sucesso
       await get().fetchPurchases();
       ErrorHandler.showSuccess('Compra atualizada com sucesso!');
     });
   },
+  // ========================================================================
+  // ========= FIM DA SEÇÃO ALTERADA ========================================
+  // ========================================================================
 
   archivePurchase: async (id) => {
     await ErrorHandler.handleAsync(async () => {
@@ -434,7 +450,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       set((state) => ({
         purchases: state.purchases.filter((p) => p.id !== purchaseId),
       }));
-     
+      
       ErrorHandler.showSuccess('Pedido de compra deletado com sucesso!');
     });
   },
@@ -448,7 +464,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .eq('id', productId)
         .eq('purchase_id', purchaseId)
         .single();
-       
+        
       if (fetchError) throw fetchError;
 
       const updatedVencimento = vencimento || currentProduct?.vencimento;
@@ -456,8 +472,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const updatedPrecoAtacado = preco_atacado !== undefined ? preco_atacado : currentProduct?.preco_atacado;
 
       // ATUALIZADO: `isVerified` agora depende dos 3 campos
-      const isVerified = !!updatedVencimento && 
-                         (updatedPrecoMl !== undefined && updatedPrecoMl !== null) && 
+      const isVerified = !!updatedVencimento &&
+                         (updatedPrecoMl !== undefined && updatedPrecoMl !== null) &&
                          (updatedPrecoAtacado !== undefined && updatedPrecoAtacado !== null);
 
       const updates: {
@@ -470,7 +486,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         is_verified: isVerified,
         updated_at: new Date().toISOString()
       };
-       
+      
       if (updatedVencimento !== undefined) {
         updates.vencimento = updatedVencimento;
       }
@@ -960,7 +976,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       return null;
     }) || null;
   },
- 
+
   updateAllTrackingStatuses: async () => {
     console.warn("updateAllTrackingStatuses was called but is not implemented per user request.");
   },
