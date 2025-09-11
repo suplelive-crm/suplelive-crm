@@ -71,7 +71,6 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
   }, [inputValue, products]);
 
   useEffect(() => {
-    // Apenas abre o Popover se houver valor no input e produtos filtrados
     if (inputValue && filteredProducts.length > 0) {
       setIsOpen(true);
     } else {
@@ -81,7 +80,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
 
   const handleSelect = (product: Product) => {
     onSelect(product);
-    setIsOpen(false); // Fecha o popover ao selecionar
+    setIsOpen(false);
   };
 
   const handleInputChange = (value: string) => {
@@ -89,7 +88,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={setIsOpen} modal={true}>
       <PopoverAnchor asChild>
         <Input
           type="text"
@@ -100,17 +99,9 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
         />
       </PopoverAnchor>
 
-      {/* AQUI ESTÁ A CORREÇÃO: Adicionamos a classe z-[9999] */}
       <PopoverContent
-        className="w-[--radix-popover-anchor-width] p-0 z-[9999]"
+        className="w-[--radix-popover-anchor-width] p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
-        onInteractOutside={(e) => {
-          // Only close if clicking outside the input or popover
-          const target = e.target as Element;
-          if (!target.closest('[data-radix-popover-content]') && !target.closest('input')) {
-            setIsOpen(false);
-          }
-        }}
       >
         <Command>
           <CommandList className="max-h-[300px] overflow-y-auto">
@@ -134,3 +125,4 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
     </Popover>
   );
 }
+
