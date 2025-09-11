@@ -8,6 +8,9 @@ import {
   useNavigate,
 } from 'react-router-dom';
 
+// No seu projeto, você usará estes imports. Eles estão comentados aqui
+// para evitar o erro de compilação neste ambiente.
+
 import { Toaster } from '@/components/ui/sonner';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { LoginPage } from '@/pages/LoginPage';
@@ -41,7 +44,9 @@ function AppContent() {
 
   useEffect(() => {
     const initializeApp = async () => {
-      if (!user || appInitialized) return;
+      // A lógica de inicialização não roda se não houver usuário ou se o app já foi inicializado
+      // e já temos a lista de workspaces preenchida. Isso evita re-execuções desnecessárias.
+      if (!user || (appInitialized && workspaces.length > 0)) return;
 
       console.log('Initializing app for user:', user.email);
       setWorkspaceLoading(true);
@@ -94,7 +99,11 @@ function AppContent() {
     };
 
     initializeApp();
-  }, [user, appInitialized, fetchWorkspaces, setCurrentWorkspace, navigate, location.pathname]);
+    // ✨ CORREÇÃO APLICADA AQUI ✨
+    // Adicionamos 'workspaces' à lista de dependências.
+    // Isso garante que o useEffect será re-executado quando a lista de workspaces for carregada,
+    // permitindo que o workspace correto seja selecionado.
+  }, [user, appInitialized, workspaces, fetchWorkspaces, setCurrentWorkspace, navigate, location.pathname]);
 
   useEffect(() => {
     if (
@@ -278,7 +287,7 @@ function AppContent() {
         }
       />
 
-      {/* Root redirect - CORREÇÃO APLICADA AQUI */}
+      {/* Root redirect */}
       <Route
         path="/"
         element={
