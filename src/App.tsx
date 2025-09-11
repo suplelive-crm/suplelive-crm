@@ -25,7 +25,85 @@ const createPlaceholderPage = (name) => () => (
 const LoginPage = createPlaceholderPage('Página de Login');
 const SignUpPage = createPlaceholderPage('Página de Cadastro');
 const OnboardingPage = createPlaceholderPage('Página de Onboarding');
-const DashboardPage = createPlaceholderPage('Página do Dashboard');
+// --- ✨ Funcionalidade com Gemini API na Página do Dashboard ---
+const DashboardPage = () => {
+    const [summary, setSummary] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleGenerateSummary = async () => {
+        setIsLoading(true);
+        setSummary('');
+
+        const apiKey = ""; // A chave será injetada pelo ambiente.
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+        
+        const weeklyData = "5 novos clientes, 12 pedidos concluídos, 3 novos tickets de suporte abertos e 8 campanhas de marketing enviadas.";
+        const userPrompt = `Você é um assistente de negócios para um CRM. Sua tarefa é criar um resumo semanal conciso e encorajador. Seja otimista, mas profissional. Use os seguintes dados: ${weeklyData}. Responda em português.`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userPrompt }] }],
+        };
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+            const text = candidate?.content?.parts?.[0]?.text;
+
+            if (text) {
+                setSummary(text);
+            } else {
+                setSummary("Não foi possível gerar o resumo. A resposta da IA estava vazia.");
+            }
+
+        } catch (error) {
+            console.error("Erro ao chamar a API Gemini:", error);
+            setSummary("Ocorreu um erro ao gerar o resumo. Por favor, tente novamente mais tarde.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-gray-100">
+            <div className="w-full max-w-2xl p-8 space-y-6 bg-white rounded-lg shadow-md">
+                <h1 className="text-3xl font-bold text-center text-gray-800">Dashboard</h1>
+                
+                <div className="text-center">
+                    <button 
+                        onClick={handleGenerateSummary}
+                        disabled={isLoading}
+                        className="px-6 py-3 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-300"
+                    >
+                        {isLoading ? 'Gerando...' : '✨ Gerar Resumo Semanal com IA'}
+                    </button>
+                </div>
+
+                {isLoading && (
+                    <div className="flex justify-center items-center p-4">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                )}
+                
+                {summary && (
+                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Resumo da IA:</h3>
+                        <p className="text-gray-700 whitespace-pre-wrap">{summary}</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 const InboxPage = createPlaceholderPage('Página de Inbox');
 const ClientsPage = createPlaceholderPage('Página de Clientes');
 const KanbanPage = createPlaceholderPage('Página Kanban');
