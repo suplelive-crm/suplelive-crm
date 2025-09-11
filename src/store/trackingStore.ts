@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { useWorkspaceStore } from './workspaceStore';
-import { ErrorHandler } from '@/lib-error-handler';
+import { ErrorHandler } from '@/lib/error-handler';
 import { Purchase, PurchaseProduct, Return, Transfer, TrackingResponse } from '@/types/tracking';
 import { trackPackage, parseTrackingResponse, getTrackingUrl, runTrackingAutomation } from '@/lib/tracking-api';
 
@@ -161,7 +161,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           is_verified: product.is_verified,
           is_in_stock: product.is_in_stock,
           vencimento: product.vencimento,
-          SKU: product.SKU || '', 
+          SKU: product.SKU || '',
           preco_ml: product.preco_ml,
           preco_atacado: product.preco_atacado
         }))
