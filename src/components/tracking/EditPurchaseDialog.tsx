@@ -1,5 +1,3 @@
-// src/components/tracking/EditPurchaseDialog.tsx
-
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Calendar, Package, DollarSign, Truck, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,8 +17,9 @@ interface EditPurchaseDialogProps {
   purchase: Purchase | null;
 }
 
+// O tipo de produto do formulário
 type FormProduct = Partial<{
-    id: string | number;
+    id: string | number; // ID existe para produtos que já estavam na compra
     name: string;
     sku: string;
     quantity: number;
@@ -56,6 +55,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         delivery_fee: purchase.delivery_fee || 0,
         observation: purchase.observation || '', // Carregando a observation
       });
+      // structuredClone é uma forma segura de copiar o array sem referenciar o original
       setProducts(structuredClone(purchase.products || []));
     }
     if (open) {
@@ -63,12 +63,34 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     }
   }, [purchase, open, fetchProducts]);
 
-  // ... (outras funções handle... permanecem as mesmas)
-  const handleAddProduct = () => setProducts([...products, { name: '', quantity: 1, cost: 0, sku: '' }]);
-  const handleRemoveProduct = (index: number) => setProducts(products.filter((_, i) => i !== index));
-  const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => i === index ? { ...p, [field]: value } : p));
-  const handleProductSelect = (index: number, selectedProduct: any) => setProducts(products.map((p, i) => i === index ? { ...p, id: selectedProduct.id, name: selectedProduct.name, sku: selectedProduct.sku || '' } : p));
+  const handleAddProduct = () => {
+    // Adiciona um produto "novo" (sem id) à lista
+    setProducts([...products, { name: '', quantity: 1, cost: 0, sku: '' }]);
+  };
 
+  const handleRemoveProduct = (index: number) => {
+    setProducts(products.filter((_, i) => i !== index));
+  };
+
+  const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => {
+    const newProducts = products.map((p, i) => (i === index ? { ...p, [field]: value } : p));
+    setProducts(newProducts);
+  };
+  
+  const handleProductSelect = (index: number, selectedProduct: any) => {
+    const newProducts = products.map((p, i) => {
+      if (i === index) {
+        return {
+          ...p,
+          id: selectedProduct.id,
+          name: selectedProduct.name,
+          sku: selectedProduct.sku || '',
+        };
+      }
+      return p;
+    });
+    setProducts(newProducts);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('--- PASSO 1: handleSubmit FOI CHAMADO ---');
@@ -99,7 +121,11 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
       onOpenChange(false);
     } catch (error: any) {
       console.error('Falha ao submeter a atualização:', error);
-      toast({ title: 'Erro ao Salvar', description: error.message || 'Ocorreu um erro inesperado.', variant: 'destructive' });
+      toast({ 
+        title: 'Erro ao Salvar', 
+        description: error.message || 'Ocorreu um erro inesperado.', 
+        variant: 'destructive' 
+      });
     } finally {
       setLoading(false);
     }
@@ -114,10 +140,8 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-           {/* Adicionei um campo para a 'observation', já que estava na lógica da store */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* ... Seus outros inputs ... */}
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label htmlFor="date" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-500" /> Data de Compra *
               </Label>
@@ -196,7 +220,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                 required
               />
             </div>
-             <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 md:col-span-2">
               <Label htmlFor="observation" className="flex items-center gap-2">
                 Observação (Opcional)
               </Label>
@@ -210,7 +234,69 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
           </div>
 
           <div className="space-y-4">
-             {/* ... Seção de produtos ... */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">Produtos</h3>
+              <Button type="button" variant="outline" size="sm" onClick={handleAddProduct}>
+                <Plus className="h-4 w-4 mr-2" /> Adicionar Novo Produto
+              </Button>
+            </div>
+
+            {products.map((product, index) => {
+              const isExistingProduct = !!product.id;
+              return (
+                <div key={index} className={`grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg items-end ${isExistingProduct ? 'bg-gray-50/50' : ''}`}>
+                  <div className="md:col-span-2 space-y-2">
+                    <Label>Nome do Produto *</Label>
+                    {isExistingProduct ? (
+                      <div className="flex items-center h-10 w-full rounded-md border border-input bg-gray-100 px-3 py-2 text-sm text-gray-500 cursor-not-allowed">
+                        {product.name || ''}
+                      </div>
+                    ) : (
+                      <ProductAutocomplete
+                        products={dbProducts}
+                        value={product}
+                        onSelect={(selectedProduct) => handleProductSelect(index, selectedProduct)}
+                        onInputChange={(text) => handleProductFieldChange(index, 'name', text)}
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>SKU *</Label>
+                    <Input value={product.sku || ''} disabled={isExistingProduct} className={isExistingProduct ? "cursor-not-allowed" : ""} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Quantidade *</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={product.quantity || 1}
+                      onChange={(e) => handleProductFieldChange(index, 'quantity', parseInt(e.target.value, 10) || 1)}
+                    />
+                  </div>
+                  <div className="space-y-2 flex items-end gap-2">
+                    <div className="flex-1">
+                      <Label className="flex items-center gap-1">
+                        {isExistingProduct && <Lock className="h-3 w-3 text-gray-400" />} Custo Unitário *
+                      </Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={product.cost || 0}
+                        onChange={(e) => handleProductFieldChange(index, 'cost', parseFloat(e.target.value) || 0)}
+                        disabled={isExistingProduct}
+                        className={isExistingProduct ? "cursor-not-allowed" : ""}
+                      />
+                    </div>
+                    {!isExistingProduct && (
+                      <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveProduct(index)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <DialogFooter>
