@@ -285,6 +285,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
+      // 1. Atualiza os dados principais da compra
       const { error: purchaseError } = await supabase.from('purchases').update({
         date: formData.date,
         carrier: formData.carrier,
@@ -297,6 +298,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       }).eq('id', purchaseId);
       if (purchaseError) throw purchaseError;
       
+      // 2. Lida com produtos a serem removidos
       const formProductIds = products.map(p => p.id).filter(Boolean);
       const { data: existingDbProducts, error: fetchError } = await supabase.from('purchase_products').select('id').eq('purchase_id', purchaseId);
       if (fetchError) throw fetchError;
@@ -308,32 +310,50 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         if (deleteError) throw deleteError;
       }
 
+      // 3. Prepara a redistribuição do frete
       const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
       const deliveryFeePerUnit = totalQuantity > 0 ? formData.delivery_fee / totalQuantity : 0;
+      
+      // 4. CORREÇÃO: Separa os produtos existentes dos novos
+      const productsToUpdate = products.filter(p => p.id);
+      const productsToInsert = products.filter(p => !p.id);
 
-      const productsToUpsert = products.map(product => {
-        const baseCost = product.cost || 0;
-        const productData: any = {
+      // 5. Lida com a atualização dos produtos existentes
+      if (productsToUpdate.length > 0) {
+        const updatePayload = productsToUpdate.map(product => ({
           id: product.id,
           purchase_id: purchaseId,
           name: product.name,
-          SKU: (product as any).SKU,
+          SKU: product.SKU,
           quantity: product.quantity,
-          cost: parseFloat(((baseCost + deliveryFeePerUnit).toFixed(2))),
-          is_verified: product.id ? (product as any).is_verified : false,
-          is_in_stock: product.id ? (product as any).is_in_stock : false,
-        };
-        return productData;
-      });
+          cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
+        }));
 
-      if (productsToUpsert.length > 0) {
-        console.log("Enviando para o upsert:", JSON.stringify(productsToUpsert, null, 2));
+        console.log("Enviando para o UPDATE:", JSON.stringify(updatePayload, null, 2));
+        const { error: updateError } = await supabase.from('purchase_products').upsert(updatePayload);
+        if (updateError) {
+          console.error("Erro no UPDATE de produtos:", updateError);
+          throw updateError;
+        }
+      }
+
+      // 6. Lida com a inserção dos produtos novos
+      if (productsToInsert.length > 0) {
+        const insertPayload = productsToInsert.map(product => ({
+          purchase_id: purchaseId,
+          name: product.name,
+          SKU: product.SKU,
+          quantity: product.quantity,
+          cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
+          is_verified: false,
+          is_in_stock: false,
+        }));
         
-        const { error: upsertError } = await supabase.from('purchase_products').upsert(productsToUpsert, { onConflict: 'id' });
-        
-        if (upsertError) {
-          console.error("Erro no upsert do Supabase:", upsertError);
-          throw upsertError;
+        console.log("Enviando para o INSERT:", JSON.stringify(insertPayload, null, 2));
+        const { error: insertError } = await supabase.from('purchase_products').insert(insertPayload);
+        if (insertError) {
+          console.error("Erro no INSERT de novos produtos:", insertError);
+          throw insertError;
         }
       }
       
