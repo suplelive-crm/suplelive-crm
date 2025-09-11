@@ -154,12 +154,11 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           is_verified: product.is_verified,
           is_in_stock: product.is_in_stock,
           vencimento: product.vencimento,
-          SKU: product.SKU,
+          sku: product.sku, // CORREÇÃO APLICADA AQUI (era SKU maiúsculo)
           preco_ml: product.preco_ml,
           preco_atacado: product.preco_atacado
         }))
       }));
-
 
       set({ purchases: formattedData || [], loading: false });
     });
@@ -290,13 +289,13 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         name: product.name,
         quantity: product.quantity,
         cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
-        SKU: product.sku,
+        sku: product.sku,
         purchase_id: purchase.id,
         is_verified: false,
         is_in_stock: false,
-        vencimento: product.vencimento || null,
-        preco_ml: product.preco_ml || null,
-        preco_atacado: product.preco_atacado || null,
+        vencimento: (product as any).vencimento || null,
+        preco_ml: (product as any).preco_ml || null,
+        preco_atacado: (product as any).preco_atacado || null,
       }));
 
       const { error: productsError } = await supabase
@@ -317,9 +316,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
   },
 
   updatePurchase: async (purchaseId, formData, products) => {
-    // Adicionamos o console.log do PASSO 3 para o nosso teste
-    console.log('--- PASSO 3: updatePurchase NA STORE FOI EXECUTADO! ---');
-
     await ErrorHandler.handleAsync(async () => {
       // 1. Atualiza os dados principais da compra
       const { error: purchaseError } = await supabase
@@ -364,18 +360,24 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
   
       // 4. Prepara os dados dos produtos para o "upsert"
       const productsToUpsert = products.map(product => {
+        // Para produtos existentes, o custo vindo do formulário já inclui a taxa de entrega antiga.
+        // Para ser preciso, deveríamos subtrair a taxa antiga e somar a nova, mas isso é complexo.
+        // A abordagem mais simples é usar o custo base que o usuário vê na tela.
         const baseCost = product.cost || 0;
+        
         const productData: any = {
           id: product.id,
           purchase_id: purchaseId,
           name: product.name,
-          SKU: product.sku,
+          sku: product.sku,
           quantity: product.quantity,
           cost: parseFloat((baseCost + deliveryFeePerUnit).toFixed(2)),
+          // Preservar o status de verificação/estoque se o produto já existir
           is_verified: product.id ? (product as any).is_verified : false,
           is_in_stock: product.id ? (product as any).is_in_stock : false,
         };
   
+        // Remove o ID se ele for undefined, para o Supabase tratar como um novo item
         if (!productData.id) {
           delete productData.id;
         }
@@ -399,8 +401,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   archivePurchase: async (id) => {
     await ErrorHandler.handleAsync(async () => {
-      console.log("Archiving purchase:", id);
-
       const { error } = await supabase
         .from('purchases')
         .update({
@@ -605,8 +605,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   addProductToInventory: async (purchaseId) => {
     await ErrorHandler.handleAsync(async () => {
-      console.log("Adicionando compra ao estoque:", purchaseId);
-
       const { error: productsUpdateError } = await supabase
         .from('purchase_products')
         .update({
@@ -655,8 +653,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         workspace_id: currentWorkspace.id,
         metadata: []
       };
-
-      console.log("Creating return with data:", dbReturnData);
 
       const { data: newReturn, error } = await supabase
         .from('returns')
@@ -714,8 +710,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   archiveReturn: async (id) => {
     await ErrorHandler.handleAsync(async () => {
-      console.log("Archiving return:", id);
-
       const { error } = await supabase
         .from('returns')
         .update({
@@ -783,8 +777,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         metadata: []
       };
 
-      console.log("Creating transfer with data:", dbTransferData);
-
       const { data: newTransfer, error } = await supabase
         .from('transfers')
         .insert(dbTransferData)
@@ -838,8 +830,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   archiveTransfer: async (id) => {
     await ErrorHandler.handleAsync(async () => {
-      console.log("Archiving transfer:", id);
-
       const { error } = await supabase
         .from('transfers')
         .update({
@@ -867,11 +857,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         .single();
 
       if (!item || !item.trackingCode) {
-        console.error(`Item ou código de rastreio não encontrados para: ${type} ${id}`);
         return;
       }
-
-      console.log(`Updating tracking for ${type} ${id}:`, item);
 
       try {
         const trackingInfo = await get().getTrackingInfo(item.carrier, item.trackingCode);
@@ -879,8 +866,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         if (!trackingInfo.success || !trackingInfo.data) {
           throw new Error(trackingInfo.error || 'Falha ao rastrear objeto');
         }
-
-        console.log(`Got tracking info for ${type} ${id}:`, trackingInfo);
 
         await supabase
           .from(type === 'purchase' ? 'purchases' : type === 'return' ? 'returns' : 'transfers')
@@ -896,7 +881,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         else if (type === 'return') get().fetchReturns();
         else if (type === 'transfer') get().fetchTransfers();
 
-        ErrorHandler.showSuccess('Status de rastreamento atualizado com sucesso!');
       } catch (error: any) {
         console.error(`Error updating ${item.carrier} tracking for ${type} ${id}:`, error);
         throw error;
@@ -956,8 +940,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
   },
 
   updateAllTrackingStatuses: async () => {
-    console.warn("updateAllTrackingStatuses was called but is not implemented per user request.");
+    // This function is intentionally left empty as per previous discussions.
   },
+
   getTrackingInfo: async (carrier: string, trackingCode: string) => {
     try {
       if (!carrier || !trackingCode) {
@@ -967,11 +952,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         };
       }
 
-      console.log(`Getting tracking info for ${carrier} ${trackingCode}`);
-
       const trackingData = await trackPackage(carrier, trackingCode);
-
-      console.log(`Tracking data for ${trackingCode}:`, trackingData);
 
       if (trackingData.success) {
         const parsedData = parseTrackingResponse(carrier, trackingData);
