@@ -109,6 +109,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) return;
 
+      // CORREÇÃO DEFINITIVA: Alterado de 'sku' para 'SKU' para corresponder ao nome da coluna no banco de dados.
       let query = supabase
         .from('purchases')
         .select(`
@@ -123,7 +124,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
             is_verified,
             is_in_stock,
             vencimento,
-            SKU,
+            SKU, 
             preco_ml,
             preco_atacado
           )
@@ -142,7 +143,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         return;
       }
       
-      // Formata os dados finais para o estado da aplicação
       const formattedData: Purchase[] = data.map((purchase: any) => ({
         id: purchase.id,
         date: purchase.date,
@@ -160,8 +160,18 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         metadata: purchase.metadata || null,
         observation: purchase.observation,
         products: (purchase.products || []).map((product: any) => ({
-          ...product,
-          SKU: product.SKU || '',
+          id: product.id,
+          purchase_id: product.purchase_id,
+          name: product.name,
+          quantity: product.quantity,
+          cost: product.cost,
+          total_cost: product.total_cost,
+          is_verified: product.is_verified,
+          is_in_stock: product.is_in_stock,
+          vencimento: product.vencimento,
+          SKU: product.SKU || '', // Mapeia o 'SKU' (maiúsculo) que agora vem do banco
+          preco_ml: product.preco_ml,
+          preco_atacado: product.preco_atacado,
         }))
       }));
 
