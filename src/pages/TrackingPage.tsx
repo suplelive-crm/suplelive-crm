@@ -288,6 +288,15 @@ export function TrackingPage() {
     }
   };
 
+  const handleEditPurchaseClose = (isOpen: boolean) => {
+    setIsEditPurchaseOpen(isOpen);
+    if (!isOpen) {
+      setPurchaseToEdit(null);
+      // Refresh purchases after edit dialog closes
+      fetchPurchases();
+    }
+  };
+
   const handleVerifyReturn = async (returnId: string, observations?: string) => {
     console.log('Verify return:', returnId, observations);
   };
@@ -619,13 +628,7 @@ export function TrackingPage() {
 
       <EditPurchaseDialog
         open={isEditPurchaseOpen}
-        onOpenChange={(isOpen) => {
-          setIsEditPurchaseOpen(isOpen);
-          if (!isOpen) {
-            setPurchaseToEdit(null);
-            fetchPurchases();
-          }
-        }}
+        onOpenChange={handleEditPurchaseClose}
         purchase={purchaseToEdit}
       />
       

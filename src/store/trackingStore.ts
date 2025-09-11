@@ -326,6 +326,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
   // ========================================================================
   updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
+      console.log('updatePurchase called with:', { purchaseId, formData, products });
+      
       // 1. Atualiza os dados principais da compra (como data, rastreio, etc.)
       const { error: purchaseError } = await supabase
         .from('purchases')
@@ -336,11 +338,14 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           customer_name: formData.customer_name || null,
           trackingCode: formData.trackingCode,
           delivery_fee: formData.delivery_fee,
+          observation: formData.observation || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', purchaseId);
   
       if (purchaseError) throw purchaseError;
+      
+      console.log('Purchase updated successfully');
   
       // 2. Lógica para deletar produtos que foram removidos do formulário
       const formProductIds = products.map(p => p.id).filter(Boolean); // Pega apenas IDs que existem
@@ -355,6 +360,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       const productsToDeleteIds = dbProductIds.filter(id => !formProductIds.includes(id));
   
       if (productsToDeleteIds.length > 0) {
+        console.log('Deleting products:', productsToDeleteIds);
         const { error: deleteError } = await supabase
           .from('purchase_products')
           .delete()
@@ -387,6 +393,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           // Valores padrão para produtos novos
           is_verified: product.id ? product.is_verified : false,
           is_in_stock: product.id ? product.is_in_stock : false,
+          vencimento: product.vencimento || null,
+          preco_ml: product.preco_ml || null,
+          preco_atacado: product.preco_atacado || null,
         };
   
         // Remove o ID se ele for undefined, para o Supabase tratar como um novo item
@@ -398,6 +407,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       });
   
       if (productsToUpsert.length > 0) {
+        console.log('Upserting products:', productsToUpsert);
         const { error: upsertError } = await supabase
           .from('purchase_products')
           .upsert(productsToUpsert, { onConflict: 'id' }); // Conflito no ID para saber se deve atualizar

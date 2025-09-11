@@ -107,12 +107,17 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
 
     setLoading(true);
     try {
+      console.log('Calling updatePurchase with:', { purchaseId: purchase.id, formData, products });
       await updatePurchase(purchase.id, formData, products as any);
       toast({ title: 'Sucesso', description: 'Compra atualizada com sucesso!' });
       onOpenChange(false);
     } catch (error) {
-      // O ErrorHandler na store já deve tratar o erro, mas podemos logar aqui.
       console.error('Falha ao submeter a atualização:', error);
+      toast({ 
+        title: 'Erro', 
+        description: error?.message || 'Falha ao atualizar a compra. Tente novamente.', 
+        variant: 'destructive' 
+      });
     } finally {
       setLoading(false);
     }
