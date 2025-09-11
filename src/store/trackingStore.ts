@@ -161,7 +161,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           is_verified: product.is_verified,
           is_in_stock: product.is_in_stock,
           vencimento: product.vencimento,
-          SKU: product.SKU || '', // CORREÇÃO APLICADA
+          SKU: product.SKU || '', 
           preco_ml: product.preco_ml,
           preco_atacado: product.preco_atacado
         }))
@@ -263,7 +263,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         name: product.name,
         quantity: product.quantity,
         cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
-        SKU: (product as any).SKU, // CORREÇÃO APLICADA
+        SKU: (product as any).SKU,
         purchase_id: purchase.id,
         is_verified: false,
         is_in_stock: false,
@@ -296,36 +296,47 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         updated_at: new Date().toISOString(),
       }).eq('id', purchaseId);
       if (purchaseError) throw purchaseError;
+      
       const formProductIds = products.map(p => p.id).filter(Boolean);
       const { data: existingDbProducts, error: fetchError } = await supabase.from('purchase_products').select('id').eq('purchase_id', purchaseId);
       if (fetchError) throw fetchError;
+
       const dbProductIds = (existingDbProducts || []).map(p => p.id);
       const productsToDeleteIds = dbProductIds.filter(id => !formProductIds.includes(id as string));
       if (productsToDeleteIds.length > 0) {
         const { error: deleteError } = await supabase.from('purchase_products').delete().in('id', productsToDeleteIds);
         if (deleteError) throw deleteError;
       }
+
       const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
       const deliveryFeePerUnit = totalQuantity > 0 ? formData.delivery_fee / totalQuantity : 0;
+
       const productsToUpsert = products.map(product => {
         const baseCost = product.cost || 0;
         const productData: any = {
           id: product.id,
           purchase_id: purchaseId,
           name: product.name,
-          SKU: (product as any).SKU, // CORREÇÃO APLICADA
+          SKU: (product as any).SKU,
           quantity: product.quantity,
           cost: parseFloat(((baseCost + deliveryFeePerUnit).toFixed(2))),
           is_verified: product.id ? (product as any).is_verified : false,
           is_in_stock: product.id ? (product as any).is_in_stock : false,
         };
-        if (!productData.id) delete productData.id;
+        // CORREÇÃO: A linha abaixo foi removida para evitar a falha silenciosa do upsert.
+        // if (!productData.id) delete productData.id; 
         return productData;
       });
+
       if (productsToUpsert.length > 0) {
+        console.log("Enviando para o upsert:", JSON.stringify(productsToUpsert, null, 2));
         const { error: upsertError } = await supabase.from('purchase_products').upsert(productsToUpsert, { onConflict: 'id' });
-        if (upsertError) throw upsertError;
+        if (upsertError) {
+          console.error("Erro no upsert do Supabase:", upsertError);
+          throw upsertError;
+        }
       }
+      
       await get().fetchPurchases();
       ErrorHandler.showSuccess('Compra atualizada com sucesso!');
     });
