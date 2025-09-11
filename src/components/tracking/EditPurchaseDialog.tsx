@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Package, DollarSign, Truck, Lock, FileText } from 'lucide-react';
+import { Plus, Trash2, Calendar, Package, DollarSign, Truck, Lock, FileText, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTrackingStore } from '@/store/trackingStore';
 import { useCrmStore } from '@/store/crmStore';
 import { useToast } from '@/hooks/use-toast';
 import { ProductAutocomplete } from './ProductAutocomplete';
-import { Purchase } from '@/types/tracking';
+import { Purchase, PurchaseProduct } from '@/types/tracking';
 
 interface EditPurchaseDialogProps {
   open: boolean;
@@ -18,13 +19,8 @@ interface EditPurchaseDialogProps {
   purchase: Purchase | null;
 }
 
-type FormProduct = Partial<{
-    id: string | number;
-    name: string;
-    SKU: string;
-    quantity: number;
-    cost: number;
-}>
+// O tipo foi atualizado para incluir as flags de status
+type FormProduct = Partial<PurchaseProduct>;
 
 export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchaseDialogProps) {
   const [formData, setFormData] = useState({
@@ -62,7 +58,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   }, [purchase, open, fetchProducts]);
 
   const confirmWithPassword = () => {
-    const secret = "802061";
+    const secret = "152729";
     const password = prompt("Para confirmar esta ação, por favor, digite a senha:");
     if (password === secret) return true;
     if (password !== null) {
@@ -78,13 +74,18 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     setProducts(products.filter((_, i) => i !== index));
   };
   
-  const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
+  const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => {
+    setProducts(currentProducts => {
+        const newProducts = [...currentProducts];
+        const productToUpdate = newProducts[index];
+        if (productToUpdate) {
+            (productToUpdate as any)[field] = value;
+        }
+        return newProducts;
+    });
+  };
   
-  // CORREÇÃO: Função reescrita para ser mais robusta e com log de diagnóstico
   const handleProductSelect = (index: number, selectedProduct: any) => {
-    // Log para depuração: Verifique o console do navegador (F12)
-    console.log("Produto recebido pelo Autocomplete:", selectedProduct);
-
     setProducts(currentProducts => {
       const newProducts = [...currentProducts];
       const productToUpdate = newProducts[index];
@@ -188,51 +189,72 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
               <Button type="button" variant="outline" size="sm" onClick={handleAddProduct}><Plus className="h-4 w-4 mr-2" /> Adicionar Novo Produto</Button>
             </div>
 
-            {products.map((product, index) => {
-              const isExistingProduct = !!product.id;
-              
-              return (
-                <div key={product.id || `new-${index}`} className={`grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg items-end ${isExistingProduct ? 'bg-gray-50/50' : ''}`}>
-                  <div className="md:col-span-2 space-y-2">
-                    <Label>Nome do Produto *</Label>
-                    {isExistingProduct ? (
-                      <div className="flex items-center h-10 w-full rounded-md border border-input bg-gray-100 px-3 py-2 text-sm text-gray-500 cursor-not-allowed">
-                        {product.name || ''}
-                      </div>
-                    ) : (
-                      <ProductAutocomplete
-                        products={dbProducts}
-                        value={product}
-                        onSelect={(selectedProduct) => handleProductSelect(index, selectedProduct)}
-                        onInputChange={(text) => handleProductFieldChange(index, 'name', text)}
-                      />
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>SKU *</Label>
-                    <Input value={product.SKU || ''} disabled className="cursor-not-allowed" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Quantidade *</Label>
-                    <Input type="number" min="1" value={product.quantity || 1} onChange={(e) => handleProductFieldChange(index, 'quantity', parseInt(e.target.value, 10) || 1)}/>
-                  </div>
-                  <div className="space-y-2 flex items-end gap-2">
-                    <div className="flex-1">
+            <TooltipProvider>
+              {products.map((product, index) => {
+                const isExistingProduct = !!product.id;
+                // CORREÇÃO: Lógica para "congelar" produtos já processados
+                const isProductLocked = !!product.is_verified || !!product.is_in_stock;
+                
+                return (
+                  <div key={product.id || `new-${index}`} className={`grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg items-end ${isExistingProduct ? 'bg-gray-50/50' : ''}`}>
+                    <div className="md:col-span-2 space-y-2">
+                      <Label>Nome do Produto *</Label>
+                      {isExistingProduct ? (
+                        <div className="flex items-center h-10 w-full rounded-md border border-input bg-gray-100 px-3 py-2 text-sm text-gray-500 cursor-not-allowed">
+                          {product.name || ''}
+                        </div>
+                      ) : (
+                        <ProductAutocomplete
+                          products={dbProducts}
+                          value={product}
+                          onSelect={(selectedProduct) => handleProductSelect(index, selectedProduct)}
+                          onInputChange={(text) => handleProductFieldChange(index, 'name', text)}
+                        />
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>SKU *</Label>
+                      <Input value={product.SKU || ''} disabled className="cursor-not-allowed" />
+                    </div>
+                    <div className="space-y-2">
                       <Label className="flex items-center gap-1">
-                        {isExistingProduct && <Lock className="h-3 w-3 text-gray-400" />} Custo Unitário *
+                        Quantidade * {isProductLocked && (
+                          <Tooltip>
+                            <TooltipTrigger><Info className="h-3 w-3 text-gray-400" /></TooltipTrigger>
+                            <TooltipContent>Este item não pode ser alterado pois já foi conferido ou adicionado ao estoque.</TooltipContent>
+                          </Tooltip>
+                        )}
                       </Label>
-                      <Input type="number" min="0" step="0.01" value={product.cost || 0} onChange={(e) => handleProductFieldChange(index, 'cost', parseFloat(e.target.value) || 0)}
-                        disabled={isExistingProduct}
-                        className={isExistingProduct ? "cursor-not-allowed" : ""}
+                      <Input 
+                        type="number" 
+                        min="1" 
+                        value={product.quantity || 1} 
+                        onChange={(e) => handleProductFieldChange(index, 'quantity', parseInt(e.target.value, 10) || 1)}
+                        disabled={isProductLocked} // CORREÇÃO: Desabilita se o produto estiver "congelado"
+                        className={isProductLocked ? "cursor-not-allowed bg-gray-100" : ""}
                       />
                     </div>
-                    <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveProduct(index)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="space-y-2 flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label className="flex items-center gap-1">
+                          {isExistingProduct && <Lock className="h-3 w-3 text-gray-400" />} Custo Unitário *
+                        </Label>
+                        <Input type="number" min="0" step="0.01" value={product.cost || 0} onChange={(e) => handleProductFieldChange(index, 'cost', parseFloat(e.target.value) || 0)}
+                          disabled={isExistingProduct}
+                          className={isExistingProduct ? "cursor-not-allowed" : ""}
+                        />
+                      </div>
+                      {/* CORREÇÃO: Botão de lixeira só aparece se o produto não estiver "congelado" */}
+                      {!isProductLocked && (
+                        <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveProduct(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </TooltipProvider>
           </div>
 
           <DialogFooter>
