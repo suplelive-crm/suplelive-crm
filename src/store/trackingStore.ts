@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { useWorkspaceStore } from './workspaceStore';
-import { ErrorHandler } from '@/lib/error-handler';
+import { ErrorHandler } from '@/lib-error-handler';
 import { Purchase, PurchaseProduct, Return, Transfer, TrackingResponse } from '@/types/tracking';
 import { trackPackage, parseTrackingResponse, getTrackingUrl, runTrackingAutomation } from '@/lib/tracking-api';
 
@@ -285,7 +285,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
-      // 1. Atualiza os dados principais da compra
       const { error: purchaseError } = await supabase.from('purchases').update({
         date: formData.date,
         carrier: formData.carrier,
@@ -298,7 +297,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       }).eq('id', purchaseId);
       if (purchaseError) throw purchaseError;
       
-      // 2. Lida com produtos a serem removidos
       const formProductIds = products.map(p => p.id).filter(Boolean);
       const { data: existingDbProducts, error: fetchError } = await supabase.from('purchase_products').select('id').eq('purchase_id', purchaseId);
       if (fetchError) throw fetchError;
@@ -310,43 +308,16 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         if (deleteError) throw deleteError;
       }
 
-      // 3. CORREÇÃO: Lógica de salvaguarda para garantir que todos os produtos tenham SKU
-      const productsWithResolvedSkus = await Promise.all(
-        products.map(async (product) => {
-          // Apenas busca o SKU se o produto tiver um nome mas não tiver um SKU
-          if (product.name && !product.SKU) {
-            console.warn(`Produto "${product.name}" está sem SKU. Buscando no banco de dados...`);
-            // IMPORTANTE: 'products' deve ser o nome da sua tabela de catálogo de produtos.
-            // A coluna de SKU nessa tabela deve se chamar 'SKU'.
-            const { data: foundProduct } = await supabase
-              .from('products') 
-              .select('SKU') 
-              .eq('name', product.name)
-              .maybeSingle();
-
-            if (foundProduct && foundProduct.SKU) {
-              console.log(`SKU encontrado para "${product.name}": ${foundProduct.SKU}`);
-              return { ...product, SKU: foundProduct.SKU };
-            } else {
-              console.error(`SKU não pôde ser encontrado para "${product.name}". Verifique o catálogo. O produto não será salvo corretamente.`);
-            }
-          }
-          return product;
-        })
-      );
-
-      // 4. Prepara os produtos para o upsert (atualizar/inserir)
-      const totalQuantity = productsWithResolvedSkus.reduce((sum, p) => sum + (p.quantity || 0), 0);
+      const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
       const deliveryFeePerUnit = totalQuantity > 0 ? formData.delivery_fee / totalQuantity : 0;
 
-      const productsToUpsert = productsWithResolvedSkus.map(product => {
+      const productsToUpsert = products.map(product => {
         const baseCost = product.cost || 0;
-        // A lógica de rateio do frete é aplicada a todos os produtos para redistribuir o valor caso a quantidade ou o frete mude.
         const productData: any = {
           id: product.id,
           purchase_id: purchaseId,
           name: product.name,
-          SKU: product.SKU,
+          SKU: (product as any).SKU,
           quantity: product.quantity,
           cost: parseFloat(((baseCost + deliveryFeePerUnit).toFixed(2))),
           is_verified: product.id ? (product as any).is_verified : false,
@@ -357,7 +328,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       if (productsToUpsert.length > 0) {
         console.log("Enviando para o upsert:", JSON.stringify(productsToUpsert, null, 2));
+        
         const { error: upsertError } = await supabase.from('purchase_products').upsert(productsToUpsert, { onConflict: 'id' });
+        
         if (upsertError) {
           console.error("Erro no upsert do Supabase:", upsertError);
           throw upsertError;
@@ -657,3 +630,4 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     }
   },
 }));
+
