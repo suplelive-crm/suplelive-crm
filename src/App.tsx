@@ -8,6 +8,26 @@ import {
   useNavigate,
 } from 'react-router-dom';
 
+import { Toaster } from '@/components/ui/sonner';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { LoginPage } from '@/pages/LoginPage';
+import { SignUpPage } from '@/pages/SignUpPage';
+import { OnboardingPage } from '@/pages/OnboardingPage';
+import { DashboardPage } from '@/pages/DashboardPage';
+import { InboxPage } from '@/pages/InboxPage';
+import { ClientsPage } from '@/pages/ClientsPage';
+import { KanbanPage } from '@/pages/KanbanPage';
+import { OrdersPage } from '@/pages/OrdersPage';
+import { MessagesPage } from '@/pages/MessagesPage';
+import { CampaignsPage } from '@/pages/CampaignsPage';
+import { IntegrationsPage } from '@/pages/IntegrationsPage';
+import { AutomationPage } from '@/pages/AutomationPage';
+import { AnalyticsPage } from '@/pages/AnalyticsPage';
+import { SettingsPage } from '@/pages/SettingsPage';
+import { TrackingPage } from '@/pages/TrackingPage';
+import { useWorkspaceStore } from '@/store/workspaceStore';
+import { useAuthStore } from '@/store/authStore';
+
 function AppContent() {
   const { currentWorkspace, workspaces, fetchWorkspaces, setCurrentWorkspace } =
     useWorkspaceStore();
