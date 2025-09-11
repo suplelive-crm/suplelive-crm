@@ -103,6 +103,10 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!purchase) return;
+    
+    // Log de diagnóstico adicionado
+    console.log("Estado dos produtos antes de salvar:", JSON.stringify(products, null, 2));
+
     if (!confirmWithPassword()) return;
 
     if (!formData.date || !formData.carrier || !formData.storeName || !formData.trackingCode) {
@@ -123,9 +127,12 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
 
     setLoading(true);
     try {
+      // Log de diagnóstico adicionado
+      console.log("Enviando para updatePurchase:", { purchaseId: purchase.id, formData, products });
       await updatePurchase(purchase.id, formData, products as any);
       onOpenChange(false);
     } catch (error: any) {
+      // Log de diagnóstico adicionado
       console.error('Falha ao submeter a atualização:', error);
       toast({ title: 'Erro ao Salvar', description: error.message || 'Ocorreu um erro inesperado.', variant: 'destructive' });
     } finally {
