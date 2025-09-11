@@ -36,10 +36,7 @@ interface TrackingState {
   updatePurchase: (purchaseId: string, formData: PurchaseFormData, products: FormProduct[]) => Promise<void>;
   archivePurchase: (id: string) => Promise<void>;
   deletePurchase: (purchaseId: string) => Promise<void>;
-
-  // ATUALIZADO: Assinatura da função para incluir o novo campo
   verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string, preco_ml?: number, preco_atacado?: number) => Promise<void>;
-
   addProductToInventory: (purchaseId: string) => Promise<void>;
   updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>;
   createReturn: (returnData: {
@@ -318,10 +315,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       ErrorHandler.showSuccess('Compra criada com sucesso!');
     });
   },
-  
-  // ========================================================================
-  // ========= INÍCIO DA FUNÇÃO CORRIGIDA ===================================
-  // ========================================================================
+
   updatePurchase: async (purchaseId, formData, products) => {
     // Adicionamos o console.log do PASSO 3 para o nosso teste
     console.log('--- PASSO 3: updatePurchase NA STORE FOI EXECUTADO! ---');
@@ -337,7 +331,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           customer_name: formData.customer_name || null,
           trackingCode: formData.trackingCode,
           delivery_fee: formData.delivery_fee,
-          observation: (formData as any).observation || null, // Adicionando o campo observation
+          observation: formData.observation || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', purchaseId);
@@ -402,9 +396,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       ErrorHandler.showSuccess('Compra atualizada com sucesso!');
     });
   },
-  // ========================================================================
-  // ========= FIM DA FUNÇÃO CORRIGIDA ======================================
-  // ========================================================================
 
   archivePurchase: async (id) => {
     await ErrorHandler.handleAsync(async () => {
