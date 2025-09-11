@@ -80,6 +80,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
   
+  // CORREÇÃO APLICADA AQUI
   const handleProductSelect = (index: number, selectedProduct: any) => {
     const newProducts = [...products];
     const productToUpdate = newProducts[index];
@@ -87,7 +88,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     if (productToUpdate) {
         newProducts[index] = {
             ...productToUpdate,
-            id: selectedProduct.id,
+            // Não atribuímos o ID do catálogo, pois esta é uma nova linha de compra
             name: selectedProduct.name,
             SKU: selectedProduct.SKU || selectedProduct.sku || ''
         };
