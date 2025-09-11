@@ -100,7 +100,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
       </PopoverAnchor>
 
       <PopoverContent
-        className="w-[--radix-popover-anchor-width] p-0"
+        className="w-[--radix-popover-anchor-width] p-0 z-[9999]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <Command>
