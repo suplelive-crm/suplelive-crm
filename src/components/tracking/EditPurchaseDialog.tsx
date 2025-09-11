@@ -80,19 +80,23 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
   
-  // Função que recebe o produto do autocomplete e atualiza o estado
+  // CORREÇÃO: Função reescrita para ser mais robusta e com log de diagnóstico
   const handleProductSelect = (index: number, selectedProduct: any) => {
-    const newProducts = [...products];
-    const productToUpdate = newProducts[index];
+    // Log para depuração: Verifique o console do navegador (F12)
+    console.log("Produto recebido pelo Autocomplete:", selectedProduct);
 
-    if (productToUpdate) {
+    setProducts(currentProducts => {
+      const newProducts = [...currentProducts];
+      const productToUpdate = newProducts[index];
+      if (productToUpdate) {
         newProducts[index] = {
-            ...productToUpdate, // Preserva quantidade/custo já digitados
+            ...productToUpdate,
             name: selectedProduct.name,
-            SKU: selectedProduct.SKU || '' // Preenche o SKU recebido do autocomplete
+            SKU: selectedProduct.SKU || ''
         };
-        setProducts(newProducts);
-    }
+      }
+      return newProducts;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
