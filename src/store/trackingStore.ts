@@ -108,34 +108,51 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       set({ loading: true });
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) return;
+
       let query = supabase
         .from('purchases')
-        .select(`
-          *,
-          products:purchase_products(
-            id,
-            purchase_id,
-            name,
-            quantity,
-            cost,
-            total_cost,
-            is_verified,
-            is_in_stock,
-            vencimento,
-            SKU,
-            preco_ml,
-            preco_atacado
-          ),
-          metadata
-        `)
+        .select(`*, products:purchase_products(*)`)
         .eq('workspace_id', currentWorkspace.id)
         .order('date', { ascending: false });
+
       if (!get().showArchived) {
         query = query.eq('is_archived', false);
       }
-      const { data, error } = await query;
+
+      const { data: rawPurchases, error } = await query;
       if (error) throw error;
-      const formattedData: Purchase[] = (data || []).map((purchase: any) => ({
+      if (!rawPurchases) {
+        set({ purchases: [], loading: false });
+        return;
+      }
+
+      // Processa cada compra para resolver SKUs que estejam faltando
+      const processedPurchases = await Promise.all(
+        rawPurchases.map(async (purchase) => {
+          const resolvedProducts = await Promise.all(
+            (purchase.products || []).map(async (product) => {
+              if (product.name && !product.SKU) {
+                console.warn(`SKU faltando para "${product.name}" na compra ${purchase.id}. Buscando no catálogo...`);
+                const { data: catalogProduct } = await supabase
+                  .from('products')
+                  .select('SKU')
+                  .eq('name', product.name)
+                  .maybeSingle();
+
+                if (catalogProduct && catalogProduct.SKU) {
+                  console.log(`SKU resolvido para "${product.name}": ${catalogProduct.SKU}`);
+                  return { ...product, SKU: catalogProduct.SKU };
+                }
+              }
+              return product;
+            })
+          );
+          return { ...purchase, products: resolvedProducts };
+        })
+      );
+
+      // Formata os dados finais para o estado da aplicação
+      const formattedData: Purchase[] = processedPurchases.map((purchase: any) => ({
         id: purchase.id,
         date: purchase.date,
         carrier: purchase.carrier,
@@ -149,24 +166,15 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         created_at: purchase.created_at,
         updated_at: purchase.updated_at,
         workspace_id: purchase.workspace_id,
-        metadata: purchase.metadata,
+        metadata: purchase.metadata || null,
         observation: purchase.observation,
         products: (purchase.products || []).map((product: any) => ({
-          id: product.id,
-          purchase_id: product.purchase_id,
-          name: product.name,
-          quantity: product.quantity,
-          cost: product.cost,
-          total_cost: product.total_cost,
-          is_verified: product.is_verified,
-          is_in_stock: product.is_in_stock,
-          vencimento: product.vencimento,
+          ...product,
           SKU: product.SKU || '',
-          preco_ml: product.preco_ml,
-          preco_atacado: product.preco_atacado
         }))
       }));
-      set({ purchases: formattedData || [], loading: false });
+
+      set({ purchases: formattedData, loading: false });
     });
   },
 
@@ -285,7 +293,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
   updatePurchase: async (purchaseId, formData, products) => {
     await ErrorHandler.handleAsync(async () => {
-      // 1. Atualiza os dados principais da compra
       const { error: purchaseError } = await supabase.from('purchases').update({
         date: formData.date,
         carrier: formData.carrier,
@@ -298,7 +305,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       }).eq('id', purchaseId);
       if (purchaseError) throw purchaseError;
       
-      // 2. Lida com produtos a serem removidos
       const formProductIds = products.map(p => p.id).filter(Boolean);
       const { data: existingDbProducts, error: fetchError } = await supabase.from('purchase_products').select('id').eq('purchase_id', purchaseId);
       if (fetchError) throw fetchError;
@@ -310,15 +316,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         if (deleteError) throw deleteError;
       }
 
-      // 3. Prepara a redistribuição do frete
       const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
       const deliveryFeePerUnit = totalQuantity > 0 ? formData.delivery_fee / totalQuantity : 0;
       
-      // 4. CORREÇÃO: Separa os produtos existentes dos novos
       const productsToUpdate = products.filter(p => p.id);
       const productsToInsert = products.filter(p => !p.id);
 
-      // 5. Lida com a atualização dos produtos existentes
       if (productsToUpdate.length > 0) {
         const updatePayload = productsToUpdate.map(product => ({
           id: product.id,
@@ -337,7 +340,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         }
       }
 
-      // 6. Lida com a inserção dos produtos novos
       if (productsToInsert.length > 0) {
         const insertPayload = productsToInsert.map(product => ({
           purchase_id: purchaseId,
@@ -347,6 +349,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
           is_verified: false,
           is_in_stock: false,
+          vencimento: null,
+          preco_ml: null,
+          preco_atacado: null,
         }));
         
         console.log("Enviando para o INSERT:", JSON.stringify(insertPayload, null, 2));
@@ -650,3 +655,4 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     }
   },
 }));
+
