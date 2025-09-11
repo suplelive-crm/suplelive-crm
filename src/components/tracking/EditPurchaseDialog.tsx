@@ -80,9 +80,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
   
-  // ALTERADO: A função foi reescrita para espelhar a implementação que funciona no CreatePurchaseDialog.
   const handleProductSelect = (index: number, selectedProduct: any) => {
-    // Linha de depuração: verifique o console do navegador (F12) ao selecionar um item.
     console.log("Produto selecionado:", selectedProduct, "no índice:", index);
 
     const newProducts = [...products];
@@ -90,7 +88,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
 
     if (productToUpdate) {
         newProducts[index] = {
-            ...productToUpdate, // Preserva dados como quantidade e custo que o usuário já possa ter digitado
+            ...productToUpdate,
             id: selectedProduct.id,
             name: selectedProduct.name,
             SKU: selectedProduct.SKU || selectedProduct.sku || ''
@@ -108,7 +106,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
       toast({ title: 'Erro de Validação', description: 'Por favor, preencha todos os campos da compra.', variant: 'destructive' });
       return;
     }
-    // Validação refinada para focar nos campos essenciais
     if (products.some(p => !p.name || !p.SKU || (p.quantity ?? 0) <= 0)) {
       toast({ title: 'Erro nos Produtos', description: 'Todos os produtos devem ter Nome, SKU e Quantidade (mínimo 1) preenchidos.', variant: 'destructive' });
       return;
@@ -128,7 +125,12 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-5xl max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => {
+          e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Editar Compra #{purchase?.id}</DialogTitle>
           <DialogDescription>Altere a quantidade dos produtos ou adicione novos itens à compra.</DialogDescription>
