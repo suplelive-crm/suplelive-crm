@@ -21,7 +21,7 @@ interface EditPurchaseDialogProps {
 type FormProduct = Partial<{
     id: string | number; // ID existe para produtos que já estavam na compra
     name: string;
-    sku: string;
+    SKU: string; // ALTERADO de 'sku' para 'SKU'
     quantity: number;
     cost: number;
 }>
@@ -58,17 +58,19 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         delivery_fee: purchase.delivery_fee || 0,
         observation: purchase.observation || '',
       });
-      setProducts(structuredClone(purchase.products || []));
+      // O `structuredClone` vai preservar o 'SKU' maiúsculo que vem do store
+      setProducts(structuredClone(purchase.products || [])); 
     }
     if (open) {
       fetchProducts();
     }
   }, [purchase, open, fetchProducts]);
 
-  const handleAddProduct = () => setProducts([...products, { name: '', quantity: 1, cost: 0, sku: '' }]);
+  const handleAddProduct = () => setProducts([...products, { name: '', quantity: 1, cost: 0, SKU: '' }]); // ALTERADO de 'sku' para 'SKU'
   const handleRemoveProduct = (index: number) => setProducts(products.filter((_, i) => i !== index));
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
-  const handleProductSelect = (index: number, selectedProduct: any) => setProducts(products.map((p, i) => (i === index ? { ...p, id: selectedProduct.id, name: selectedProduct.name, sku: selectedProduct.sku || '' } : p)));
+  // Assumindo que o `selectedProduct` do crmStore também usa 'SKU'. Se usar 'sku', a linha seria: SKU: selectedProduct.sku || ''
+  const handleProductSelect = (index: number, selectedProduct: any) => setProducts(products.map((p, i) => (i === index ? { ...p, id: selectedProduct.id, name: selectedProduct.name, SKU: selectedProduct.SKU || '' } : p))); // ALTERADO de 'sku' para 'SKU'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +81,8 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
       toast({ title: 'Erro de Validação', description: 'Por favor, preencha todos os campos da compra (Data, Transportadora, Loja, Rastreio).', variant: 'destructive' });
       return;
     }
-    if (products.length === 0 || products.some(p => !p.name || !p.sku || (p.quantity ?? 0) <= 0 || (p.cost ?? -1) < 0)) {
+    // ALTERADO de 'p.sku' para 'p.SKU'
+    if (products.length === 0 || products.some(p => !p.name || !p.SKU || (p.quantity ?? 0) <= 0 || (p.cost ?? -1) < 0)) {
       toast({ title: 'Erro nos Produtos', description: 'Por favor, preencha corretamente todos os produtos (Nome, SKU, Quantidade e Custo).', variant: 'destructive' });
       return;
     }
@@ -110,96 +113,97 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* ... restante dos campos do formulário (date, carrier, etc) ... */}
             <div className="space-y-2">
-              <Label htmlFor="date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-500" /> Data de Compra *
-              </Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="carrier" className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
-              </Label>
-              <Select value={formData.carrier || ''} onValueChange={(value: string) => setFormData({ ...formData, carrier: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a transportadora" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Correios">Correios</SelectItem>
-                  <SelectItem value="Jadlog">Jadlog</SelectItem>
-                  <SelectItem value="Total Express">Total Express</SelectItem>
-                  <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
-                  <SelectItem value="Braspress">Braspress</SelectItem>
-                  <SelectItem value="Outra">Outra</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="storeName" className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-gray-500" /> Nome da Loja *
-              </Label>
-              <Input
-                id="storeName"
-                value={formData.storeName}
-                onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
-                placeholder="Ex: Mercado Livre"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="customerName" className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-gray-500" /> Nome do Cliente (Opcional)
-              </Label>
-              <Input
-                id="customerName"
-                value={formData.customer_name}
-                onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
-                placeholder="Ex: João Silva"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="trackingCode" className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-gray-500" /> Código de Rastreio *
-              </Label>
-              <Input
-                id="trackingCode"
-                value={formData.trackingCode}
-                onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })}
-                placeholder="Ex: AA123456789BR"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="deliveryFee" className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
-              </Label>
-              <Input
-                id="deliveryFee"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.delivery_fee}
-                onChange={(e) => setFormData({ ...formData, delivery_fee: parseFloat(e.target.value) || 0 })}
-                required
-              />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="observation" className="flex items-center gap-2">
-                Observação (Opcional)
-              </Label>
-              <Input
-                id="observation"
-                value={formData.observation}
-                onChange={(e) => setFormData({ ...formData, observation: e.target.value })}
-                placeholder="Alguma observação sobre a compra..."
-              />
-            </div>
+                <Label htmlFor="date" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-gray-500" /> Data de Compra *
+                </Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="carrier" className="flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-gray-500" /> Transportadora *
+                </Label>
+                <Select value={formData.carrier || ''} onValueChange={(value: string) => setFormData({ ...formData, carrier: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a transportadora" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Correios">Correios</SelectItem>
+                    <SelectItem value="Jadlog">Jadlog</SelectItem>
+                    <SelectItem value="Total Express">Total Express</SelectItem>
+                    <SelectItem value="Azul Cargo">Azul Cargo</SelectItem>
+                    <SelectItem value="Braspress">Braspress</SelectItem>
+                    <SelectItem value="Outra">Outra</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="storeName" className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-gray-500" /> Nome da Loja *
+                </Label>
+                <Input
+                  id="storeName"
+                  value={formData.storeName}
+                  onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
+                  placeholder="Ex: Mercado Livre"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="customerName" className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-gray-500" /> Nome do Cliente (Opcional)
+                </Label>
+                <Input
+                  id="customerName"
+                  value={formData.customer_name}
+                  onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                  placeholder="Ex: João Silva"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="trackingCode" className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-gray-500" /> Código de Rastreio *
+                </Label>
+                <Input
+                  id="trackingCode"
+                  value={formData.trackingCode}
+                  onChange={(e) => setFormData({ ...formData, trackingCode: e.target.value })}
+                  placeholder="Ex: AA123456789BR"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deliveryFee" className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
+                </Label>
+                <Input
+                  id="deliveryFee"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.delivery_fee}
+                  onChange={(e) => setFormData({ ...formData, delivery_fee: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="observation" className="flex items-center gap-2">
+                  Observação (Opcional)
+                </Label>
+                <Input
+                  id="observation"
+                  value={formData.observation}
+                  onChange={(e) => setFormData({ ...formData, observation: e.target.value })}
+                  placeholder="Alguma observação sobre a compra..."
+                />
+              </div>
           </div>
 
           <div className="space-y-4">
@@ -231,7 +235,8 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                   </div>
                   <div className="space-y-2">
                     <Label>SKU *</Label>
-                    <Input value={product.sku || ''} disabled className="cursor-not-allowed" />
+                    {/* ALTERADO de 'product.sku' para 'product.SKU' */}
+                    <Input value={product.SKU || ''} disabled className="cursor-not-allowed" />
                   </div>
                   <div className="space-y-2">
                     <Label>Quantidade *</Label>
