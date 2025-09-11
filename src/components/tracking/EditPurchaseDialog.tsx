@@ -58,7 +58,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   }, [purchase, open, fetchProducts]);
 
   const confirmWithPassword = () => {
-    const secret = "152729";
+    const secret = "802061";
     const password = prompt("Para confirmar esta ação, por favor, digite a senha:");
     if (password === secret) return true;
     if (password !== null) {
