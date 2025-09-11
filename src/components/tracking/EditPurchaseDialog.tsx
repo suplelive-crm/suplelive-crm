@@ -81,8 +81,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
   
   const handleProductSelect = (index: number, selectedProduct: any) => {
-    console.log("Produto selecionado:", selectedProduct, "no índice:", index);
-
     const newProducts = [...products];
     const productToUpdate = newProducts[index];
 
@@ -125,12 +123,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className="max-w-5xl max-h-[90vh] overflow-y-auto"
-        onInteractOutside={(e) => {
-          e.preventDefault();
-        }}
-      >
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Compra #{purchase?.id}</DialogTitle>
           <DialogDescription>Altere a quantidade dos produtos ou adicione novos itens à compra.</DialogDescription>
