@@ -27,6 +27,9 @@ type FormProduct = Partial<{
 }>
 
 export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchaseDialogProps) {
+  // PASSO 3: VERIFICANDO OS DADOS DE ENTRADA (PROPS)
+  console.log('DADOS QUE O DIÁLOGO RECEBEU:', { open, purchase });
+
   const [formData, setFormData] = useState({
     date: '',
     carrier: '',
@@ -55,7 +58,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         delivery_fee: purchase.delivery_fee || 0,
         observation: purchase.observation || '',
       });
-      // structuredClone é uma forma segura de copiar o array sem referenciar o original
       setProducts(structuredClone(purchase.products || []));
     }
     if (open) {
@@ -64,7 +66,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   }, [purchase, open, fetchProducts]);
 
   const handleAddProduct = () => {
-    // Adiciona um produto "novo" (sem id) à lista
     setProducts([...products, { name: '', quantity: 1, cost: 0, sku: '' }]);
   };
 
@@ -73,7 +74,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   };
 
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => {
-    // Usando .map para garantir a imutabilidade e evitar bugs de renderização
     const newProducts = products.map((p, i) => (i === index ? { ...p, [field]: value } : p));
     setProducts(newProducts);
   };
