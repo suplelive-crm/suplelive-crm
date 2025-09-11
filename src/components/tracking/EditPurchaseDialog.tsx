@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Calendar, Package, DollarSign, Truck, Lock, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,15 +80,16 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
   
+  // Função que recebe o produto do autocomplete e atualiza o estado
   const handleProductSelect = (index: number, selectedProduct: any) => {
     const newProducts = [...products];
     const productToUpdate = newProducts[index];
 
     if (productToUpdate) {
         newProducts[index] = {
-            ...productToUpdate,
+            ...productToUpdate, // Preserva quantidade/custo já digitados
             name: selectedProduct.name,
-            SKU: selectedProduct.SKU || selectedProduct.sku || ''
+            SKU: selectedProduct.SKU || '' // Preenche o SKU recebido do autocomplete
         };
         setProducts(newProducts);
     }
@@ -104,13 +105,8 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
       return;
     }
     
-    // Log de depuração e validação melhorada
-    console.log("Verificando produtos antes de salvar:", JSON.stringify(products, null, 2));
-
     const invalidProduct = products.find(p => !p.name || !p.SKU || !(p.quantity && p.quantity > 0));
-
     if (invalidProduct) {
-      console.error("Validação falhou para o produto:", invalidProduct);
       toast({ 
         title: 'Erro nos Produtos', 
         description: `Por favor, verifique o produto "${invalidProduct.name || 'novo'}". Todos os produtos devem ter Nome, SKU e Quantidade maior que zero.`, 
