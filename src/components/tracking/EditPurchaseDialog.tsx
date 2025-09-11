@@ -34,7 +34,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     customer_name: '',
     trackingCode: '',
     delivery_fee: 0,
-    observation: '', // Adicionando observation ao estado inicial
+    observation: '',
   });
 
   const [products, setProducts] = useState<FormProduct[]>([]);
@@ -53,7 +53,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         customer_name: purchase.customer_name || '',
         trackingCode: purchase.trackingCode || '',
         delivery_fee: purchase.delivery_fee || 0,
-        observation: purchase.observation || '', // Carregando a observation
+        observation: purchase.observation || '',
       });
       // structuredClone é uma forma segura de copiar o array sem referenciar o original
       setProducts(structuredClone(purchase.products || []));
@@ -73,6 +73,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   };
 
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => {
+    // Usando .map para garantir a imutabilidade e evitar bugs de renderização
     const newProducts = products.map((p, i) => (i === index ? { ...p, [field]: value } : p));
     setProducts(newProducts);
   };
@@ -93,37 +94,28 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    console.log('--- PASSO 1: handleSubmit FOI CHAMADO ---');
-    
     e.preventDefault();
     if (!purchase) return;
 
-    // Validações...
+    // Validações
     if (!formData.date || !formData.carrier || !formData.storeName || !formData.trackingCode) {
-      toast({ title: 'Erro de Validação', description: 'Por favor, preencha todos os campos da compra.', variant: 'destructive' });
+      toast({ title: 'Erro de Validação', description: 'Por favor, preencha todos os campos da compra (Data, Transportadora, Loja, Rastreio).', variant: 'destructive' });
       return;
     }
     if (products.length === 0 || products.some(p => !p.name || !p.sku || (p.quantity ?? 0) <= 0 || (p.cost ?? -1) < 0)) {
-      toast({ title: 'Erro nos Produtos', description: 'Preencha corretamente todos os produtos.', variant: 'destructive' });
+      toast({ title: 'Erro nos Produtos', description: 'Por favor, preencha corretamente todos os produtos (Nome, SKU, Quantidade e Custo).', variant: 'destructive' });
       return;
     }
 
     setLoading(true);
     try {
-      console.log('--- PASSO 2: CHAMANDO updatePurchase com estes dados: ---', {
-        id: purchase.id,
-        formData: formData,
-        products: products
-      });
-
-      await updatePurchase(purchase.id, formData as any, products as any);
-      
+      await updatePurchase(purchase.id, formData, products as any);
       onOpenChange(false);
     } catch (error: any) {
       console.error('Falha ao submeter a atualização:', error);
       toast({ 
         title: 'Erro ao Salvar', 
-        description: error.message || 'Ocorreu um erro inesperado.', 
+        description: error.message || 'Ocorreu um erro inesperado. Tente novamente.', 
         variant: 'destructive' 
       });
     } finally {
@@ -262,7 +254,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                   </div>
                   <div className="space-y-2">
                     <Label>SKU *</Label>
-                    <Input value={product.sku || ''} disabled={isExistingProduct} className={isExistingProduct ? "cursor-not-allowed" : ""} />
+                    <Input value={product.sku || ''} disabled className="cursor-not-allowed" />
                   </div>
                   <div className="space-y-2">
                     <Label>Quantidade *</Label>
