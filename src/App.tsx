@@ -55,10 +55,9 @@ const mockWorkspaces = [
   { id: 'ws_2', name: 'Projeto Secreto' },
 ];
 
-const useWorkspaceStore = () => {
-    // Usamos o estado do React para simular o estado do store
-    const [currentWorkspace, setCurrentWorkspaceState] = useState(null);
-    
+// NOTE: A simulação foi alterada para não usar `useState` internamente, o que causava o erro.
+// O estado agora é gerenciado pelo componente que usa o hook.
+const useWorkspaceStore = (setCurrentWorkspaceState) => {
     const fetchWorkspaces = async () => {
         console.log("Fetching workspaces (Mock)");
         return Promise.resolve(mockWorkspaces);
@@ -66,30 +65,32 @@ const useWorkspaceStore = () => {
 
     const setCurrentWorkspace = (workspace) => {
         console.log("Setting current workspace (Mock):", workspace);
-        setCurrentWorkspaceState(workspace);
+        setCurrentWorkspaceState(workspace); // Usa a função do useState do componente pai
         if (workspace) {
             localStorage.setItem('currentWorkspaceId', workspace.id);
         }
     };
     
-    // Simula o método getState para obter o estado mais recente fora do hook
-    useWorkspaceStore.getState = () => ({
-        workspaces: mockWorkspaces,
-    });
-
     return {
-        currentWorkspace,
         workspaces: mockWorkspaces,
         fetchWorkspaces,
         setCurrentWorkspace,
     };
 };
 
+// Simula o método getState para obter o estado mais recente fora do hook
+useWorkspaceStore.getState = () => ({
+    workspaces: mockWorkspaces,
+});
+
 // --- Fim das Simulações (Mocks) ---
 
 
 function AppContent() {
-  const { currentWorkspace, workspaces, fetchWorkspaces, setCurrentWorkspace } = useWorkspaceStore();
+  // O estado do workspace foi movido para cá para corrigir o erro dos Hooks
+  const [currentWorkspace, setCurrentWorkspace] = useState(null);
+  const { workspaces, fetchWorkspaces, setCurrentWorkspace: setStoreWorkspace } = useWorkspaceStore(setCurrentWorkspace);
+
   const { user, loading: authLoading } = useAuthStore();
   const [appInitialized, setAppInitialized] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
@@ -125,7 +126,7 @@ function AppContent() {
             console.log('Using first workspace:', workspaceToSet.name);
           }
           
-          setCurrentWorkspace(workspaceToSet);
+          setStoreWorkspace(workspaceToSet);
           console.log('Workspace set successfully');
           
           const savedRoute = localStorage.getItem('lastVisitedRoute');
@@ -145,7 +146,7 @@ function AppContent() {
     };
 
     initializeApp();
-  }, [user, appInitialized, fetchWorkspaces, setCurrentWorkspace, navigate, location.pathname]);
+  }, [user, appInitialized, fetchWorkspaces, setStoreWorkspace, navigate, location.pathname]);
 
   useEffect(() => {
     if (user && currentWorkspace && location.pathname !== '/' && location.pathname !== '/onboarding') {
