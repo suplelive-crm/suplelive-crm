@@ -111,7 +111,23 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
       let query = supabase
         .from('purchases')
-        .select(`*, products:purchase_products(*)`)
+        .select(`
+          *,
+          products:purchase_products(
+            id,
+            purchase_id,
+            name,
+            quantity,
+            cost,
+            total_cost,
+            is_verified,
+            is_in_stock,
+            vencimento,
+            SKU,
+            preco_ml,
+            preco_atacado
+          )
+        `)
         .eq('workspace_id', currentWorkspace.id)
         .order('date', { ascending: false });
 
@@ -119,40 +135,15 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         query = query.eq('is_archived', false);
       }
 
-      const { data: rawPurchases, error } = await query;
+      const { data, error } = await query;
       if (error) throw error;
-      if (!rawPurchases) {
+      if (!data) {
         set({ purchases: [], loading: false });
         return;
       }
-
-      // Processa cada compra para resolver SKUs que estejam faltando
-      const processedPurchases = await Promise.all(
-        rawPurchases.map(async (purchase) => {
-          const resolvedProducts = await Promise.all(
-            (purchase.products || []).map(async (product) => {
-              if (product.name && !product.SKU) {
-                console.warn(`SKU faltando para "${product.name}" na compra ${purchase.id}. Buscando no catálogo...`);
-                const { data: catalogProduct } = await supabase
-                  .from('products')
-                  .select('SKU')
-                  .eq('name', product.name)
-                  .maybeSingle();
-
-                if (catalogProduct && catalogProduct.SKU) {
-                  console.log(`SKU resolvido para "${product.name}": ${catalogProduct.SKU}`);
-                  return { ...product, SKU: catalogProduct.SKU };
-                }
-              }
-              return product;
-            })
-          );
-          return { ...purchase, products: resolvedProducts };
-        })
-      );
-
+      
       // Formata os dados finais para o estado da aplicação
-      const formattedData: Purchase[] = processedPurchases.map((purchase: any) => ({
+      const formattedData: Purchase[] = data.map((purchase: any) => ({
         id: purchase.id,
         date: purchase.date,
         carrier: purchase.carrier,
