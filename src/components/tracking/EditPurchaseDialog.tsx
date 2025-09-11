@@ -17,19 +17,15 @@ interface EditPurchaseDialogProps {
   purchase: Purchase | null;
 }
 
-// O tipo de produto do formulário
 type FormProduct = Partial<{
-    id: string | number; // ID existe para produtos que já estavam na compra
+    id: string | number;
     name: string;
-    SKU: string; // ALTERADO de 'sku' para 'SKU'
+    SKU: string;
     quantity: number;
     cost: number;
 }>
 
 export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchaseDialogProps) {
-  // A ÚNICA LINHA QUE PRECISAMOS PARA O TESTE FINAL:
-  console.log('DADOS QUE O DIÁLOGO RECEBEU:', { open, purchase });
-
   const [formData, setFormData] = useState({
     date: '',
     carrier: '',
@@ -41,7 +37,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   });
 
   const [products, setProducts] = useState<FormProduct[]>([]);
-  
   const [loading, setLoading] = useState(false);
   const { updatePurchase } = useTrackingStore();
   const { products: dbProducts, fetchProducts } = useCrmStore();
@@ -58,7 +53,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         delivery_fee: purchase.delivery_fee || 0,
         observation: purchase.observation || '',
       });
-      // O `structuredClone` vai preservar o 'SKU' maiúsculo que vem do store
       setProducts(structuredClone(purchase.products || [])); 
     }
     if (open) {
@@ -66,22 +60,53 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     }
   }, [purchase, open, fetchProducts]);
 
-  const handleAddProduct = () => setProducts([...products, { name: '', quantity: 1, cost: 0, SKU: '' }]); // ALTERADO de 'sku' para 'SKU'
-  const handleRemoveProduct = (index: number) => setProducts(products.filter((_, i) => i !== index));
-  const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
-  // Assumindo que o `selectedProduct` do crmStore também usa 'SKU'. Se usar 'sku', a linha seria: SKU: selectedProduct.sku || ''
-  const handleProductSelect = (index: number, selectedProduct: any) => setProducts(products.map((p, i) => (i === index ? { ...p, id: selectedProduct.id, name: selectedProduct.name, SKU: selectedProduct.SKU || '' } : p))); // ALTERADO de 'sku' para 'SKU'
+  // NOVO: Função auxiliar para confirmar com senha
+  const confirmWithPassword = () => {
+    const secret = "152729";
+    const password = prompt("Para confirmar esta ação, por favor, digite a senha:");
+    
+    if (password === secret) {
+      return true;
+    }
+    
+    // Mostra o toast apenas se o usuário digitou algo (e errou), e não se ele cancelou o prompt
+    if (password !== null) {
+      toast({
+        title: 'Senha Incorreta',
+        description: 'A operação não foi autorizada.',
+        variant: 'destructive',
+      });
+    }
+    return false;
+  };
 
+  const handleAddProduct = () => setProducts([...products, { name: '', quantity: 1, cost: 0, SKU: '' }]);
+  
+  // ALTERADO: Adicionada a confirmação por senha
+  const handleRemoveProduct = (index: number) => {
+    if (!confirmWithPassword()) {
+      return; // Para a execução se a senha estiver errada
+    }
+    setProducts(products.filter((_, i) => i !== index));
+  };
+  
+  const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
+  const handleProductSelect = (index: number, selectedProduct: any) => setProducts(products.map((p, i) => (i === index ? { ...p, id: selectedProduct.id, name: selectedProduct.name, SKU: selectedProduct.SKU || '' } : p)));
+
+  // ALTERADO: Adicionada a confirmação por senha no início da função
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); // MOVIDO para o início
     if (!purchase) return;
 
-    // Validações
+    // A confirmação agora é a primeira coisa a ser feita
+    if (!confirmWithPassword()) {
+      return;
+    }
+
     if (!formData.date || !formData.carrier || !formData.storeName || !formData.trackingCode) {
       toast({ title: 'Erro de Validação', description: 'Por favor, preencha todos os campos da compra (Data, Transportadora, Loja, Rastreio).', variant: 'destructive' });
       return;
     }
-    // ALTERADO de 'p.sku' para 'p.SKU'
     if (products.length === 0 || products.some(p => !p.name || !p.SKU || (p.quantity ?? 0) <= 0 || (p.cost ?? -1) < 0)) {
       toast({ title: 'Erro nos Produtos', description: 'Por favor, preencha corretamente todos os produtos (Nome, SKU, Quantidade e Custo).', variant: 'destructive' });
       return;
@@ -112,9 +137,9 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* ... O formulário principal continua o mesmo ... */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* ... restante dos campos do formulário (date, carrier, etc) ... */}
-            <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="date" className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-gray-500" /> Data de Compra *
                 </Label>
@@ -205,7 +230,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                 />
               </div>
           </div>
-
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Produtos</h3>
@@ -217,7 +241,8 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
             {products.map((product, index) => {
               const isExistingProduct = !!product.id;
               return (
-                <div key={index} className={`grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg items-end ${isExistingProduct ? 'bg-gray-50/50' : ''}`}>
+                <div key={product.id || `new-${index}`} className={`grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg items-end ${isExistingProduct ? 'bg-gray-50/50' : ''}`}>
+                  {/* ... campos do produto ... */}
                   <div className="md:col-span-2 space-y-2">
                     <Label>Nome do Produto *</Label>
                     {isExistingProduct ? (
@@ -235,7 +260,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                   </div>
                   <div className="space-y-2">
                     <Label>SKU *</Label>
-                    {/* ALTERADO de 'product.sku' para 'product.SKU' */}
                     <Input value={product.SKU || ''} disabled className="cursor-not-allowed" />
                   </div>
                   <div className="space-y-2">
@@ -247,6 +271,7 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                       onChange={(e) => handleProductFieldChange(index, 'quantity', parseInt(e.target.value, 10) || 1)}
                     />
                   </div>
+
                   <div className="space-y-2 flex items-end gap-2">
                     <div className="flex-1">
                       <Label className="flex items-center gap-1">
@@ -262,11 +287,10 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
                         className={isExistingProduct ? "cursor-not-allowed" : ""}
                       />
                     </div>
-                    {!isExistingProduct && (
-                      <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveProduct(index)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    {/* ALTERADO: O botão de excluir agora é sempre visível */}
+                    <Button type="button" variant="destructive" size="icon" onClick={() => handleRemoveProduct(index)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               );
