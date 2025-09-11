@@ -80,7 +80,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
   
   const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
   
-  // CORREÇÃO APLICADA AQUI
   const handleProductSelect = (index: number, selectedProduct: any) => {
     const newProducts = [...products];
     const productToUpdate = newProducts[index];
@@ -88,7 +87,6 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     if (productToUpdate) {
         newProducts[index] = {
             ...productToUpdate,
-            // Não atribuímos o ID do catálogo, pois esta é uma nova linha de compra
             name: selectedProduct.name,
             SKU: selectedProduct.SKU || selectedProduct.sku || ''
         };
@@ -105,8 +103,20 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
       toast({ title: 'Erro de Validação', description: 'Por favor, preencha todos os campos da compra.', variant: 'destructive' });
       return;
     }
-    if (products.some(p => !p.name || !p.SKU || (p.quantity ?? 0) <= 0)) {
-      toast({ title: 'Erro nos Produtos', description: 'Todos os produtos devem ter Nome, SKU e Quantidade (mínimo 1) preenchidos.', variant: 'destructive' });
+    
+    // Log de depuração e validação melhorada
+    console.log("Verificando produtos antes de salvar:", JSON.stringify(products, null, 2));
+
+    const invalidProduct = products.find(p => !p.name || !p.SKU || !(p.quantity && p.quantity > 0));
+
+    if (invalidProduct) {
+      console.error("Validação falhou para o produto:", invalidProduct);
+      toast({ 
+        title: 'Erro nos Produtos', 
+        description: `Por favor, verifique o produto "${invalidProduct.name || 'novo'}". Todos os produtos devem ter Nome, SKU e Quantidade maior que zero.`, 
+        variant: 'destructive',
+        duration: 5000 
+      });
       return;
     }
 
