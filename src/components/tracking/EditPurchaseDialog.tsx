@@ -19,7 +19,7 @@ interface EditPurchaseDialogProps {
 
 // O tipo de produto do formulário
 type FormProduct = Partial<{
-    id: string | number; // ID existe para produtos que já estavam na compra
+    id: string | number;
     name: string;
     sku: string;
     quantity: number;
@@ -27,9 +27,6 @@ type FormProduct = Partial<{
 }>
 
 export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchaseDialogProps) {
-  // PASSO 3: VERIFICANDO OS DADOS DE ENTRADA (PROPS)
-  console.log('DADOS QUE O DIÁLOGO RECEBEU:', { open, purchase });
-
   const [formData, setFormData] = useState({
     date: '',
     carrier: '',
@@ -65,59 +62,39 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     }
   }, [purchase, open, fetchProducts]);
 
-  const handleAddProduct = () => {
-    setProducts([...products, { name: '', quantity: 1, cost: 0, sku: '' }]);
-  };
-
-  const handleRemoveProduct = (index: number) => {
-    setProducts(products.filter((_, i) => i !== index));
-  };
-
-  const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => {
-    const newProducts = products.map((p, i) => (i === index ? { ...p, [field]: value } : p));
-    setProducts(newProducts);
-  };
-  
-  const handleProductSelect = (index: number, selectedProduct: any) => {
-    const newProducts = products.map((p, i) => {
-      if (i === index) {
-        return {
-          ...p,
-          id: selectedProduct.id,
-          name: selectedProduct.name,
-          sku: selectedProduct.sku || '',
-        };
-      }
-      return p;
-    });
-    setProducts(newProducts);
-  };
+  const handleAddProduct = () => setProducts([...products, { name: '', quantity: 1, cost: 0, sku: '' }]);
+  const handleRemoveProduct = (index: number) => setProducts(products.filter((_, i) => i !== index));
+  const handleProductFieldChange = (index: number, field: keyof FormProduct, value: any) => setProducts(products.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
+  const handleProductSelect = (index: number, selectedProduct: any) => setProducts(products.map((p, i) => (i === index ? { ...p, id: selectedProduct.id, name: selectedProduct.name, sku: selectedProduct.sku || '' } : p)));
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('%c[ETAPA 1] Formulário submetido. Iniciando handleSubmit.', 'color: #ff6f00; font-weight: bold;');
+    
     e.preventDefault();
-    if (!purchase) return;
+    if (!purchase) {
+      console.error('handleSubmit parou: objeto "purchase" é nulo.');
+      return;
+    }
 
-    // Validações
+    console.log('[ETAPA 2] Passando pelas validações...');
     if (!formData.date || !formData.carrier || !formData.storeName || !formData.trackingCode) {
-      toast({ title: 'Erro de Validação', description: 'Por favor, preencha todos os campos da compra (Data, Transportadora, Loja, Rastreio).', variant: 'destructive' });
+      toast({ title: 'Erro de Validação', description: 'Por favor, preencha todos os campos da compra.', variant: 'destructive' });
       return;
     }
     if (products.length === 0 || products.some(p => !p.name || !p.sku || (p.quantity ?? 0) <= 0 || (p.cost ?? -1) < 0)) {
-      toast({ title: 'Erro nos Produtos', description: 'Por favor, preencha corretamente todos os produtos (Nome, SKU, Quantidade e Custo).', variant: 'destructive' });
+      toast({ title: 'Erro nos Produtos', description: 'Preencha corretamente todos os produtos (incluindo o SKU).', variant: 'destructive' });
       return;
     }
+    console.log('Validações passaram com sucesso.');
 
     setLoading(true);
     try {
-      await updatePurchase(purchase.id, formData, products as any);
+      console.log('%c[ETAPA 3] Chamando updatePurchase na store...', 'color: #9c27b0; font-weight: bold;');
+      await updatePurchase(purchase.id, formData as any, products as any);
       onOpenChange(false);
     } catch (error: any) {
-      console.error('Falha ao submeter a atualização:', error);
-      toast({ 
-        title: 'Erro ao Salvar', 
-        description: error.message || 'Ocorreu um erro inesperado. Tente novamente.', 
-        variant: 'destructive' 
-      });
+      console.error('ERRO na ETAPA 3 (chamada da store falhou):', error);
+      toast({ title: 'Erro ao Salvar', description: error.message || 'Ocorreu um erro inesperado.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
