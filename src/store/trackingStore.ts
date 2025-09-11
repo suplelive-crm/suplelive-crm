@@ -154,7 +154,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           is_verified: product.is_verified,
           is_in_stock: product.is_in_stock,
           vencimento: product.vencimento,
-          sku: product.sku, // CORREÇÃO APLICADA AQUI (era SKU maiúsculo)
+          sku: product.sku,
           preco_ml: product.preco_ml,
           preco_atacado: product.preco_atacado
         }))
@@ -316,8 +316,10 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
   },
 
   updatePurchase: async (purchaseId, formData, products) => {
+    console.log('%c[ETAPA 4] Função updatePurchase na STORE foi recebida!', 'color: #22a5f5; font-weight: bold;');
+    
     await ErrorHandler.handleAsync(async () => {
-      // 1. Atualiza os dados principais da compra
+      console.log('[ETAPA 5] Atualizando dados da compra principal no Supabase...');
       const { error: purchaseError } = await supabase
         .from('purchases')
         .update({
@@ -332,39 +334,45 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         })
         .eq('id', purchaseId);
   
-      if (purchaseError) throw purchaseError;
+      if (purchaseError) {
+        console.error('ERRO na ETAPA 5:', purchaseError);
+        throw purchaseError;
+      }
+      console.log('Dados da compra principal atualizados com sucesso.');
   
-      // 2. Lógica para deletar produtos que foram removidos do formulário
+      console.log('[ETAPA 6] Buscando produtos existentes para lógica de deleção...');
       const formProductIds = products.map(p => p.id).filter(Boolean);
       const { data: existingDbProducts, error: fetchError } = await supabase
         .from('purchase_products')
         .select('id')
         .eq('purchase_id', purchaseId);
   
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('ERRO na ETAPA 6:', fetchError);
+        throw fetchError;
+      }
   
-      const dbProductIds = existingDbProducts.map(p => p.id);
+      const dbProductIds = (existingDbProducts || []).map(p => p.id);
       const productsToDeleteIds = dbProductIds.filter(id => !formProductIds.includes(id as string));
   
       if (productsToDeleteIds.length > 0) {
+        console.log('Deletando produtos que foram removidos:', productsToDeleteIds);
         const { error: deleteError } = await supabase
           .from('purchase_products')
           .delete()
           .in('id', productsToDeleteIds);
-        if (deleteError) throw deleteError;
+        if (deleteError) {
+          console.error('ERRO ao deletar produtos:', deleteError);
+          throw deleteError;
+        }
       }
   
-      // 3. LÓGICA CORRETA: Recalcular o custo unitário com a taxa de entrega
+      console.log('[ETAPA 7] Preparando produtos para inserir/atualizar (upsert)...');
       const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
       const deliveryFeePerUnit = totalQuantity > 0 ? formData.delivery_fee / totalQuantity : 0;
   
-      // 4. Prepara os dados dos produtos para o "upsert"
       const productsToUpsert = products.map(product => {
-        // Para produtos existentes, o custo vindo do formulário já inclui a taxa de entrega antiga.
-        // Para ser preciso, deveríamos subtrair a taxa antiga e somar a nova, mas isso é complexo.
-        // A abordagem mais simples é usar o custo base que o usuário vê na tela.
         const baseCost = product.cost || 0;
-        
         const productData: any = {
           id: product.id,
           purchase_id: purchaseId,
@@ -372,28 +380,27 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
           sku: product.sku,
           quantity: product.quantity,
           cost: parseFloat((baseCost + deliveryFeePerUnit).toFixed(2)),
-          // Preservar o status de verificação/estoque se o produto já existir
           is_verified: product.id ? (product as any).is_verified : false,
           is_in_stock: product.id ? (product as any).is_in_stock : false,
         };
   
-        // Remove o ID se ele for undefined, para o Supabase tratar como um novo item
-        if (!productData.id) {
-          delete productData.id;
-        }
-  
+        if (!productData.id) delete productData.id;
         return productData;
       });
   
       if (productsToUpsert.length > 0) {
+        console.log('[ETAPA 8] Executando upsert no Supabase com os seguintes produtos:', productsToUpsert);
         const { error: upsertError } = await supabase
           .from('purchase_products')
           .upsert(productsToUpsert, { onConflict: 'id' });
   
-        if (upsertError) throw upsertError;
+        if (upsertError) {
+          console.error('ERRO na ETAPA 8 (upsert):', upsertError);
+          throw upsertError;
+        }
       }
       
-      // 5. Atualiza o estado local e exibe a mensagem de sucesso
+      console.log('%c[ETAPA 9] Sucesso! Buscando compras atualizadas...', 'color: green; font-weight: bold;');
       await get().fetchPurchases();
       ErrorHandler.showSuccess('Compra atualizada com sucesso!');
     });
