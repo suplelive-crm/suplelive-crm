@@ -40,6 +40,7 @@ interface TrackingState {
   addProductToInventory: (purchaseId: string) => Promise<void>;
   updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>;
   verifyTransferProduct: (transferId: string, productId: string) => Promise<void>;
+  addTransferToInventory: (transferId: string) => Promise<void>;
   createReturn: (returnData: {
     date: string;
     carrier: string;
