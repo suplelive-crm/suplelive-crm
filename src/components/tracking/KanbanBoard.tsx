@@ -62,6 +62,11 @@ const KANBAN_COLUMNS_CONFIG = {
 
 type KanbanColumn = keyof typeof KANBAN_COLUMNS_CONFIG;
 
+const stockLocations = [
+  { value: 'vitoria', label: 'Vitória' },
+  { value: 'sao_paulo', label: 'São Paulo' },
+];
+
 // **FUNÇÃO CORRIGIDA**
 const getItemKanbanColumn = (item: Purchase | Return | Transfer): KanbanColumn => {
     const statusLower = (item.status || '').toLowerCase();

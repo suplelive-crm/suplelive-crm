@@ -19,11 +19,6 @@ import { useTrackingStore } from '@/store/trackingStore';
 import { useToast } from '@/hooks/use-toast';
 import { getTrackingUrl } from '@/lib/tracking-api';
 
-const stockLocations = [
-  { value: 'vitoria', label: 'Vitória' },
-  { value: 'sao_paulo', label: 'São Paulo' },
-];
-
 interface TrackingDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -582,7 +577,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => addProductToInventory(transfer.id)}>
+                  <AlertDialogAction onClick={() => addTransferToInventory(transfer.id)}>
                     Confirmar e Arquivar
                   </AlertDialogAction>
                 </AlertDialogFooter>

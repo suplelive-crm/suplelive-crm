@@ -40,7 +40,6 @@ interface TrackingState {
   addProductToInventory: (purchaseId: string) => Promise<void>;
   updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>;
   verifyTransferProduct: (transferId: string, productId: string) => Promise<void>;
-  addTransferToInventory: (transferId: string) => Promise<void>;
   createReturn: (returnData: {
     date: string;
     carrier: string;
@@ -89,6 +88,7 @@ interface TrackingState {
     isArchived: boolean;
   }>) => Promise<void>;
   archiveTransfer: (id: string) => Promise<void>;
+  addTransferToInventory: (transferId: string) => Promise<void>;
   updateTrackingStatus: (type: 'purchase' | 'return' | 'transfer', id: string) => Promise<void>;
   updateAllTrackingStatuses: () => Promise<void>;
   getTrackingInfo: (carrier: string, trackingCode: string) => Promise<TrackingResponse>;
@@ -490,6 +490,62 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     });
   },
 
+  verifyTransferProduct: async (transferId: string, productId: string) => {
+    await ErrorHandler.handleAsync(async () => {
+      const { error } = await supabase
+        .from('transfer_products')
+        .update({ 
+          is_verified: true, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', productId)
+        .eq('transfer_id', transferId);
+
+      if (error) {
+        console.error("Erro ao verificar produto da transferência:", error);
+        throw error;
+      }
+
+      get().fetchTransfers();
+      ErrorHandler.showSuccess('Produto da transferência verificado com sucesso!');
+    });
+  },
+
+  addTransferToInventory: async (transferId) => {
+    await ErrorHandler.handleAsync(async () => {
+      // Mark all products as verified and archive the transfer
+      const { error: productsUpdateError } = await supabase
+        .from('transfer_products')
+        .update({ 
+          is_verified: true, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('transfer_id', transferId);
+
+      if (productsUpdateError) {
+        console.error("Erro ao atualizar produtos da transferência:", productsUpdateError);
+        throw productsUpdateError;
+      }
+
+      const { error: transferUpdateError } = await supabase
+        .from('transfers')
+        .update({ 
+          is_archived: true, 
+          status: 'Transferência finalizada', 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', transferId);
+
+      if (transferUpdateError) {
+        console.error("Erro ao finalizar transferência:", transferUpdateError);
+        throw transferUpdateError;
+      }
+
+      get().fetchTransfers();
+      ErrorHandler.showSuccess('Transferência finalizada e arquivada com sucesso!');
+    });
+  },
+
   createReturn: async (returnData) => {
     await ErrorHandler.handleAsync(async () => {
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
@@ -703,4 +759,3 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
     }
   },
 }));
-
