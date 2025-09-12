@@ -39,6 +39,7 @@ interface TrackingState {
   verifyPurchaseProduct: (purchaseId: string, productId: string, vencimento?: string, preco_ml?: number, preco_atacado?: number) => Promise<void>;
   addProductToInventory: (purchaseId: string) => Promise<void>;
   updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>;
+  verifyTransferProduct: (transferId: string, productId: string) => Promise<void>;
   createReturn: (returnData: {
     date: string;
     carrier: string;
@@ -68,6 +69,13 @@ interface TrackingState {
     storeName: string;
     customerName: string;
     trackingCode: string;
+    source_stock: string;
+    destination_stock: string;
+    products: Array<{
+      name: string;
+      quantity: number;
+      sku?: string;
+    }>;
   }) => Promise<void>;
   updateTransfer: (id: string, updates: Partial<{
     date: string;
@@ -218,7 +226,14 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       set({ loading: true });
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) return;
-      let query = supabase.from('transfers').select('*, metadata').eq('workspace_id', currentWorkspace.id).order('date', { ascending: false });
+      let query = supabase
+        .from('transfers')
+        .select(`
+          *,
+          products:transfer_products(*)
+        `)
+        .eq('workspace_id', currentWorkspace.id)
+        .order('date', { ascending: false });
       if (!get().showArchived) {
         query = query.eq('is_archived', false);
       }
@@ -237,11 +252,19 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         created_at: item.created_at,
         updated_at: item.updated_at,
         workspace_id: item.workspace_id,
-        observations: item.observations,
-        is_verified: item.is_verified,
-        verification_observations: item.verification_observations,
-        verified_at: item.verified_at,
+        source_stock: item.source_stock,
+        destination_stock: item.destination_stock,
         metadata: item.metadata,
+        products: (item.products || []).map((product: any) => ({
+          id: product.id,
+          transfer_id: product.transfer_id,
+          name: product.name,
+          quantity: product.quantity,
+          sku: product.sku,
+          is_verified: product.is_verified,
+          created_at: product.created_at,
+          updated_at: product.updated_at,
+        }))
       }));
       set({ transfers: formattedData || [], loading: false });
     });
@@ -546,6 +569,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         storeName: transferData.storeName,
         customer_name: transferData.customerName,
         trackingCode: transferData.trackingCode,
+        source_stock: transferData.source_stock,
+        destination_stock: transferData.destination_stock,
         status: 'Aguardando rastreamento',
         is_archived: false,
         workspace_id: currentWorkspace.id,
@@ -553,6 +578,27 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
       };
       const { data: newTransfer, error } = await supabase.from('transfers').insert(dbTransferData).select().single();
       if (error) { console.error("Error creating transfer:", error); throw error; }
+      
+      // Create transfer products
+      if (transferData.products && transferData.products.length > 0) {
+        const productsWithTransferId = transferData.products.map(product => ({
+          transfer_id: newTransfer.id,
+          name: product.name,
+          quantity: product.quantity,
+          sku: product.sku || '',
+          is_verified: false,
+        }));
+        
+        const { error: productsError } = await supabase
+          .from('transfer_products')
+          .insert(productsWithTransferId);
+        
+        if (productsError) {
+          console.error("Error creating transfer products:", productsError);
+          throw productsError;
+        }
+      }
+      
       try {
         if (newTransfer) { await get().updateTrackingStatus('transfer', newTransfer.id); }
       } catch (error) {

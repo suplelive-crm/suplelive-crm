@@ -107,6 +107,24 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     }
   };
 
+  const handleVerifyTransferProduct = async (transferId: string, productId: string) => {
+    try {
+      // For now, we'll just mark as verified - you can extend this later
+      await verifyTransferProduct(transferId, productId);
+      toast({
+        title: "Produto Conferido",
+        description: "O produto da transferência foi marcado como conferido."
+      });
+    } catch (error) {
+      console.error('Error verifying transfer product:', error);
+      toast({ 
+        title: "Erro", 
+        description: "Não foi possível conferir o produto da transferência.", 
+        variant: "destructive" 
+      });
+    }
+  };
+
   const handleVerifyReturn = async (returnId: string, observations?: string) => {
     try {
       await verifyReturn(returnId, observations);
@@ -179,6 +197,9 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
   };
 
   const renderGeneralDetails = (currentItem: Purchase | Return | Transfer) => {
+    const isTransfer = 'source_stock' in currentItem;
+    const isPurchase = 'products' in currentItem && !isTransfer;
+    
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -243,9 +264,32 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               }
             </p>
           </div>
+          
+          {isTransfer && (
+            <>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <ArrowRightLeft className="h-4 w-4" />
+                  <span>Estoque de Origem:</span>
+                </div>
+                <p className="font-medium">
+                  {stockLocations.find(l => l.value === (currentItem as Transfer).source_stock)?.label || (currentItem as Transfer).source_stock}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <ArrowRightLeft className="h-4 w-4" />
+                  <span>Estoque de Destino:</span>
+                </div>
+                <p className="font-medium">
+                  {stockLocations.find(l => l.value === (currentItem as Transfer).destination_stock)?.label || (currentItem as Transfer).destination_stock}
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
-        {type === 'purchase' && (currentItem as Purchase).observation && (
+        {isPurchase && (currentItem as Purchase).observation && (
           <div className="space-y-2 mt-4">
             <h4 className="font-medium flex items-center gap-2 text-muted-foreground">
               <FileText className="h-4 w-4" /> Observações da Compra:
@@ -256,7 +300,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           </div>
         )}
 
-        {type === 'purchase' && renderPurchaseProducts(currentItem as ExtendedPurchase)}
+        {isPurchase && renderPurchaseProducts(currentItem as ExtendedPurchase)}
+        {isTransfer && renderTransferProducts(currentItem as Transfer)}
         {type === 'return' && renderReturnObservations(currentItem as Return)}
       </div>
     );
@@ -453,6 +498,102 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     );
   };
  
+  const renderTransferProducts = (transfer: Transfer) => {
+    const allProductsVerified = transfer.products?.every(p => p.is_verified) || false;
+    const transferInInventory = transfer.status?.toLowerCase().includes('estoque');
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold border-b pb-2">Produtos em Transferência</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="text-center">
+            <h4 className="font-medium text-blue-800">Estoque de Origem</h4>
+            <p className="text-lg font-bold text-blue-600">
+              {stockLocations.find(l => l.value === transfer.source_stock)?.label || transfer.source_stock}
+            </p>
+          </div>
+          <div className="text-center">
+            <h4 className="font-medium text-blue-800">Estoque de Destino</h4>
+            <p className="text-lg font-bold text-blue-600">
+              {stockLocations.find(l => l.value === transfer.destination_stock)?.label || transfer.destination_stock}
+            </p>
+          </div>
+        </div>
+        
+        <div className="space-y-3">
+          {transfer.products?.map((product) => (
+            <div
+              key={product.id}
+              className={`p-4 border rounded-lg ${product.is_verified ? 'bg-green-50 border-green-200' : 'bg-transparent'}`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold">
+                    {product.name || `Item ${product.id}`}
+                    {product.sku && ` - ${product.sku}`}
+                  </h4>
+                  <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
+                    <span>Quantidade: <span className="font-medium text-foreground">{product.quantity || 0}</span></span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {!product.is_verified ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        // For transfers, we'll verify without additional data
+                        handleVerifyTransferProduct(transfer.id, product.id);
+                      }}
+                    >
+                      <CheckSquare className="h-4 w-4 mr-2" /> Conferir
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" className="bg-white cursor-default pointer-events-none">
+                      <CheckCircle className="h-4 w-4 mr-2 text-green-600" /> Conferido
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="flex justify-end pt-4 border-t">
+          {allProductsVerified && !transferInInventory && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button>
+                  <Database className="h-4 w-4 mr-2" /> Finalizar Transferência
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Finalizar Transferência</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja finalizar esta transferência? Esta ação irá arquivar a transferência.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => addProductToInventory(transfer.id)}>
+                    Confirmar e Arquivar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {transferInInventory && (
+            <Badge className="bg-green-100 text-green-800 py-2 px-3 border-transparent">
+              <Database className="h-4 w-4 mr-2" /> Transferência Finalizada
+            </Badge>
+          )}
+        </div>
+      </div>
+    );
+  };
+  
   const renderReturnObservations = (returnItem: Return) => {
     return (
       <div className="space-y-4">

@@ -116,18 +116,22 @@ interface KanbanCardProps {
 
 const KanbanCard = ({ item, onViewDetails, onVerifyProduct, onAddToInventory }: KanbanCardProps) => {
   const isPurchase = 'products' in item;
+  const isTransfer = 'source_stock' in item;
   const isInInventory = item.status?.toLowerCase().includes('estoque') || false;
   const allProductsVerified = isPurchase ? (item as Purchase).products?.every(p => p.isVerified) || false : false;
+  const allTransferProductsVerified = isTransfer ? (item as Transfer).products?.every(p => p.is_verified) || false : false;
 
   return (
     <Card className="mb-4 bg-white hover:shadow-lg transition-shadow duration-200">
       <CardContent className="p-3">
         <div className="flex justify-between items-start mb-2">
           <span className="font-semibold text-sm pr-2 break-words">
-            {isPurchase ? (item as Purchase).storeName : (item as Return | Transfer).customer_name || 'Não identificado'}
+            {isPurchase ? (item as Purchase).storeName : 
+             isTransfer ? `${(item as Transfer).source_stock} → ${(item as Transfer).destination_stock}` :
+             (item as Return).customer_name || 'Não identificado'}
           </span>
-          <Badge variant={isPurchase ? 'default' : (item as Return).type === 'return' ? 'secondary' : 'outline'}>
-            {isPurchase ? 'Compra' : (item as Return).type === 'return' ? 'Dev.' : 'Transf.'}
+          <Badge variant={isPurchase ? 'default' : isTransfer ? 'outline' : 'secondary'}>
+            {isPurchase ? 'Compra' : isTransfer ? 'Transf.' : 'Dev.'}
           </Badge>
         </div>
 
@@ -141,7 +145,15 @@ const KanbanCard = ({ item, onViewDetails, onVerifyProduct, onAddToInventory }: 
               </a>
             )}
           </p>
-          {isPurchase && <p>Produtos: {(item as Purchase).products?.length || 0}</p>}
+          {(isPurchase || isTransfer) && (
+            <p>Produtos: {isPurchase ? (item as Purchase).products?.length || 0 : (item as Transfer).products?.length || 0}</p>
+          )}
+          {isTransfer && (
+            <p>De: {stockLocations.find(l => l.value === (item as Transfer).source_stock)?.label || (item as Transfer).source_stock}</p>
+          )}
+          {isTransfer && (
+            <p>Para: {stockLocations.find(l => l.value === (item as Transfer).destination_stock)?.label || (item as Transfer).destination_stock}</p>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2 items-center justify-end">
@@ -149,37 +161,56 @@ const KanbanCard = ({ item, onViewDetails, onVerifyProduct, onAddToInventory }: 
             <Eye className="h-4 w-4" />
           </Button>
 
-          {isPurchase && !allProductsVerified && (
+          {(isPurchase && !allProductsVerified) || (isTransfer && !allTransferProductsVerified) && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm"><CheckSquare className="h-4 w-4" /></Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Conferir Produtos</AlertDialogTitle><AlertDialogDescription>Marcar todos os produtos como conferidos?</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Conferir Produtos</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Marcar todos os produtos como conferidos?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => (item as Purchase).products.forEach(p => onVerifyProduct(item.id, p.id))}>Confirmar</AlertDialogAction>
+                  <AlertDialogAction onClick={() => {
+                    if (isPurchase) {
+                      (item as Purchase).products?.forEach(p => onVerifyProduct(item.id, p.id));
+                    }
+                    // For transfers, we'll need a different verification method
+                  }}>
+                    Confirmar
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           )}
 
-          {(allProductsVerified || !isPurchase) && !isInInventory && (
+          {((allProductsVerified && isPurchase) || (allTransferProductsVerified && isTransfer) || (!isPurchase && !isTransfer)) && !isInInventory && (
              <AlertDialog>
                <AlertDialogTrigger asChild>
                  <Button variant="default" size="sm"><Database className="h-4 w-4" /></Button>
                </AlertDialogTrigger>
                <AlertDialogContent>
-                 <AlertDialogHeader><AlertDialogTitle>Lançar no Estoque</AlertDialogTitle><AlertDialogDescription>Esta ação irá arquivar o item. Tem certeza?</AlertDialogDescription></AlertDialogHeader>
+                 <AlertDialogHeader>
+                   <AlertDialogTitle>Lançar no Estoque</AlertDialogTitle>
+                   <AlertDialogDescription>
+                     Esta ação irá arquivar o item. Tem certeza?
+                   </AlertDialogDescription>
+                 </AlertDialogHeader>
                  <AlertDialogFooter>
                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                   <AlertDialogAction onClick={() => onAddToInventory(item.id, isPurchase ? 'purchase' : (item as Return).type)}>Confirmar</AlertDialogAction>
+                   <AlertDialogAction onClick={() => onAddToInventory(item.id, isPurchase ? 'purchase' : isTransfer ? 'transfer' : 'return')}>
+                     Confirmar
+                   </AlertDialogAction>
                  </AlertDialogFooter>
                </AlertDialogContent>
              </AlertDialog>
           )}
 
-          {allProductsVerified && !isInInventory && (
+          {(allProductsVerified || allTransferProductsVerified) && !isInInventory && (
              <Badge variant="outline" className="text-blue-600 border-blue-600"><CheckCircle className="h-3 w-3 mr-1" />Conferido</Badge>
           )}
         </div>

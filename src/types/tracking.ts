@@ -60,6 +60,20 @@ export interface Transfer {
   is_archived: boolean;
   created_at: string;
   updated_at: string;
+  source_stock: string;
+  destination_stock: string;
+  products: TransferProduct[];
+}
+
+export interface TransferProduct {
+  id: string;
+  transfer_id: string;
+  name: string;
+  quantity: number;
+  sku?: string;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export type TrackingItem = Purchase | Return | Transfer;
