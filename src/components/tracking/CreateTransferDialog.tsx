@@ -123,7 +123,6 @@ export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialo
     try {
       await createTransfer({
         ...formData,
-        customerName: formData.customer_name,
         products,
       });
 

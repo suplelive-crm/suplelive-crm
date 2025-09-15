@@ -624,7 +624,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
         date: transferData.date,
         carrier: transferData.carrier,
         storeName: transferData.storeName,
-        customer_name: transferData.customerName,
+        customer_name: transferData.customer_name,
         trackingCode: transferData.trackingCode,
         source_stock: transferData.source_stock,
         destination_stock: transferData.destination_stock,
