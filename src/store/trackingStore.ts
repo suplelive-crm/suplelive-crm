@@ -16,8 +16,7 @@ interface PurchaseFormData {
     observation?: string; // Novo campo não obrigatório
 }
 
-// CORREÇÃO: A interface FormProduct agora usa 'SKU' (maiúsculo)
-// para padronizar com a coluna do banco de dados e o ProductAutocomplete.
+// CORREÇÃO: A interface agora usa 'SKU' (maiúsculo)
 type FormProduct = Partial<{
     id: string | number;
     name: string;
@@ -300,7 +299,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
                 name: product.name,
                 quantity: product.quantity,
                 cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
-                SKU: product.SKU, // CORRIGIDO: Agora usa a propriedade SKU (maiúscula)
+                SKU: product.SKU, 
                 purchase_id: purchase.id,
                 is_verified: false,
                 is_in_stock: false,
@@ -356,7 +355,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
                     id: product.id,
                     purchase_id: purchaseId,
                     name: product.name,
-                    SKU: product.SKU, // CORRIGIDO: Usa a propriedade SKU (maiúscula)
+                    SKU: product.SKU, 
                     quantity: product.quantity,
                     cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
                 }));
@@ -373,7 +372,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
                 const insertPayload = productsToInsert.map(product => ({
                     purchase_id: purchaseId,
                     name: product.name,
-                    SKU: product.SKU, // CORRIGIDO: Usa a propriedade SKU (maiúscula)
+                    SKU: product.SKU, 
                     quantity: product.quantity,
                     cost: parseFloat(((product.cost || 0) + deliveryFeePerUnit).toFixed(2)),
                     is_verified: false,
@@ -713,9 +712,8 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
                 if (type === 'purchase') get().fetchPurchases();
                 else if (type === 'return') get().fetchReturns();
                 else if (type === 'transfer') get().fetchTransfers();
-            } catch (error: any) {
+            } catch (error) {
                 console.error(`Error updating ${item.carrier} tracking for ${type} ${id}:`, error);
-                throw error;
             }
         });
     },
@@ -729,16 +727,16 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
             if (purchaseData) {
                 const mappedPurchaseData: Purchase = {
                     ...purchaseData,
-                    products: (purchaseData.products || []).map((p: any) => ({ ...p })) as PurchaseProduct[],
+                    products: (purchaseData.products || []).map((p) => ({ ...p })) as PurchaseProduct[],
                     metadata: purchaseData.metadata,
                     observation: purchaseData.observation,
                 } as Purchase;
-                return { type: 'purchase' as const, item: mappedPurchaseData };
+                return { type: 'purchase', item: mappedPurchaseData };
             }
             const { data: returnData } = await supabase.from('returns').select('*, metadata').eq('workspace_id', currentWorkspace.id).eq('trackingCode', trackingCode).maybeSingle();
-            if (returnData) { return { type: 'return' as const, item: returnData as Return }; }
+            if (returnData) { return { type: 'return', item: returnData as Return }; }
             const { data: transferData } = await supabase.from('transfers').select('*, metadata').eq('workspace_id', currentWorkspace.id).eq('trackingCode', trackingCode).maybeSingle();
-            if (transferData) { return { type: 'transfer' as const, item: transferData as Transfer }; }
+            if (transferData) { return { type: 'transfer', item: transferData as Transfer }; }
             return null;
         }) || null;
     },
@@ -755,11 +753,11 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
                 const parsedData = parseTrackingResponse(carrier, trackingData);
                 return { success: true, data: parsedData };
             } else {
-                return { success: false, error: (trackingData as any).message || 'Falha ao rastrear objeto' };
+                return { success: false, error: (trackingData).message || 'Falha ao rastrear objeto' };
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error tracking package:', error);
-            return { success: false, error: error.message || 'Falha ao rastrear objeto' };
+            return { success: false, error: (error).message || 'Falha ao rastrear objeto' };
         }
     },
 }));
