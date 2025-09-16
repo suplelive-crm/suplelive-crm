@@ -19,7 +19,7 @@ interface CreatePurchaseDialogProps {
 type FormProduct = Partial<{
     id: string | number;
     name: string;
-    sku: string;
+    SKU: string;
     quantity: number;
     cost: number;
 }>
@@ -73,7 +73,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
             ...newProducts[index],
             id: selectedProduct.id,
             name: selectedProduct.name,
-            sku: selectedProduct.sku || selectedProduct.SKU || '', // CORRIGIDO: Adicionando a verificação de 'sku' e 'SKU'
+            SKU: selectedProduct.sku || selectedProduct.SKU || '', // CORRIGIDO: Adicionando a verificação de 'sku' e 'SKU'
         };
         setProducts(newProducts);
     };
