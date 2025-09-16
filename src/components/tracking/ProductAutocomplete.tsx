@@ -3,12 +3,11 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 
-// Interface ajustada para ser mais flexível com a nomenclatura do SKU
+// CORREÇÃO: A interface agora usa 'SKU' (maiúsculo)
 interface Product {
   id: string | number;
   name: string;
-  sku?: string; // Pode vir do banco como minúsculo
-  SKU?: string; // O formato que usamos na aplicação
+  SKU?: string;
 }
 
 interface ProductAutocompleteProps {
@@ -80,13 +79,13 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
     }
   }, [inputValue, filteredProducts.length]);
 
-  // CORREÇÃO APLICADA AQUI
   const handleSelect = (product: Product) => {
     // 1. Cria um novo objeto de produto para garantir a consistência dos dados.
     const standardizedProduct = {
       ...product,
       // 2. Garante que a propriedade SKU (maiúscula) seja preenchida,
-      //    pegando o valor de 'SKU' ou 'sku' do produto original.
+      //    pegando o valor de 'SKU' ou 'sku' do produto original,
+      //    mesmo se o banco de dados tiver em minúsculo.
       SKU: product.SKU || product.sku || '',
     };
     // 3. Envia o objeto padronizado para o componente pai.
@@ -123,7 +122,7 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
               {filteredProducts.map((product) => (
                 <CommandItem
                   key={product.id}
-                  onSelect={() => handleSelect(product)} // Esta chamada agora usa nossa função corrigida
+                  onSelect={() => handleSelect(product)}
                   className="cursor-pointer"
                 >
                   {product.name}
@@ -136,4 +135,3 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
     </Popover>
   );
 }
-
