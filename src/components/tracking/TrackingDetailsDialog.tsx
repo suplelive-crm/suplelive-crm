@@ -19,6 +19,13 @@ import { useTrackingStore } from '@/store/trackingStore';
 import { useToast } from '@/hooks/use-toast';
 import { getTrackingUrl } from '@/lib/tracking-api';
 
+const stockLocations = [
+  { value: 'principal', label: 'Estoque Principal' },
+  { value: 'secundario', label: 'Estoque Secundário' },
+  { value: 'deposito', label: 'Depósito' },
+  { value: 'loja', label: 'Loja Física' }
+];
+
 interface TrackingDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
