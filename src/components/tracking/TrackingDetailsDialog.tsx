@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  Calendar, Package, Truck, CheckSquare, Archive, ExternalLink, RefreshCw,
-  CheckCircle, Database, MapPin, Clock, List, FileText, DollarSign, ArrowRightLeft
-} from 'lucide-react';
+import { Calendar, Package, Truck, SquareCheck as CheckSquare, Archive, ExternalLink, RefreshCw, CircleCheck as CheckCircle, Database, MapPin, Clock, List, FileText, DollarSign, ArrowRightLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
