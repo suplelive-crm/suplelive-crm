@@ -69,7 +69,8 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
     archivePurchase,
     archiveReturn,
     archiveTransfer,
-    verifyReturn
+    verifyReturn,
+    verifyTransferProduct
   } = useTrackingStore();
   const { toast } = useToast();
 
