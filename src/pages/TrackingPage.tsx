@@ -217,6 +217,7 @@ export function TrackingPage() {
     fetchTransfers();
   }, [fetchPurchases, fetchReturns, fetchTransfers]);
 
+  // LÓGICA DE FILTRAGEM MODIFICADA
   const filteredData = useMemo(() => {
     let dataToFilter: GenericItem[] = [];
     if (activeTab === 'purchases') dataToFilter = purchases;
@@ -224,14 +225,25 @@ export function TrackingPage() {
     if (activeTab === 'transfers') dataToFilter = transfers;
 
     return dataToFilter.filter(item => {
-      // **LÓGICA ADICIONADA AQUI:** Filtra por itens arquivados
-      if (showArchived && item.is_archived !== true) {
-          return false;
-      }
-      if (!showArchived && item.is_archived === true) {
-          return false;
+      // Lógica de arquivamento
+      if (activeTab === 'transfers') {
+        const transferItem = item as Transfer;
+        // Para transferências, 'arquivado' significa 'in_stock' é true.
+        if (showArchived) {
+          if (!transferItem.in_stock) return false;
+        } else {
+          if (transferItem.in_stock) return false;
+        }
+      } else {
+        // Para as outras abas, usa a flag is_archived.
+        if (showArchived) {
+          if (!item.is_archived) return false;
+        } else {
+          if (item.is_archived) return false;
+        }
       }
 
+      // Lógica de filtros (permanece a mesma)
       const searchTermLower = searchTerm.toLowerCase();
       const productSearchTermLower = productSearchTerm.toLowerCase();
       const generalSearchMatch =
@@ -267,7 +279,7 @@ export function TrackingPage() {
   
   const handleViewDetails = (item: GenericItem) => {
     setSelectedItem(item);
-    if ('products' in item) {
+    if ('products' in item && activeTab === 'purchases') { // Check activeTab to be sure
       setSelectedItemType('purchase');
     } else if (activeTab === 'returns') {
       setSelectedItemType('return');
@@ -352,17 +364,17 @@ export function TrackingPage() {
   const renderTableView = () => {
     const tableHeaders = {
       purchases: [
-        { key: 'date', label: 'Data' }, { key: 'customerName', label: 'Loja/Cliente' }, { key: 'trackingCode', label: 'Rastreio' },
+        { key: 'date', label: 'Data' }, { key: 'customer_name', label: 'Loja/Cliente' }, { key: 'trackingCode', label: 'Rastreio' },
         { key: 'products', label: 'Produtos' }, { key: 'status', label: 'Status' }, { key: 'updated_at', label: 'Última Atualização' },
         { key: 'estimated_delivery', label: 'Previsão' }
       ],
       returns: [
-        { key: 'date', label: 'Data' }, { key: 'customerName', label: 'Cliente' }, { key: 'storeName', label: 'Loja' },
+        { key: 'date', label: 'Data' }, { key: 'customer_name', label: 'Cliente' }, { key: 'storeName', label: 'Loja' },
         { key: 'carrier', label: 'Transportadora' }, { key: 'trackingCode', label: 'Rastreio' }, { key: 'status', label: 'Status' },
         { key: 'estimated_delivery', label: 'Previsão' }, { key: 'observations', label: 'Observações' }, { key: 'is_verified', label: 'Conferido' }
       ],
       transfers: [
-        { key: 'date', label: 'Data' }, { key: 'customerName', label: 'Cliente' }, { key: 'storeName', label: 'Loja' },
+        { key: 'date', label: 'Data' }, { key: 'customer_name', label: 'Cliente' }, { key: 'storeName', label: 'Loja' },
         { key: 'carrier', label: 'Transportadora' }, { key: 'trackingCode', label: 'Rastreio' }, { key: 'status', label: 'Status' },
         { key: 'estimated_delivery', label: 'Previsão' }, { key: 'source_stock', label: 'Origem → Destino' }, { key: 'products', label: 'Produtos' }
       ]
@@ -372,7 +384,7 @@ export function TrackingPage() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} ({filteredData.length})</CardTitle>
+          <CardTitle>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} ({totalRows})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -478,8 +490,8 @@ export function TrackingPage() {
                           </TableCell>
                           <TableCell><Badge className={getStatusColor(transfer.status)}>{transfer.status || 'Não informado'}</Badge></TableCell>
                           <TableCell>{transfer.estimated_delivery ? new Date(transfer.estimated_delivery).toLocaleDateString('pt-BR') : 'N/A'}</TableCell>
-                          <TableCell>N/A</TableCell>
-                          <TableCell>N/A</TableCell>
+                          <TableCell>{transfer.source_stock} → {transfer.destination_stock}</TableCell>
+                          <TableCell>{transfer.products?.length || 0} item(s)</TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
                               <Button variant="outline" size="sm" onClick={() => handleViewDetails(transfer)}><Eye className="h-4 w-4" /></Button>
