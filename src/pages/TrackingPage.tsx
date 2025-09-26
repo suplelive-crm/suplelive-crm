@@ -217,7 +217,6 @@ export function TrackingPage() {
     fetchTransfers();
   }, [fetchPurchases, fetchReturns, fetchTransfers]);
 
-  // LÓGICA DE FILTRAGEM MODIFICADA
   const filteredData = useMemo(() => {
     let dataToFilter: GenericItem[] = [];
     if (activeTab === 'purchases') dataToFilter = purchases;
@@ -225,25 +224,30 @@ export function TrackingPage() {
     if (activeTab === 'transfers') dataToFilter = transfers;
 
     return dataToFilter.filter(item => {
-      // Lógica de arquivamento
+      // ===== LÓGICA DE ARQUIVAMENTO ATUALIZADA =====
       if (activeTab === 'transfers') {
-        const transferItem = item as Transfer;
-        // Para transferências, 'arquivado' significa 'in_stock' é true.
+        const transferItem = item as Transfer & { conferido?: boolean; in_stock?: boolean; retirado_stock?: boolean };
+        
+        // Define que "arquivado" para transferências significa que as 3 colunas são `true`
+        const isConsideredArchived = transferItem.conferido === true && transferItem.in_stock === true && transferItem.retirado_stock === true;
+        
         if (showArchived) {
-          if (!transferItem.in_stock) return false;
+          // Se "Mostrar Arquivados" está LIGADO, mostra APENAS os que atendem à condição.
+          if (!isConsideredArchived) return false;
         } else {
-          if (transferItem.in_stock) return false;
+          // Se "Mostrar Arquivados" está DESLIGADO, esconde os que atendem à condição.
+          if (isConsideredArchived) return false;
         }
       } else {
-        // Para as outras abas, usa a flag is_archived.
+        // Lógica original para Compras e Devoluções usando `is_archived`.
         if (showArchived) {
           if (!item.is_archived) return false;
         } else {
           if (item.is_archived) return false;
         }
       }
-
-      // Lógica de filtros (permanece a mesma)
+      
+      // ===== RESTANTE DA LÓGICA DE FILTRO (SEM ALTERAÇÕES) =====
       const searchTermLower = searchTerm.toLowerCase();
       const productSearchTermLower = productSearchTerm.toLowerCase();
       const generalSearchMatch =
@@ -279,7 +283,7 @@ export function TrackingPage() {
   
   const handleViewDetails = (item: GenericItem) => {
     setSelectedItem(item);
-    if ('products' in item && activeTab === 'purchases') { // Check activeTab to be sure
+    if (activeTab === 'purchases') {
       setSelectedItemType('purchase');
     } else if (activeTab === 'returns') {
       setSelectedItemType('return');
