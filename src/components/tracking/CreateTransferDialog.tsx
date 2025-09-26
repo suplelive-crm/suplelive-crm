@@ -317,6 +317,22 @@ export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialo
                     onSelect={(selectedProduct) => handleProductSelect(index, selectedProduct)}
                     onInputChange={(text) => handleProductFieldChange(index, 'name', text)}
                   />
+                  {/* Display stock quantity if product is selected */}
+                  {product.sku && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {(() => {
+                        const selectedDbProduct = dbProducts.find(p => 
+                          (p.sku === product.sku) || (p.SKU === product.sku)
+                        );
+                        return selectedDbProduct ? (
+                          <span className="flex items-center gap-1">
+                            <Package className="h-3 w-3" />
+                            Estoque disponível: {selectedDbProduct.stock} unidades
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

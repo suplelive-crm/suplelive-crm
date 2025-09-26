@@ -8,6 +8,7 @@ interface Product {
   id: string | number;
   name: string;
   SKU?: string;
+  stock?: number;
 }
 
 interface ProductAutocompleteProps {
@@ -125,7 +126,14 @@ export function ProductAutocomplete({ products, value, onSelect, onInputChange }
                   onSelect={() => handleSelect(product)}
                   className="cursor-pointer"
                 >
-                  {product.name}
+                  <div className="flex items-center justify-between w-full">
+                    <span>{product.name}</span>
+                    {typeof product.stock === 'number' && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        Estoque: {product.stock}
+                      </span>
+                    )}
+                  </div>
                 </CommandItem>
               ))}
             </CommandGroup>
