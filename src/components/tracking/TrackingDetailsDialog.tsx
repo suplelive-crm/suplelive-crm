@@ -505,7 +505,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
  
   const renderTransferProducts = (transfer: Transfer) => {
     const allProductsVerified = transfer.products?.every(p => p.is_verified) || false;
-    const transferInInventory = transfer.status?.toLowerCase().includes('estoque');
+    const transferInInventory = transfer.in_stock || transfer.status?.toLowerCase().includes('estoque');
 
     return (
       <div className="space-y-4">
@@ -522,6 +522,25 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
             <h4 className="font-medium text-blue-800">Estoque de Destino</h4>
             <p className="text-lg font-bold text-blue-600">
               {stockLocations.find(l => l.value === transfer.destination_stock)?.label || transfer.destination_stock}
+            </p>
+          </div>
+        </div>
+        
+        {/* Transfer Status Indicators */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className={`p-2 rounded-lg text-center ${transfer.conferido ? 'bg-green-100 border-green-200' : 'bg-gray-100 border-gray-200'} border`}>
+            <p className={`text-xs font-medium ${transfer.conferido ? 'text-green-800' : 'text-gray-600'}`}>
+              {transfer.conferido ? '✓ Conferido' : 'Não Conferido'}
+            </p>
+          </div>
+          <div className={`p-2 rounded-lg text-center ${transfer.in_stock ? 'bg-green-100 border-green-200' : 'bg-gray-100 border-gray-200'} border`}>
+            <p className={`text-xs font-medium ${transfer.in_stock ? 'text-green-800' : 'text-gray-600'}`}>
+              {transfer.in_stock ? '✓ No Estoque' : 'Não Lançado'}
+            </p>
+          </div>
+          <div className={`p-2 rounded-lg text-center ${transfer.retirado_stock ? 'bg-green-100 border-green-200' : 'bg-gray-100 border-gray-200'} border`}>
+            <p className={`text-xs font-medium ${transfer.retirado_stock ? 'text-green-800' : 'text-gray-600'}`}>
+              {transfer.retirado_stock ? '✓ Retirado' : 'Não Retirado'}
             </p>
           </div>
         </div>
@@ -548,7 +567,6 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                       variant="outline" 
                       size="sm" 
                       onClick={() => {
-                        // For transfers, we'll verify without additional data
                         handleVerifyTransferProduct(transfer.id, product.id);
                       }}
                     >
@@ -577,13 +595,13 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
                 <AlertDialogHeader>
                   <AlertDialogTitle>Finalizar Transferência</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Tem certeza que deseja finalizar esta transferência? Esta ação irá arquivar a transferência.
+                    Tem certeza que deseja lançar esta transferência no estoque?
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction onClick={() => addTransferToInventory(transfer.id)}>
-                    Confirmar e Arquivar
+                    Lançar no Estoque
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -591,7 +609,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           )}
           {transferInInventory && (
             <Badge className="bg-green-100 text-green-800 py-2 px-3 border-transparent">
-              <Database className="h-4 w-4 mr-2" /> Transferência Finalizada
+              <Database className="h-4 w-4 mr-2" /> Lançado no Estoque
             </Badge>
           )}
         </div>

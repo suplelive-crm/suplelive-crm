@@ -46,6 +46,8 @@ interface TrackingState {
     updateProductStatusToInStock: (purchaseId: string, productId: string) => Promise<void>;
     verifyTransferProduct: (transferId: string, productId: string) => Promise<void>;
     addTransferToInventory: (transferId: string) => Promise<void>;
+    updateTransferStatus: (transferId: string, status: 'conferido' | 'in_stock' | 'retirado_stock', value: boolean) => Promise<void>;
+    archiveTransfer: (id: string) => Promise<void>;
     createReturn: (returnData: {
         date: string;
         carrier: string;
@@ -509,6 +511,30 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
                 throw error;
             }
 
+            // Check if all products are verified, then update transfer status
+            const { data: allProducts, error: fetchError } = await supabase
+                .from('transfer_products')
+                .select('is_verified')
+                .eq('transfer_id', transferId);
+
+            if (fetchError) {
+                console.error("Erro ao buscar produtos da transferência:", fetchError);
+                throw fetchError;
+            }
+
+            const allVerified = allProducts?.every(p => p.is_verified) || false;
+            
+            if (allVerified) {
+                await supabase
+                    .from('transfers')
+                    .update({ 
+                        conferido: true,
+                        status: 'Conferido',
+                        updated_at: new Date().toISOString() 
+                    })
+                    .eq('id', transferId);
+            }
+
             get().fetchTransfers();
             ErrorHandler.showSuccess('Produto da transferência verificado com sucesso!');
         });
@@ -516,7 +542,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
     addTransferToInventory: async (transferId) => {
         await ErrorHandler.handleAsync(async () => {
-            // Mark all products as verified and archive the transfer
+            // Mark all products as verified and update transfer status
             const { error: productsUpdateError } = await supabase
                 .from('transfer_products')
                 .update({ 
@@ -533,8 +559,10 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
             const { error: transferUpdateError } = await supabase
                 .from('transfers')
                 .update({ 
-                    is_archived: true, 
-                    status: 'Transferência finalizada', 
+                    conferido: true,
+                    in_stock: true,
+                    retirado_stock: true,
+                    status: 'Lançado no estoque', 
                     updated_at: new Date().toISOString() 
                 })
                 .eq('id', transferId);
@@ -545,7 +573,56 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
             }
 
             get().fetchTransfers();
-            ErrorHandler.showSuccess('Transferência finalizada e arquivada com sucesso!');
+            ErrorHandler.showSuccess('Transferência lançada no estoque com sucesso!');
+        });
+    },
+
+    updateTransferStatus: async (transferId: string, status: 'conferido' | 'in_stock' | 'retirado_stock', value: boolean) => {
+        await ErrorHandler.handleAsync(async () => {
+            const updateData: any = { 
+                [status]: value,
+                updated_at: new Date().toISOString() 
+            };
+
+            // Update status text based on the flags
+            if (status === 'conferido' && value) {
+                updateData.status = 'Conferido';
+            } else if (status === 'in_stock' && value) {
+                updateData.status = 'Lançado no estoque';
+            }
+
+            const { error } = await supabase
+                .from('transfers')
+                .update(updateData)
+                .eq('id', transferId);
+
+            if (error) {
+                console.error("Erro ao atualizar status da transferência:", error);
+                throw error;
+            }
+
+            get().fetchTransfers();
+            ErrorHandler.showSuccess('Status da transferência atualizado com sucesso!');
+        });
+    },
+
+    archiveTransfer: async (id) => {
+        await ErrorHandler.handleAsync(async () => {
+            const { error } = await supabase
+                .from('transfers')
+                .update({ 
+                    is_archived: true, 
+                    updated_at: new Date().toISOString() 
+                })
+                .eq('id', id);
+
+            if (error) { 
+                console.error("Error archiving transfer:", error); 
+                throw error; 
+            }
+            
+            get().fetchTransfers();
+            ErrorHandler.showSuccess('Transferência arquivada com sucesso!');
         });
     },
 

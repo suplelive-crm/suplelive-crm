@@ -63,6 +63,9 @@ export interface Transfer {
   source_stock: string;
   destination_stock: string;
   products: TransferProduct[];
+  conferido?: boolean;
+  in_stock?: boolean;
+  retirado_stock?: boolean;
 }
 
 export interface TransferProduct {
