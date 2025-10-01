@@ -736,30 +736,58 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Fechar
               </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className='bg-red-700 hover:bg-red-800'>
-                    <Archive className="h-4 w-4 mr-2" /> Arquivar
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Arquivar Item</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tem certeza que deseja arquivar este item? Ele será movido para a lista de arquivados.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      className='bg-red-700 hover:bg-red-800'
-                      onClick={() => handleArchiveItem(item.id, type)}
-                    >
-                      Sim, Arquivar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              {/* Show archive button only for transfers that are fully processed */}
+              {type === 'transfer' && (item as Transfer).conferido && (item as Transfer).in_stock && (item as Transfer).retirado_stock ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className='bg-red-700 hover:bg-red-800'>
+                      <Archive className="h-4 w-4 mr-2" /> Arquivar
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Arquivar Transferência</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja arquivar esta transferência? Ela será movida para a lista de arquivados.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        className='bg-red-700 hover:bg-red-800'
+                        onClick={() => handleArchiveItem(item.id, type)}
+                      >
+                        Sim, Arquivar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : type !== 'transfer' ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className='bg-red-700 hover:bg-red-800'>
+                      <Archive className="h-4 w-4 mr-2" /> Arquivar
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Arquivar Item</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja arquivar este item? Ele será movido para a lista de arquivados.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        className='bg-red-700 hover:bg-red-800'
+                        onClick={() => handleArchiveItem(item.id, type)}
+                      >
+                        Sim, Arquivar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : null}
             </div>
           </DialogFooter>
         </DialogContent>
