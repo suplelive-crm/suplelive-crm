@@ -240,9 +240,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
                 `)
                 .eq('workspace_id', currentWorkspace.id)
                 .order('date', { ascending: false });
-            if (!get().showArchived) {
-                query = query.eq('is_archived', false);
-            }
+            // Não filtra mais por is_archived aqui, deixa a UI controlar
             const { data, error } = await query;
             if (error) throw error;
             const formattedData: Transfer[] = (data || []).map((item: any) => ({

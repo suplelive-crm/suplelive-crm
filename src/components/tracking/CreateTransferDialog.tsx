@@ -24,6 +24,7 @@ type FormProduct = {
 const stockLocations = [
   { value: 'vitoria', label: 'Vitória' },
   { value: 'sao_paulo', label: 'São Paulo' },
+  { value: 'full', label: 'Full' },
 ];
 
 export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialogProps) {
