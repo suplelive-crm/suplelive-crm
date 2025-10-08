@@ -9,7 +9,7 @@ const activities = [
     id: 1,
     user: 'John Doe',
     action: 'Criou novo lead',
-    target: 'Alice Johnson',
+    target: 'Volim Raba',
     time: '2 minutos atrás',
     type: 'lead',
     icon: UserPlus,
