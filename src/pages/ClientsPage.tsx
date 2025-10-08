@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Search, Eye, UserPlus, Filter, Download, MoreHorizontal, Phone, Mail, Tag, CheckCircle, XCircle, User, Calendar, ArrowUpDown, ShoppingBag, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddClientDialog } from '@/components/clients/AddClientDialog';
+import { EditClientDialog } from '@/components/clients/EditClientDialog';
 import { RFMAnalysisCard } from '@/components/rfm/RFMAnalysisCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,8 @@ export function ClientsPage() {
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [contactToEdit, setContactToEdit] = useState<any>(null);
 
   useEffect(() => {
     fetchClients();
@@ -201,6 +204,11 @@ export function ClientsPage() {
   const handleViewOrder = (order: Order) => {
     setSelectedOrder(order);
     setIsOrderModalOpen(true);
+  };
+
+  const handleEditContact = (contact: any) => {
+    setContactToEdit(contact);
+    setEditDialogOpen(true);
   };
 
   return (
@@ -451,7 +459,7 @@ export function ClientsPage() {
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild><Button size="sm" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem>Editar</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleEditContact(contact)}>Editar</DropdownMenuItem>
                                   <DropdownMenuItem>Enviar Mensagem</DropdownMenuItem>
                                   {contact.type === 'client' && (<DropdownMenuItem>Ver Pedidos</DropdownMenuItem>)}
                                   <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
@@ -496,6 +504,13 @@ export function ClientsPage() {
         </motion.div>
       </div>
       <OrderDetailsDialog open={isOrderModalOpen} onOpenChange={setIsOrderModalOpen} order={selectedOrder} />
+      {contactToEdit && (
+        <EditClientDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          contact={contactToEdit}
+        />
+      )}
     </DashboardLayout>
   );
 }
