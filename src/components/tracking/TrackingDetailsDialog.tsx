@@ -535,7 +535,7 @@ export function TrackingDetailsDialog({ open, onOpenChange, item, type }: Tracki
           </div>
           <div className={`p-2 rounded-lg text-center ${transfer.in_stock ? 'bg-green-100 border-green-200' : 'bg-gray-100 border-gray-200'} border`}>
             <p className={`text-xs font-medium ${transfer.in_stock ? 'text-green-800' : 'text-gray-600'}`}>
-              {transfer.in_stock ? '✓ No Estoque' : 'Não Lançado'}
+              {transfer.in_stock ? '✓ Lançado' : 'Não Lançado'}
             </p>
           </div>
           <div className={`p-2 rounded-lg text-center ${transfer.retirado_stock ? 'bg-green-100 border-green-200' : 'bg-gray-100 border-gray-200'} border`}>
