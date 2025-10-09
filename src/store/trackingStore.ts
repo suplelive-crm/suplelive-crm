@@ -258,6 +258,9 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
                 workspace_id: item.workspace_id,
                 source_stock: item.source_stock,
                 destination_stock: item.destination_stock,
+                conferido: item.conferido || false,
+                in_stock: item.in_stock || false,
+                retirado_stock: item.retirado_stock || false,
                 metadata: item.metadata,
                 products: (item.products || []).map((product: any) => ({
                     id: product.id,
