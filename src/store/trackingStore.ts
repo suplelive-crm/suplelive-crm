@@ -635,7 +635,7 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
                 date: returnData.date,
                 carrier: returnData.carrier,
                 storeName: returnData.storeName,
-                customer_name: returnData.customerName,
+                customer_name: returnData.customer_name,
                 trackingCode: returnData.trackingCode,
                 status: 'Aguardando rastreamento',
                 is_archived: false,
