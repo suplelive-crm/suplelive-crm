@@ -1,0 +1,310 @@
+{
+  "name": "Enviar contato para chatwoot",
+  "nodes": [
+    {
+      "parameters": {
+        "baseUrl": "https://chat.suplelive.com.br/",
+        "accessToken": "trw59AKqTWrFF6y1wxHrWg7e",
+        "resource": "contact",
+        "accountId": "1",
+        "operation": "contactCreate",
+        "contactIdentifier": "={{ $json.id }}",
+        "name": "={{ $json.nome }}",
+        "inboxId": "3",
+        "phoneNumber": "={{ $json.telefone }}",
+        "email": "={{ $json.email }}",
+        "customAttributes": {
+          "attribute": [
+            {
+              "key": "cpf",
+              "value": "={{ $('Supabase').item.json.cpf }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-chatwoot.chatwoot",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        340
+      ],
+      "id": "1e1c1eb3-5d52-4047-a1e5-96b04676de6e",
+      "name": "ChatWoot",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "clients",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chatwoot_contact",
+              "condition": "is",
+              "keyValue": "false"
+            },
+            {
+              "keyName": "chatwoot_contact",
+              "condition": "is",
+              "keyValue": "null"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        900,
+        320
+      ],
+      "id": "dbe00a77-4fc3-4af1-ae11-92d445ce7b97",
+      "name": "Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1320,
+        320
+      ],
+      "id": "58519f8a-1e54-42c0-8902-761ec5b97bf3",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        340
+      ],
+      "id": "188df56b-4411-465d-8f6f-f1b93d2ec4be"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Função para gerar um e-mail temporário exclusivo\nconst gerarEmailTemporario = () => {\n  const timestamp = Date.now();\n  const random = Math.floor(Math.random() * 100000);\n  return `temp_${timestamp}_${random}@suplelive.com.br`;\n};\n\n// Função para gerar um telefone temporário exclusivo no formato +559XXXXXXXXX\nconst gerarTelefoneTemporario = () => {\n  const randomNumber = () => Math.floor(Math.random() * 10); // gera número de 0 a 9\n  let numero = '';\n  for (let i = 0; i < 9; i++) {\n    numero += randomNumber();\n  }\n  return `+559${numero}`;\n};\n\n// --- NOVA FUNÇÃO PARA PROCESSAR O TELEFONE ---\n// Contém a nova lógica de correção e validação\nconst processarTelefone = (telefone) => {\n  // 1. Se o telefone for nulo, indefinido, vazio ou 'SEM RESULTADO', gera um novo.\n  if (!telefone || telefone === 'SEM RESULTADO') {\n    return gerarTelefoneTemporario();\n  }\n\n  // 2. Se NÃO começa com '+' mas tem 13 dígitos, adiciona o '+' na frente.\n  if (!telefone.startsWith('+') && telefone.length === 13) {\n    return `+${telefone}`;\n  }\n\n  // 3. Se JÁ começa com '+' e tem um tamanho comum (12 para fixo, 13 para celular), o número é válido.\n  if (telefone.startsWith('+') && (telefone.length === 12 || telefone.length === 13)) {\n    return telefone;\n  }\n  \n  // 4. Para todos os outros casos, o formato é inválido, então gera um novo.\n  return gerarTelefoneTemporario();\n};\n\n\n// --- LÓGICA PRINCIPAL ---\n\n// Entrada\nconst entrada = $input.first().json;\nconst emailEntrada = entrada.email;\nconst telefoneEntrada = entrada.phone;\n\n// Verificação de e-mail inválido (sem alterações)\nconst emailEhVazio =\n  emailEntrada === undefined ||\n  emailEntrada === null ||\n  emailEntrada === '' ||\n  emailEntrada === 'SEM RESULTADO';\n\n// Resultados finais\nconst emailFinal = emailEhVazio ? gerarEmailTemporario() : emailEntrada;\n// A mágica acontece aqui: chamamos a nova função para obter o telefone final.\nconst telefoneFinal = processarTelefone(telefoneEntrada);\n\nreturn [\n  {\n    json: {\n      email: emailFinal,\n      telefone: telefoneFinal,\n      nome: $input.first().json.name,\n      id: $input.first().json.id\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        340
+      ],
+      "id": "3fb28630-b0ba-44fc-b662-8e5d27320d0b",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "eed21b65-c9da-40d8-bc0b-20f08808a1e0",
+              "leftValue": "={{ $json.chatwoot_contact }}",
+              "rightValue": "null",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1080,
+        320
+      ],
+      "id": "97324e82-a3c0-40b6-8c86-1ace461c9fb1",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "clients",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "chatwoot_contact",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1980,
+        340
+      ],
+      "id": "c03ac581-5163-489b-acf5-7ee1023fa697",
+      "name": "Supabase1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        740,
+        320
+      ],
+      "id": "42010007-2703-479c-8d0d-8ac71ca9f049",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "ChatWoot": {
+      "main": [
+        [
+          {
+            "node": "Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "ChatWoot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "74de148f-f911-4dea-b225-c16e885123ba",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "UPkayeeFvzKnDSqz",
+  "tags": []
+}

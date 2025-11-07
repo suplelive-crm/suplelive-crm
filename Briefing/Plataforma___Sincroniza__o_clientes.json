@@ -1,0 +1,777 @@
+{
+  "name": "Plataforma - Sincronização clientes",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Cria o usuario (cliente) no banco de dados, caso não exista",
+        "height": 1000,
+        "width": 3220,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -280,
+        1600
+      ],
+      "id": "8c1e7b3a-2c31-4559-bbd7-8429c53accd5",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "orders",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "client_id",
+              "condition": "is",
+              "keyValue": "null"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1920
+      ],
+      "id": "42acefb4-24ef-4a49-9a54-0fc3ee45d407",
+      "name": "Supabase3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        220,
+        1920
+      ],
+      "id": "941fe2d1-671a-44bb-a4cf-6c451de83de0",
+      "name": "Loop Over Items2"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "clients",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "cpf",
+              "keyValue": "={{ $json.cpf }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        840,
+        2020
+      ],
+      "id": "30c23589-05b8-46d1-86a6-3692d219754c",
+      "name": "Supabase7",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "29f3a747-5942-49d6-b8a7-d429cdb6e512",
+              "leftValue": "={{ $json.created_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "dateTime",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1060,
+        2020
+      ],
+      "id": "4c585c60-6e26-4353-9b6f-d329909ed691",
+      "name": "If1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "=https://ghostapis.com/api.php?token=aa21949b4c1804624d6a3a36253eeaad&cpf2={{ $('Edit Fields').item.json.cpf }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1580,
+        1960
+      ],
+      "id": "c731fc34-7a3e-4c03-b7c0-91bb1f5697af",
+      "name": "HTTP Request2",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "adda52d5-0bad-454e-823d-a8d1ee6d0047",
+              "name": "cpf",
+              "value": "={{ $json.orders[0].invoice_nip }}",
+              "type": "string"
+            },
+            {
+              "id": "e7b4f1c2-0b54-41d2-b5a7-4ee00fb30dec",
+              "name": "orders[0].delivery_fullname",
+              "value": "={{ $json.orders[0].delivery_fullname }}",
+              "type": "string"
+            },
+            {
+              "id": "574c6b78-5fc5-4cb3-b83c-179e9d17adb4",
+              "name": "orders[0].order_source",
+              "value": "={{ $json.orders[0].order_source }}",
+              "type": "string"
+            },
+            {
+              "id": "c74f3519-76a3-40b0-bb27-9c5a958cc4ce",
+              "name": "orders[0].phone",
+              "value": "={{ $json.orders[0].phone }}",
+              "type": "string"
+            },
+            {
+              "id": "bfd295cd-dfd6-4afc-955b-613a13b7a4a1",
+              "name": "orders[0].email",
+              "value": "={{ $json.orders[0].email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        2020
+      ],
+      "id": "27586ccc-6581-4bae-ba07-6156820f6de0",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "getOrders"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n\"order_id\" : \"{{ $json.order_id_base }}\"\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        2020
+      ],
+      "id": "3f5621bf-d8d4-42b7-aabd-b029de0db80f",
+      "name": "Request Orders1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "99fff530-ce21-4227-a6fa-e3dac8f29ae1",
+              "leftValue": "={{ $('Edit Fields').item.json.orders[0].order_source }}",
+              "rightValue": "shop",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        1820
+      ],
+      "id": "52470803-8e7a-4405-a997-7e22982678e5",
+      "name": "If2",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "99fff530-ce21-4227-a6fa-e3dac8f29ae1",
+              "leftValue": "={{ $('Edit Fields').item.json.orders[0].order_source }}",
+              "rightValue": "shop",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        1960
+      ],
+      "id": "a74c3223-2253-40cd-b8cc-f5855179f625",
+      "name": "If5",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json['response.TELEFONES'];\n\nconst telefones = data.split(',').map(t => t.trim());\n\nconst telefoneValido = telefones.find(t => t.replace(/\\D/g, '').length >= 11);\n\n// Limpa o telefone (mantém só os dígitos)\nconst telefoneLimpo = telefoneValido ? telefoneValido.replace(/\\D/g, '') : null;\n\n// Adiciona o +55 na frente, se houver telefone válido\nconst telefoneComPrefixo = telefoneLimpo ? `+55${telefoneLimpo}` : null;\n\nreturn [\n  {\n    json: {\n      nome: $input.first().json['response.NOME'],\n      cpf: $input.first().json['response.CPF'],\n      email: $input.first().json['response.EMAIL'],\n      telefone: telefoneComPrefixo\n    }\n  }\n];\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1940,
+        1960
+      ],
+      "id": "2b8e4e7d-f0b9-4581-9bdf-dff98e124fcb",
+      "name": "Code3",
+      "alwaysOutputData": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "response.NOME, response.TELEFONES, response.EMAIL, response.CPF",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        1960
+      ],
+      "id": "a77f71ad-acf3-4d7d-a605-43966349674e",
+      "name": "Split Out2",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "tableId": "clients",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $json.nome }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $json.telefone }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $json.email }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "user_id",
+              "fieldValue": "b01130cd-aca1-4bed-9714-019aa85788c4"
+            },
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "ec73946f-ec8f-41f0-92a6-b26a40c8262c"
+            },
+            {
+              "fieldId": "cpf",
+              "fieldValue": "={{ $json.cpf }}"
+            },
+            {
+              "fieldId": "chatwoot_contact",
+              "fieldValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2120,
+        1960
+      ],
+      "id": "5b96d2b7-3aab-4362-a9e8-cc1048158d5d",
+      "name": "Criar Cliente2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_id_base",
+              "condition": "eq",
+              "keyValue": "={{ $('Request Orders1').item.json.orders[0].order_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "client_id",
+              "fieldValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2680,
+        2260
+      ],
+      "id": "bf9f24da-ccb3-41ed-90d9-5ca83258038b",
+      "name": "Supabase8",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "clients",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('Edit Fields').item.json.orders[0].delivery_fullname }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Edit Fields').item.json.orders[0].phone }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $('Edit Fields').item.json.orders[0].email }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "user_id",
+              "fieldValue": "b01130cd-aca1-4bed-9714-019aa85788c4"
+            },
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "ec73946f-ec8f-41f0-92a6-b26a40c8262c"
+            },
+            {
+              "fieldId": "cpf",
+              "fieldValue": "={{ $('Edit Fields').item.json.cpf }}"
+            },
+            {
+              "fieldId": "chatwoot_contact",
+              "fieldValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2140,
+        1800
+      ],
+      "id": "fc978315-4187-458a-8f49-903c2e6f7706",
+      "name": "Criar Cliente3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1340,
+        2300
+      ],
+      "id": "0679eb55-7034-4440-a4b5-1e3e86147969",
+      "name": "Wait1",
+      "webhookId": "e02c34ec-7af4-4d67-89b3-22b3afb2eb62"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "29f3a747-5942-49d6-b8a7-d429cdb6e512",
+              "leftValue": "={{ $json.created_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "dateTime",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1060,
+        2140
+      ],
+      "id": "56db1c19-faa3-4026-917e-ee2ab6e4a52e",
+      "name": "If6",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -200,
+        1920
+      ],
+      "id": "12fbe8ab-7214-4025-922d-f22a1207d312",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Supabase3": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items2": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Request Orders1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase7": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If6",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If5",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Supabase7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Orders1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Criar Cliente3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If5": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Split Out2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out2": {
+      "main": [
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Criar Cliente2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Cliente2": {
+      "main": [
+        [
+          {
+            "node": "Supabase8",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase8": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Cliente3": {
+      "main": [
+        [
+          {
+            "node": "Supabase8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If6": {
+      "main": [
+        [
+          {
+            "node": "Supabase8",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1fc8fcf0-8946-4efd-ab08-f9bccbec3379",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "2XDduF585hE0s2GI",
+  "tags": []
+}

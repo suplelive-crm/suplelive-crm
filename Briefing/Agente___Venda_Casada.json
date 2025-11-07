@@ -1,0 +1,616 @@
+{
+  "name": "Agente - Venda Casada",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -740,
+        940
+      ],
+      "id": "a0537a1d-eb5e-4a00-98d1-ee2ba48ebd42",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "orders",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "mensagem_enviada",
+              "condition": "is",
+              "keyValue": "false"
+            },
+            {
+              "keyName": "canal_venda",
+              "condition": "neq",
+              "keyValue": "shop"
+            },
+            {
+              "keyName": "canal_venda",
+              "condition": "neq",
+              "keyValue": "atacado"
+            },
+            {
+              "keyName": "canal_venda",
+              "condition": "neq",
+              "keyValue": "whatsapp"
+            },
+            {
+              "keyName": "order_date",
+              "condition": "gt",
+              "keyValue": "2025-10-31 15:00:52+00"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        940
+      ],
+      "id": "7484fc65-fd8c-4f0e-9368-c36ccb566194",
+      "name": "Supabase2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -340,
+        940
+      ],
+      "id": "98552479-1565-4c4a-a3b3-bffca0ec0b38",
+      "name": "Loop pedidos"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase2').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "mensagem_enviada",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        1040
+      ],
+      "id": "0a289786-6190-4105-b51b-5c5e27fae8fd",
+      "name": "Supabase3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-image",
+        "instanceName": "SupleLive - Atendimento",
+        "remoteJid": "={{ $('Supabase4').item.json.phone }}",
+        "media": "={{ $json.images[0] }}",
+        "caption": "=Oi, {{ $('Code3').item.json.nome }}! Tudo bem? 😀\nConfirmamos sua compra do {{ $('Code3').item.json.produtoResumido }} e tenho uma surpresa especial pra você:\n\n✨ Leve mais 1 unidade com desconto exclusivo no Pix!\n\n👉 Cada unidade adicional sai por R$ {{ $('Code3').item.json.precoComDesconto }} no Pix.\n📦 O envio vai junto com o seu pedido.\n⏳ Oferta válida por 1 hora a partir do recebimento desta mensagem.\n\nÉ só me responder “SIM” aqui mesmo que já adiciono pra você. 😉",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        860
+      ],
+      "id": "9f4b81e6-ab22-484b-b39a-9e1cd80de910",
+      "name": "Evolution API4",
+      "credentials": {
+        "evolutionApi": {
+          "id": "eJk5d1sVXT5g6VkI",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "SupleLive - Atendimento",
+        "remoteJid": "={{ $('Supabase4').item.json.phone }}",
+        "messageText": "=Oi, {{ $('Code3').item.json.nome }}! Tudo bem? 😀\n\nConfirmamos sua compra do {{ $('Code3').item.json.produtoResumido }} e tenho uma surpresa especial pra você:\n\n✨ Leve mais 1 unidade com desconto exclusivo no Pix!\n\n👉 Cada unidade adicional sai por R$ {{ $('Code3').item.json.precoComDesconto }} no Pix.\n📦 O envio vai junto com o seu pedido.\n⏳ Oferta válida por 1 hora a partir do recebimento desta mensagem.\n\nÉ só me responder “SIM” aqui mesmo que já adiciono pra você. 😉",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        1160
+      ],
+      "id": "7c58c5f1-a059-444a-b879-cbef4092812a",
+      "name": "Evolution API5",
+      "credentials": {
+        "evolutionApi": {
+          "id": "eJk5d1sVXT5g6VkI",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1400,
+        1320
+      ],
+      "id": "b261dc52-c5c4-4fd2-9c63-41f5ab64bfa0",
+      "name": "Wait",
+      "webhookId": "4f848421-588a-4244-8804-55c1d3013cc1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "clients",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.client_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        60,
+        1060
+      ],
+      "id": "954d7904-7872-4ac5-b2de-5d9719425bb8",
+      "name": "Supabase4",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1e311c0c-417d-4e04-a962-d4a4aeef73c7",
+              "name": "metadata[0]",
+              "value": "={{ $json.metadata[0] }}",
+              "type": "object"
+            },
+            {
+              "id": "07fe1faf-00e1-4756-a5a3-6ebced777b6b",
+              "name": "client_id",
+              "value": "={{ $json.client_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -100,
+        1060
+      ],
+      "id": "e257accd-e7e8-465d-9864-2d46c8b9eb5b",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "sku",
+              "keyValue": "={{ $json.sku }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        620,
+        980
+      ],
+      "id": "c3c28dc6-51f8-4b64-a7f3-7aa8f8c3afcc",
+      "name": "Supabase5",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f8949102-77ba-441c-8219-226ace5494b2",
+              "leftValue": "={{ $json.created_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        880
+      ],
+      "id": "617409f5-24b1-44b5-a20b-b101971731af",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "861d25e4-3e80-45cb-98b5-f4ebf49ddb93",
+              "leftValue": "={{ $json.phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        260,
+        1100
+      ],
+      "id": "582e0345-b6a9-4ee2-a00c-8612fa865a3b",
+      "name": "If4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pega o nome do cliente do INPUT PADRÃO do node\nconst nomeCompleto = $input.first().json.name || '';\nconst primeiroNome = nomeCompleto.split(' ')[0];\n\n// Puxa os dados especificamente do node 'Edit Fields'\nconst inputData = $('Edit Fields').first().json;\n\n// --- CORREÇÃO 1: O caminho para o produto foi ajustado ---\n// Agora busca o primeiro item diretamente do array 'metadata'\nconst produto = (inputData.metadata && inputData.metadata.length > 0) \n    ? inputData.metadata[0] \n    : null;\n\n// Variáveis que serão preenchidas\nlet nomeCompletoProduto = '';\nlet palavrasRelevantes = '';\nlet precoOriginal = 0;\nlet precoComDesconto = '0.00';\nlet produtoResumido = '';\n\n// Só executa a lógica se o produto foi encontrado\nif (produto) {\n    // O nome do produto ('nome_produto') já estava correto\n    nomeCompletoProduto = produto.nome_produto;\n    palavrasRelevantes = nomeCompletoProduto\n      .replace(/\\b(\\d+mcg|\\d+ui|\\d+\\s*cápsulas|sabor:.+|\\d+)\\b/gi, '')\n      .replace(/\\b(\\d+mcg|\\d+ui|\\d+\\s*comprimidos|sabor:.+|\\d+)\\b/gi, '')\n      .trim()\n      .split(/\\s+/)\n      .slice(0, 4)\n      .join(' ');\n    \n    produtoResumido = nomeCompletoProduto.length > 40 ? palavrasRelevantes : nomeCompletoProduto;\n\n    // --- CORREÇÃO 2: O nome do campo de preço foi ajustado ---\n    // Trocado de 'preco_bruto' para 'receita_produto'\n    precoOriginal = produto.receita_produto;\n    sku = produto.sku_produto;\n    precoComDesconto = (precoOriginal * 0.80).toFixed(2);\n}\n\n// A lógica de imagem pode ser mantida ou removida se não for usar.\nlet primeiraImagem = null;\nif (inputData.products) {\n    const productKeys = Object.keys(inputData.products);\n    const firstProduct = inputData.products[productKeys[0]];\n    if (firstProduct && firstProduct.images) {\n        const imageKeys = Object.keys(firstProduct.images);\n        if (imageKeys.length > 0) {\n            primeiraImagem = firstProduct.images[imageKeys[0]];\n        }\n    }\n}\n\nreturn [\n  {\n    json: {\n      nome: primeiroNome,\n      produtoOriginal: nomeCompletoProduto,\n      produtoResumido: produtoResumido,\n      precoOriginal: `R$ ${parseFloat(precoOriginal).toFixed(2)}`,\n      precoComDesconto: `R$ ${precoComDesconto}`,\n      sku: sku,\n      imagem: primeiraImagem\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        1040
+      ],
+      "id": "056c7f85-f192-40c4-98a3-b4844dde81f7",
+      "name": "Code3",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f8949102-77ba-441c-8219-226ace5494b2",
+              "leftValue": "={{ $json.created_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        1220
+      ],
+      "id": "21ae2441-d2a8-48a6-a026-bc27f0c828a9",
+      "name": "If5"
+    },
+    {
+      "parameters": {
+        "height": 740,
+        "width": 2400
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        820
+      ],
+      "id": "fd32643d-810b-4452-98f8-14ff9178258e",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Supabase2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase2": {
+      "main": [
+        [
+          {
+            "node": "Loop pedidos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop pedidos": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase3": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution API4": {
+      "main": [
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution API5": {
+      "main": [
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop pedidos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase4": {
+      "main": [
+        [
+          {
+            "node": "If4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop pedidos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Supabase4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase5": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "Evolution API4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If4": {
+      "main": [
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Supabase5",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If5": {
+      "main": [
+        [
+          {
+            "node": "Evolution API5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5cf72bf3-f944-47dc-8541-b9f797603850",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "bcGjYlGGSF3y923o",
+  "tags": []
+}

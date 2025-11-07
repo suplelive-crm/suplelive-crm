@@ -1,0 +1,1025 @@
+{
+  "name": "Plataforma - Sincronizar Estoque",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "=getProductsList"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n\"storage_id\": \"bl_1\"\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -760,
+        -140
+      ],
+      "id": "88b4da13-d108-4133-b715-52efa7f43eab",
+      "name": "Request product"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "external_id",
+              "keyValue": "={{ $json.id_produto }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        360,
+        -360
+      ],
+      "id": "1057a400-dd3b-4f4d-af6f-dfcfbf35a036",
+      "name": "Supabase",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3985b463-dce3-4e8a-93e3-df1b8cf4b000",
+              "leftValue": "={{ $json.created_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        540,
+        -360
+      ],
+      "id": "d55fb963-cebe-492e-ab62-6cd21e9f5358",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -420,
+        -140
+      ],
+      "id": "346aa81c-70ad-4316-843d-639138eff0cd",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "action": "generate"
+      },
+      "id": "c9e63cc2-6b01-4b3d-96b6-33e975026b37",
+      "name": "GeraUUID1",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        760,
+        -380
+      ],
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "tableId": "products",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('Split Out2').item.json.name }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "sku",
+              "fieldValue": "={{ $('Code1').item.json.sku }}"
+            },
+            {
+              "fieldId": "ean",
+              "fieldValue": "={{ $('Split Out2').item.json.ean }}"
+            },
+            {
+              "fieldId": "stock",
+              "fieldValue": "={{ $('Code1').item.json.stock }}"
+            },
+            {
+              "fieldId": "description",
+              "fieldValue": "={{ $('Split Out2').item.json.name }}"
+            },
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "ec73946f-ec8f-41f0-92a6-b26a40c8262c"
+            },
+            {
+              "fieldId": "images",
+              "fieldValue": "={{ $('Code1').item.json.images }}"
+            },
+            {
+              "fieldId": "price",
+              "fieldValue": "={{ $('Code1').item.json.price }}"
+            },
+            {
+              "fieldId": "custo",
+              "fieldValue": "={{ $('Code1').item.json.averageCost }}"
+            },
+            {
+              "fieldId": "external_id",
+              "fieldValue": "={{ $('If2').item.json.id_produto }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        920,
+        -380
+      ],
+      "id": "e3423748-4157-4f42-bb26-30fbf6ce8fdd",
+      "name": "Criar produto",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "products",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        -140
+      ],
+      "id": "0764ff00-d3c4-4fc6-9c09-f0fdacedff4b",
+      "name": "Split Out2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "=getInventoryProductsData"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n    \"inventory_id\": \"34283\",\n    \"products\": {{ $json.product_id }}\n} "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -220,
+        -140
+      ],
+      "id": "fd977366-6065-45c3-a684-d0b5e9fbb80e",
+      "name": "Request product_data"
+    },
+    {
+      "parameters": {
+        "content": "##  Atualização de produtos já cadastrados",
+        "height": 500,
+        "width": 1400,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1000,
+        220
+      ],
+      "id": "0be53b03-5db7-4f02-92f6-4dfdb19b184f",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "##  Cadastro de produtos da base",
+        "height": 600,
+        "width": 2140,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1000,
+        -420
+      ],
+      "id": "a69fc06f-cc53-4960-8e6a-033ebb44daf3",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Pega o objeto 'products' da variável de entrada que você especificou.\nconst productsObject = $input.first().json.products;\n\n// 2. Acessa os dados do produto pelo seu ID dinâmico.\nconst productId = Object.keys(productsObject)[0];\nconst productData = productsObject[productId];\n\n// 3. Extrai cada informação.\n\n// --- NOVO CAMPO ADICIONADO AQUI ---\n// Acessa diretamente o valor de 'is_bundle'. Usamos '?? false' como um valor padrão.\nconst isBundle = productData.is_bundle ?? \"bibi\";\nconst productId2 = Object.keys(productsObject)[0];\nconst bundleProductsObject = productData.bundle_products || {};\nconst bundleProducts = Object.keys(bundleProductsObject).map(bundleProductId => {\n  // Para cada chave (que é o ID do produto no kit)...\n  return {\n    // ...cria um objeto com o ID e a sua respectiva quantidade.\n    productId: bundleProductId,\n    quantity: bundleProductsObject[bundleProductId]\n  };\n});\n\nconst totalStock = Object.values(productData.stock || {}).reduce((sum, current) => sum + current, 0);\nconst price = Object.values(productData.prices || {})[0] ?? 0;\nconst averageCost = productData.average_cost ?? 0;\nconst images = Object.values(productData.images || {});\nconst sku = productData.sku ?? \"bibi\";\nconst nome_produto = productData.text_fields?.name ?? 'Nome não encontrado';\n\n// 4. Monta o novo objeto com os dados.\nconst extractedData = {\n  isBundle: isBundle, // <-- NOVO CAMPO AQUI\n  stock: totalStock,\n  price: price,\n  averageCost: averageCost,\n  images: images,\n  sku: sku,\n  nome: nome_produto,\n  id_produto: productId2,\n  produtos_kit: bundleProducts\n};\n\n// 5. Retorna os dados no formato que o n8n espera.\nreturn [{ json: extractedData }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        -140
+      ],
+      "id": "b0037933-1161-49e1-8a19-7eba5954df5c",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "12574251-b31c-4301-9e06-042fabfb056f",
+              "leftValue": "={{ $json.isBundle }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        140,
+        -140
+      ],
+      "id": "2113a666-09ae-4a39-b697-96a71a9aaa3c",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "products_kit",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "external_id",
+              "keyValue": "={{ $json.id_produto }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        360,
+        -40
+      ],
+      "id": "9d00eb2d-2ddc-4bac-a0d2-704edaec6e8a",
+      "name": "Supabase2",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3985b463-dce3-4e8a-93e3-df1b8cf4b000",
+              "leftValue": "={{ $json.created_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        540,
+        -40
+      ],
+      "id": "ecaeadaf-f306-49e3-9e6b-6771126e4681",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "action": "generate"
+      },
+      "id": "d0734439-692e-42d9-b7e4-fd8454138778",
+      "name": "GeraUUID",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        740,
+        -60
+      ],
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "tableId": "products_kit",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('Split Out2').item.json.name }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "sku",
+              "fieldValue": "={{ $('Code1').item.json.sku }}"
+            },
+            {
+              "fieldId": "ean",
+              "fieldValue": "={{ $('Split Out2').item.json.ean }}"
+            },
+            {
+              "fieldId": "stock",
+              "fieldValue": "={{ $('Code1').item.json.stock }}"
+            },
+            {
+              "fieldId": "description",
+              "fieldValue": "={{ $('Split Out2').item.json.name }}"
+            },
+            {
+              "fieldId": "workspace_id",
+              "fieldValue": "ec73946f-ec8f-41f0-92a6-b26a40c8262c"
+            },
+            {
+              "fieldId": "images",
+              "fieldValue": "={{ $('Code1').item.json.images }}"
+            },
+            {
+              "fieldId": "price",
+              "fieldValue": "={{ $('Code1').item.json.price }}"
+            },
+            {
+              "fieldId": "custo_produto",
+              "fieldValue": "={{ $('Code1').item.json.averageCost }}"
+            },
+            {
+              "fieldId": "external_id",
+              "fieldValue": "={{ $('If2').item.json.id_produto }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ $('Code1').item.json.produtos_kit }}"
+            },
+            {
+              "fieldId": "sku_produto",
+              "fieldValue": "={{ $('Code1').item.json.produtos_kit[0].productId }}"
+            },
+            {
+              "fieldId": "quantidade_produto",
+              "fieldValue": "={{ $('Code1').item.json.produtos_kit[0].quantity }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        920,
+        -60
+      ],
+      "id": "d8fd1f8f-c259-400c-ac1b-edad4426ab18",
+      "name": "Criar produto1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "external_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id_produto }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "stock_es",
+              "fieldValue": "={{ $json.stock_es }}"
+            },
+            {
+              "fieldId": "price",
+              "fieldValue": "={{ $json.price_base }}"
+            },
+            {
+              "fieldId": "images",
+              "fieldValue": "={{ $json.images }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $json.nome }}"
+            },
+            {
+              "fieldId": "sku",
+              "fieldValue": "={{ $json.sku }}"
+            },
+            {
+              "fieldId": "custo",
+              "fieldValue": "={{ $json.averageCost }}"
+            },
+            {
+              "fieldId": "preco_atacado",
+              "fieldValue": "={{ $json.price_atacado }}"
+            },
+            {
+              "fieldId": "duracao",
+              "fieldValue": "={{ $json.duracao }}"
+            },
+            {
+              "fieldId": "stock_sp",
+              "fieldValue": "={{ $json.stock_sp }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        20,
+        340
+      ],
+      "id": "f8ddead6-5f0a-48ac-a74b-e3fffff0bca6",
+      "name": "Supabase1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -560,
+        320
+      ],
+      "id": "21367989-b111-4197-8c41-46e9cd1e4115",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "=getInventoryProductsData"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n    \"inventory_id\": \"34283\",\n     \"include_wms_units\": \"true\",\n    \"products\": {{ $json.external_id }}\n} "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -380,
+        420
+      ],
+      "id": "1a1e7e31-f946-49e3-9347-7032329f7c95",
+      "name": "Request product_data1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- CONFIGURAÇÕES ---\n// Coloque aqui os IDs das suas tabelas de preço do Bling\nconst ID_TABELA_PRECO_BASE = \"33907\"; // <-- PERGUNTA 1: Qual ID do preço base?\nconst ID_TABELA_PRECO_ATACADO = \"41014\"; // <-- PERGUNTA 2: Qual ID do preço de atacado?\n\n\n// 1. Pega o objeto 'products' da variável de entrada.\nconst productsObject = $input.first().json.products;\n\n// 2. Acessa os dados do produto pelo seu ID dinâmico.\n// Isso funciona bem, desde que haja sempre apenas um produto no nó anterior.\nconst productId = Object.keys(productsObject)[0];\nconst productData = productsObject[productId];\n\n// 3. Extrai cada informação.\n\n// Acessa o valor de 'is_bundle'. Usamos '?? false' para garantir que sempre haja um valor.\nconst isBundle = productData.is_bundle ?? false;\nconst bundleProducts = Object.values(productData.bundle_products || {});\n\n// --- MUDANÇA AQUI: Busca o estoque no 'productData' dinâmico ---\n\n// Acessa o estoque SP usando 'productData.stock' e o ID 'bl_45090'\nconst stock_sp = productData.stock?.bl_45090 ?? 0;\n\n// Acessa o estoque ES usando 'productData.stock' e o ID 'bl_43152'\nconst stock_es = productData.stock?.bl_43152 ?? 0;\n\n// --- FIM DA MUDANÇA ---\n\nconst averageCost = productData.average_cost ?? 0;\nconst images = Object.values(productData.images || {});\nconst sku = productData.sku ?? \"\";\nconst nome_produto = productData.text_fields?.name ?? 'Nome não encontrado';\nconst duracao_produto = productData.text_fields?.extra_field_63429 ?? '0';\n\n// --- LÓGICA DE PREÇOS ATUALIZADA ---\n// Pega o preço base usando o ID da tabela de preços. Usa 0 se não encontrar.\nconst precoBase = productData.prices?.[ID_TABELA_PRECO_BASE] ?? 0;\n\n// Pega o preço de atacado usando o ID da tabela de preços. Usa 0 se não encontrar.\nconst precoAtacado = productData.prices?.[ID_TABELA_PRECO_ATACADO] ?? 0;\n\n\n// 4. Monta o novo objeto com os dados.\nconst extractedData = {\n  isBundle: isBundle,\n  stock_sp: stock_sp,\n  stock_es: stock_es,\n  price_base: precoBase, // <-- Nome da variável mais claro\n  price_atacado: precoAtacado, // <-- NOVO CAMPO AQUI\n  averageCost: averageCost,\n  images: images,\n  sku: sku,\n  nome: nome_produto,\n  id_produto: productId,\n  produtos_kit: bundleProducts,\n  duracao: duracao_produto\n};\n\n// 5. Retorna os dados no formato que o n8n espera.\nreturn [{ json: extractedData }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        420
+      ],
+      "id": "5856b86f-a6ba-4952-8771-19220d5c6bd1",
+      "name": "Code",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "products",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -780,
+        320
+      ],
+      "id": "e9d017aa-bb60-404a-98ce-d97a3ba1d206",
+      "name": "Supabase3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -380
+      ],
+      "id": "9060af43-7923-4ca3-9729-ca667fd114df"
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        500
+      ],
+      "id": "1dc0ea65-46bb-4ccc-8ba7-6eb9529c857d",
+      "name": "Wait",
+      "webhookId": "6cf556f4-4606-4924-96b2-991dff1974f0"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        -140
+      ],
+      "id": "8a129bdc-b782-4dfb-b158-0993350a9c6e",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        320
+      ],
+      "id": "9c3b537b-7040-443f-826e-76bfbe0733a0",
+      "name": "Schedule Trigger1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Request product": {
+      "main": [
+        [
+          {
+            "node": "Split Out2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "GeraUUID1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Request product_data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GeraUUID1": {
+      "main": [
+        [
+          {
+            "node": "Criar produto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar produto": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request product_data": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase2": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "GeraUUID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GeraUUID": {
+      "main": [
+        [
+          {
+            "node": "Criar produto1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar produto1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Request product_data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request product_data1": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase3": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me": {
+      "main": [
+        []
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Request product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8ad062f9-0559-481e-b5f0-7f45194fcd5f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "iJGf8Fd6BnTCwy1z",
+  "tags": []
+}

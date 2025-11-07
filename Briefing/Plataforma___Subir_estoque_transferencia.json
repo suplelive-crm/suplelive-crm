@@ -1,0 +1,1648 @@
+{
+  "name": "Plataforma - Subir estoque transferencia",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "transfer_products",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_verified",
+              "condition": "is",
+              "keyValue": "true"
+            },
+            {
+              "keyName": "is_in_stock",
+              "condition": "is",
+              "keyValue": "false"
+            },
+            {
+              "keyName": "transfer_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -4840,
+        -240
+      ],
+      "id": "a0b006a8-fa86-455a-8f08-3307c1e287e5",
+      "name": "Supabase4",
+      "alwaysOutputData": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": "=1",
+        "options": {
+          "reset": "={{ $('Loop Over Items1').context['done'] }}"
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -4380,
+        -240
+      ],
+      "id": "d74e2d37-8460-4490-91ce-a5968d89c835",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "content": "## Confere os produtos que possuem para subir no estoque Base!\n",
+        "height": 440,
+        "width": 1600
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -6080,
+        -460
+      ],
+      "id": "11ec3d22-1cab-4389-81a1-6773998ca28e",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "=getInventoryProductsList"
+            },
+            {
+              "name": "parameters",
+              "value": "={\"inventory_id\": {{ $json.inventories[0].inventory_id }},\n\"include_variants\": 1,\n\"filter_sku\": \"{{ $('Edit Fields1').item.json.SKU }}\"} "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3800,
+        -240
+      ],
+      "id": "e886d5d9-df69-4f7f-b58f-6677ee366dd3",
+      "name": "Request product1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "getInventories"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3980,
+        -240
+      ],
+      "id": "a81cfc27-fc38-4237-bf07-07dab561ad06",
+      "name": "Request inventory1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2e0e9dca-c600-4d0c-b855-02155b8fe16f",
+              "name": "name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "504a3483-49c7-4863-93ff-44499e04865e",
+              "name": "quantity",
+              "value": "={{ $json.quantity }}",
+              "type": "number"
+            },
+            {
+              "id": "02f6f7a6-c3d1-4333-9c07-49c40a750e7b",
+              "name": "SKU",
+              "value": "={{ $json.sku }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4140,
+        -240
+      ],
+      "id": "0eaeb44a-b3b6-4e0d-bb6e-0d64b1587f3d",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "transfers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('Loop Over Items1').item.json.transfer_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -3440,
+        -240
+      ],
+      "id": "ab635a5b-2945-4b8d-b53f-3dd17381d371",
+      "name": "Supabase7",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "transfers",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "retirado_stock",
+              "condition": "is",
+              "keyValue": "true"
+            },
+            {
+              "keyName": "conferido",
+              "condition": "is",
+              "keyValue": "true"
+            },
+            {
+              "keyName": "in_stock",
+              "condition": "is",
+              "keyValue": "null"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -5460,
+        -320
+      ],
+      "id": "01da31d2-9bea-4d89-8c3e-defcf368cad6",
+      "name": "Supabase8",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": "=1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -5220,
+        -320
+      ],
+      "id": "82d76b04-8bf6-4c4a-a463-7c98b03e86d1",
+      "name": "Loop Over Items2"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -5920,
+        -320
+      ],
+      "id": "c119e30d-68c3-4301-a2bd-723eab87c777",
+      "name": "Schedule Trigger2"
+    },
+    {
+      "parameters": {
+        "amount": 40
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -5700,
+        -320
+      ],
+      "id": "c095bf64-ee78-424e-908b-c8185da26fdd",
+      "name": "Wait2",
+      "webhookId": "03507a63-5359-40af-86ef-d53c15256954",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// O n8n processa os dados em \"items\", que é um array.\nfor (const item of items) {\n    const dados = item.json;\n    \n    // 1. Acessa e garante que os valores para cálculo sejam números\n    // Usa Math.abs() para garantir que a quantidade seja positiva para o cálculo de transferência.\n    const quantidade = Math.abs(Number(dados.quantidade)); \n    \n    const origemEstoque = dados.origem_estoque;\n    const destinoEstoque = dados.destino_estoque;\n    \n    // Converte os estoques com valor para números\n    const estoqueSP = Number(dados.estoque_atual_SP);\n    const estoqueES = Number(dados.estoque_atual_es);\n\n    \n    // --- 2. Lógica Dinâmica: Atribui os valores SP/ES para Origem e Destino ---\n    \n    // Estoque Atual da Origem\n    let estoqueAtualOrigem;\n    if (origemEstoque && origemEstoque.toLowerCase() === 'vitoria') {\n        estoqueAtualOrigem = estoqueES; // Se a origem é Vitoria, pega o estoque_atual_es\n    } else if (origemEstoque && origemEstoque.toLowerCase() === 'sao_paulo') {\n        estoqueAtualOrigem = estoqueSP; // Se a origem é Sao_Paulo, pega o estoque_atual_SP\n    } else {\n        estoqueAtualOrigem = Number(dados.estoque_atual_origem) || 0; // fallback seguro\n    }\n\n    // Estoque Atual do Destino\n    let estoqueAtualDestino;\n    if (destinoEstoque && destinoEstoque.toLowerCase() === 'vitoria') {\n        estoqueAtualDestino = estoqueES; // Se o destino é Vitoria, pega o estoque_atual_es\n    } else if (destinoEstoque && destinoEstoque.toLowerCase() === 'sao_paulo') {\n        estoqueAtualDestino = estoqueSP; // Se o destino é Sao_Paulo, pega o estoque_atual_SP\n    } else {\n        estoqueAtualDestino = Number(dados.estoque_atual_destino) || 0; // fallback seguro\n    }\n\n\n    // --- 3. Lógica de Mapeamento para Códigos ---\n    \n    let origemMapeada;\n    if (origemEstoque && origemEstoque.toLowerCase() === 'vitoria') {\n        origemMapeada = 'bl_43152';\n    } else if (origemEstoque && origemEstoque.toLowerCase() === 'sao_paulo') {\n        origemMapeada = 'bl_45090';\n    } else {\n        origemMapeada = origemEstoque;\n    }\n\n    let destinoMapeado;\n    if (destinoEstoque && destinoEstoque.toLowerCase() === 'vitoria') {\n        destinoMapeado = 'bl_43152';\n    } else if (destinoEstoque && destinoEstoque.toLowerCase() === 'sao_paulo') {\n        destinoMapeado = 'bl_45090';\n    } else {\n        destinoMapeado = destinoEstoque;\n    }\n\n\n    // --- 4. Cálculo da Transferência ---\n    \n    // Diminui o estoque na origem (SAÍDA/DÉBITO)\n    const novoEstoqueOrigem = estoqueAtualOrigem - quantidade;\n    \n    // Aumenta o estoque no destino (ENTRADA/CRÉDITO)\n    const novoEstoqueDestino = estoqueAtualDestino + quantidade;\n    \n\n    // --- 5. Cria o Objeto de Saída Final ---\n    // Usamos o 'destino_estoque' e 'origem_estoque' mapeados nos campos originais\n    item.json = {\n        // Mantém todos os outros campos originais\n        ...dados, \n        \n        // Sobrescreve os campos de estoque com os NOVOS valores calculados\n        // Se a origem for SP, este valor será o NOVO estoque de SP, e vice-versa.\n        estoque_atual_origem: novoEstoqueOrigem, \n        estoque_atual_destino: novoEstoqueDestino,\n        \n        // Sobrescreve os estoques por estado (importante para atualização posterior)\n        estoque_atual_SP: destinoEstoque.toLowerCase() === 'sao_paulo' ? novoEstoqueDestino : origemEstoque.toLowerCase() === 'sao_paulo' ? novoEstoqueOrigem : estoqueSP,\n        estoque_atual_es: destinoEstoque.toLowerCase() === 'vitoria' ? novoEstoqueDestino : origemEstoque.toLowerCase() === 'vitoria' ? novoEstoqueOrigem : estoqueES,\n        \n        // Sobrescreve/Adiciona os campos de mapeamento (Lógica 3)\n        origem_estoque: origemMapeada,\n        destino_estoque: destinoMapeado,\n        \n        // Inclui explicitamente os campos chave e seus valores atualizados\n        sku: dados.sku,\n        quantidade: quantidade \n    };\n}\n\n// Retorna o array de itens modificados\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3120,
+        -240
+      ],
+      "id": "fd8d01e7-fd4a-4d44-ac58-b97aa5780f12",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "addInventoryProduct"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n    \"inventory_id\": \"34283\",\n    \"product_id\": \"{{ $json.id_produto }}\",\n\"stock\": {\n        \"{{ $json.destino_estoque }}\": {{ $json.estoque_atual_destino }}\n    }\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2940,
+        -240
+      ],
+      "id": "41d6d193-dfb4-4d47-89dd-dc2bb3a70cf4",
+      "name": "Upload inventory1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "products, products",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -3600,
+        -240
+      ],
+      "id": "127c67e1-abd6-470e-967e-37b64c9605b3",
+      "name": "Split Out2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "transfers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase10').item.json.transfer_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "in_stock",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "conferido",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "is_archived",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -4040,
+        -520
+      ],
+      "id": "b005ed56-c2e1-45d2-a356-8366542c3421",
+      "name": "Supabase9",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Envia o produto para a base com o novo estoque",
+        "height": 620,
+        "width": 1740,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4440,
+        -580
+      ],
+      "id": "bb5e340d-8ce8-4b73-853e-2f2d8724be0d",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "tableId": "log_lançamento_transferencia",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "dia_lancado",
+              "fieldValue": "={{ $('Schedule Trigger2').item.json.timestamp }}"
+            },
+            {
+              "fieldId": "sku",
+              "fieldValue": "={{ $('Code2').item.json.sku }}"
+            },
+            {
+              "fieldId": "tipo",
+              "fieldValue": "adicionado"
+            },
+            {
+              "fieldId": "estoque_origem",
+              "fieldValue": "={{ $('Code2').item.json.origem_estoque }}"
+            },
+            {
+              "fieldId": "estoque_destino",
+              "fieldValue": "={{ $('Code2').item.json.destino_estoque }}"
+            },
+            {
+              "fieldId": "quantidade",
+              "fieldValue": "={{ $('Code2').item.json.quantidade }}"
+            },
+            {
+              "fieldId": "tracking_code",
+              "fieldValue": "={{ $('Supabase8').item.json.trackingCode }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2640,
+        -240
+      ],
+      "id": "10144e9b-f4d7-4dd6-8b63-02f99b7e8d10",
+      "name": "Supabase5",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "transfer_products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase4').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "is_in_stock",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2780,
+        -240
+      ],
+      "id": "4fcb7c9b-0f4b-4db5-be06-93fcedff50fd",
+      "name": "Supabase10",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "transfer_products",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transfer_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase12').item.json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -4880,
+        860
+      ],
+      "id": "be4df4e8-2807-4585-a12a-979fe629ad04",
+      "name": "Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": "=1",
+        "options": {
+          "reset": "={{ $('Loop Over Items').context['done'] }}"
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -4740,
+        860
+      ],
+      "id": "c24d0f98-381c-49b6-81c8-258735f9d8eb",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "content": "## Confere os produtos que possuem para subir no estoque Base!\n",
+        "height": 440,
+        "width": 1600
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -6180,
+        620
+      ],
+      "id": "5a4e6a2a-e39e-46cc-a9f2-ac6bf8b96322",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "=getInventoryProductsList"
+            },
+            {
+              "name": "parameters",
+              "value": "={\"inventory_id\": {{ $json.inventories[0].inventory_id }},\n\"include_variants\": 1,\n\"filter_sku\": \"{{ $('Edit Fields').item.json.SKU }}\"} "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3960,
+        920
+      ],
+      "id": "de46d8f3-3af4-4ca1-8545-af19ad3c2ade",
+      "name": "Request product"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "getInventories"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4140,
+        920
+      ],
+      "id": "c90ce039-239f-48e1-971a-8ca02474b1d3",
+      "name": "Request inventory"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2e0e9dca-c600-4d0c-b855-02155b8fe16f",
+              "name": "name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "504a3483-49c7-4863-93ff-44499e04865e",
+              "name": "quantity",
+              "value": "={{ $json.quantity }}",
+              "type": "number"
+            },
+            {
+              "id": "02f6f7a6-c3d1-4333-9c07-49c40a750e7b",
+              "name": "SKU",
+              "value": "={{ $json.sku }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4300,
+        920
+      ],
+      "id": "b420129c-4196-4872-b3a2-c6c8ba9e0495",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "transfers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('Loop Over Items').item.json.transfer_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -3600,
+        920
+      ],
+      "id": "8d7ef769-ce4c-456d-b972-e1bc0048f28b",
+      "name": "Supabase11",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "691b19f7-e033-45f0-84da-12a2dcc0a763",
+              "name": "quantidade",
+              "value": "={{ $('Edit Fields').item.json.quantity }}",
+              "type": "string"
+            },
+            {
+              "id": "e3e79485-903a-4e7a-bc6d-c40dc21b6ce2",
+              "name": "sku",
+              "value": "={{ $('Edit Fields').item.json.SKU }}",
+              "type": "string"
+            },
+            {
+              "id": "d8118fcb-85fe-4659-9c5c-f7b01f1a34ec",
+              "name": "origem_estoque",
+              "value": "={{ $json.source_stock }}",
+              "type": "string"
+            },
+            {
+              "id": "41a454fc-7ff7-4231-bc34-15af83a8712c",
+              "name": "destino_estoque",
+              "value": "={{ $json.destination_stock }}",
+              "type": "string"
+            },
+            {
+              "id": "21d972b2-1d3c-4183-8fb6-36bb6137e1fd",
+              "name": "id_produto",
+              "value": "={{ $('Split Out').item.json.products.id }}",
+              "type": "number"
+            },
+            {
+              "id": "bb9da3cf-4b80-4908-a4b8-43753cc59c17",
+              "name": "estoque_atual_SP",
+              "value": "={{ $('Split Out').item.json.products.stock.bl_45090 }}",
+              "type": "number"
+            },
+            {
+              "id": "a17c1604-320b-490e-9faa-edf9948b41a1",
+              "name": "estoque_atual_es",
+              "value": "={{ $('Split Out').item.json.products.stock.bl_43152 }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3460,
+        920
+      ],
+      "id": "83a73359-c09d-466e-b401-d852e369bb3d",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "transfers",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "in_stock",
+              "condition": "is",
+              "keyValue": "null"
+            },
+            {
+              "keyName": "retirado_stock",
+              "condition": "is",
+              "keyValue": "null"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -5560,
+        760
+      ],
+      "id": "cb28d8c7-0834-4417-8bb0-3568c66ab1d8",
+      "name": "Supabase12",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": "=1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -5320,
+        780
+      ],
+      "id": "0ec5d0b9-854a-4126-a6ab-bbcce0dbaa61",
+      "name": "Loop Over Items3"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -6020,
+        760
+      ],
+      "id": "fc1f1b5e-fd1c-4775-ac5a-ab34408c043a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "amount": 40
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -5800,
+        760
+      ],
+      "id": "3082955c-29d8-4d4a-920a-1a1526099f0b",
+      "name": "Wait",
+      "webhookId": "03507a63-5359-40af-86ef-d53c15256954",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// O n8n processa os dados em \"items\", que é um array.\nfor (const item of items) {\n    const dados = item.json;\n    \n    // 1. Acessa e garante que os valores para cálculo sejam números\n    // Usa Math.abs() para garantir que a quantidade seja positiva para o cálculo de transferência.\n    const quantidade = Math.abs(Number(dados.quantidade)); \n    \n    const origemEstoque = dados.origem_estoque;\n    const destinoEstoque = dados.destino_estoque;\n    \n    // Converte os estoques com valor para números\n    const estoqueSP = Number(dados.estoque_atual_SP);\n    const estoqueES = Number(dados.estoque_atual_es);\n\n    \n    // --- 2. Lógica Dinâmica: Atribui os valores SP/ES para Origem e Destino ---\n    \n    // Estoque Atual da Origem\n    let estoqueAtualOrigem;\n    if (origemEstoque && origemEstoque.toLowerCase() === 'vitoria') {\n        estoqueAtualOrigem = estoqueES; // Se a origem é Vitoria, pega o estoque_atual_es\n    } else if (origemEstoque && origemEstoque.toLowerCase() === 'sao_paulo') {\n        estoqueAtualOrigem = estoqueSP; // Se a origem é Sao_Paulo, pega o estoque_atual_SP\n    } else {\n        estoqueAtualOrigem = Number(dados.estoque_atual_origem) || 0; // fallback seguro\n    }\n\n    // Estoque Atual do Destino\n    let estoqueAtualDestino;\n    if (destinoEstoque && destinoEstoque.toLowerCase() === 'vitoria') {\n        estoqueAtualDestino = estoqueES; // Se o destino é Vitoria, pega o estoque_atual_es\n    } else if (destinoEstoque && destinoEstoque.toLowerCase() === 'sao_paulo') {\n        estoqueAtualDestino = estoqueSP; // Se o destino é Sao_Paulo, pega o estoque_atual_SP\n    } else {\n        estoqueAtualDestino = Number(dados.estoque_atual_destino) || 0; // fallback seguro\n    }\n\n\n    // --- 3. Lógica de Mapeamento para Códigos ---\n    \n    let origemMapeada;\n    if (origemEstoque && origemEstoque.toLowerCase() === 'vitoria') {\n        origemMapeada = 'bl_43152';\n    } else if (origemEstoque && origemEstoque.toLowerCase() === 'sao_paulo') {\n        origemMapeada = 'bl_45090';\n    } else {\n        origemMapeada = origemEstoque;\n    }\n\n    let destinoMapeado;\n    if (destinoEstoque && destinoEstoque.toLowerCase() === 'vitoria') {\n        destinoMapeado = 'bl_43152';\n    } else if (destinoEstoque && destinoEstoque.toLowerCase() === 'sao_paulo') {\n        destinoMapeado = 'bl_45090';\n    } else {\n        destinoMapeado = destinoEstoque;\n    }\n\n\n    // --- 4. Cálculo da Transferência ---\n    \n    // Diminui o estoque na origem (SAÍDA/DÉBITO)\n    const novoEstoqueOrigem = estoqueAtualOrigem - quantidade;\n    \n    // Aumenta o estoque no destino (ENTRADA/CRÉDITO)\n    const novoEstoqueDestino = estoqueAtualDestino + quantidade;\n    \n\n    // --- 5. Cria o Objeto de Saída Final ---\n    // Usamos o 'destino_estoque' e 'origem_estoque' mapeados nos campos originais\n    item.json = {\n        // Mantém todos os outros campos originais\n        ...dados, \n        \n        // Sobrescreve os campos de estoque com os NOVOS valores calculados\n        // Se a origem for SP, este valor será o NOVO estoque de SP, e vice-versa.\n        estoque_atual_origem: novoEstoqueOrigem, \n        estoque_atual_destino: novoEstoqueDestino,\n        \n        // Sobrescreve os estoques por estado (importante para atualização posterior)\n        estoque_atual_SP: destinoEstoque.toLowerCase() === 'sao_paulo' ? novoEstoqueDestino : origemEstoque.toLowerCase() === 'sao_paulo' ? novoEstoqueOrigem : estoqueSP,\n        estoque_atual_es: destinoEstoque.toLowerCase() === 'vitoria' ? novoEstoqueDestino : origemEstoque.toLowerCase() === 'vitoria' ? novoEstoqueOrigem : estoqueES,\n        \n        // Sobrescreve/Adiciona os campos de mapeamento (Lógica 3)\n        origem_estoque: origemMapeada,\n        destino_estoque: destinoMapeado,\n        \n        // Inclui explicitamente os campos chave e seus valores atualizados\n        sku: dados.sku,\n        quantidade: quantidade \n    };\n}\n\n// Retorna o array de itens modificados\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3260,
+        920
+      ],
+      "id": "be150701-a401-4959-b601-fac196987b1f",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "addInventoryProduct"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n    \"inventory_id\": \"34283\",\n    \"product_id\": \"{{ $('Edit Fields3').item.json.id_produto }}\",\n\"stock\": {\n        \"{{ $json.origem_estoque }}\": {{ $json.estoque_atual_origem }}\n    }\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3100,
+        920
+      ],
+      "id": "eda35405-10ee-4bb3-ab0f-7230ce25e70a",
+      "name": "Upload inventory",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "products, products",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -3760,
+        920
+      ],
+      "id": "2f7e28a6-ed50-4626-9fdd-926cd48a355c",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "transfers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase').item.json.transfer_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "retirado_stock",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -3920,
+        560
+      ],
+      "id": "dec997ea-343c-4445-887d-a99c6572c04e",
+      "name": "Supabase13",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "##  Retira o produto dos estoque",
+        "height": 620,
+        "width": 1960,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4540,
+        500
+      ],
+      "id": "fbe20de7-ecf2-4a34-832f-9efed3f1a209",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "tableId": "log_lançamento_transferencia",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "dia_lancado",
+              "fieldValue": "={{ $('Schedule Trigger').item.json.timestamp }}"
+            },
+            {
+              "fieldId": "sku",
+              "fieldValue": "={{ $('Code').item.json.sku }}"
+            },
+            {
+              "fieldId": "tipo",
+              "fieldValue": "retirado"
+            },
+            {
+              "fieldId": "estoque_origem",
+              "fieldValue": "={{ $('Code').item.json.origem_estoque }}"
+            },
+            {
+              "fieldId": "estoque_destino",
+              "fieldValue": "={{ $('Code').item.json.destino_estoque }}"
+            },
+            {
+              "fieldId": "quantidade",
+              "fieldValue": "={{ $('Code').item.json.quantidade }}"
+            },
+            {
+              "fieldId": "tracking_code",
+              "fieldValue": "={{ $('trackingcode').item.json.trackingCode }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2540,
+        900
+      ],
+      "id": "5bf2fd9b-6488-40e9-b684-dfabe0f5d186",
+      "name": "Supabase6",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "transfer_products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "retirado_estoque_origem",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2680,
+        900
+      ],
+      "id": "08a120b8-a49e-47ed-ada0-92d0f2c9ded6",
+      "name": "Supabase14",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "691b19f7-e033-45f0-84da-12a2dcc0a763",
+              "name": "quantidade",
+              "value": "={{ $('Edit Fields1').item.json.quantity }}",
+              "type": "string"
+            },
+            {
+              "id": "e3e79485-903a-4e7a-bc6d-c40dc21b6ce2",
+              "name": "sku",
+              "value": "={{ $('Edit Fields1').item.json.SKU }}",
+              "type": "string"
+            },
+            {
+              "id": "d8118fcb-85fe-4659-9c5c-f7b01f1a34ec",
+              "name": "origem_estoque",
+              "value": "={{ $json.source_stock }}",
+              "type": "string"
+            },
+            {
+              "id": "41a454fc-7ff7-4231-bc34-15af83a8712c",
+              "name": "destino_estoque",
+              "value": "={{ $json.destination_stock }}",
+              "type": "string"
+            },
+            {
+              "id": "21d972b2-1d3c-4183-8fb6-36bb6137e1fd",
+              "name": "id_produto",
+              "value": "={{ $('Split Out2').item.json.products.id }}",
+              "type": "number"
+            },
+            {
+              "id": "bb9da3cf-4b80-4908-a4b8-43753cc59c17",
+              "name": "estoque_atual_SP",
+              "value": "={{ $('Split Out2').item.json.products.stock.bl_45090 }}",
+              "type": "number"
+            },
+            {
+              "id": "a17c1604-320b-490e-9faa-edf9948b41a1",
+              "name": "estoque_atual_es",
+              "value": "={{ $('Split Out2').item.json.products.stock.bl_43152 }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3280,
+        -240
+      ],
+      "id": "e0577489-f992-4662-bf26-548d24d0fa28",
+      "name": "Edit Fields4"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1a4090a5-6370-4ad8-adaf-3d12e076da14",
+              "name": "trackingCode",
+              "value": "={{ $json.trackingCode }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -5060,
+        860
+      ],
+      "id": "1df734ad-62b1-487b-97b4-b65dbeacbf17",
+      "name": "trackingcode"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "60e46584-ddcc-470c-9d99-4070a284b668",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "SUCCESS",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2880,
+        920
+      ],
+      "id": "16665180-e49b-4830-acf9-5e3fdf419b5f",
+      "name": "If"
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2025-10-08T00:00:52.007-03:00",
+          "Readable date": "October 8th 2025, 12:00:52 am",
+          "Readable time": "12:00:52 am",
+          "Day of week": "Wednesday",
+          "Year": "2025",
+          "Month": "October",
+          "Day of month": "08",
+          "Hour": "00",
+          "Minute": "00",
+          "Second": "52",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Supabase4": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request inventory1": {
+      "main": [
+        [
+          {
+            "node": "Request product1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Request inventory1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [
+          {
+            "node": "Supabase9",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request product1": {
+      "main": [
+        [
+          {
+            "node": "Split Out2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase7": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase8": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger2": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Supabase8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items2": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Supabase4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Upload inventory1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out2": {
+      "main": [
+        [
+          {
+            "node": "Supabase7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase9": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload inventory1": {
+      "main": [
+        [
+          {
+            "node": "Supabase10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase5": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase10": {
+      "main": [
+        [
+          {
+            "node": "Supabase5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Supabase13",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request product": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request inventory": {
+      "main": [
+        [
+          {
+            "node": "Request product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Request inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase11": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase12": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items3": {
+      "main": [
+        [],
+        [
+          {
+            "node": "trackingcode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Supabase12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Upload inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload inventory": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Supabase11",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase13": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase6": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase14": {
+      "main": [
+        [
+          {
+            "node": "Supabase6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields4": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "trackingcode": {
+      "main": [
+        [
+          {
+            "node": "Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Supabase14",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8c191f25-c9b8-4e8a-938b-7d9ccbc40ee7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "Y90GOGi5drwb26en",
+  "tags": []
+}

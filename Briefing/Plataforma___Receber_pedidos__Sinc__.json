@@ -1,0 +1,2623 @@
+{
+  "name": "Plataforma - Receber pedidos (Sinc.)",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "getOrders"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n\"date_from\" : \"{{ $json.formattedDate }}\"\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2100,
+        3240
+      ],
+      "id": "9bc24e53-d584-46c9-b778-7eabab2aa572",
+      "name": "Request Orders1"
+    },
+    {
+      "parameters": {
+        "operation": "formatDate",
+        "date": "={{ $json.newDate }}",
+        "format": "X",
+        "options": {
+          "includeInputFields": false
+        }
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        3240
+      ],
+      "id": "b44490e0-cc27-43e6-a359-5516b320c085",
+      "name": "Date & Time2"
+    },
+    {
+      "parameters": {
+        "operation": "subtractFromDate",
+        "magnitude": "={{ $now }}",
+        "timeUnit": "hours",
+        "duration": 10,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        3240
+      ],
+      "id": "769d1e9c-1358-4c35-bece-e10806eccf69",
+      "name": "Date & Time3"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": "="
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        3240
+      ],
+      "id": "34eb89c4-4b8d-4606-8cec-866202ad2cae",
+      "name": "Loop pedidos1"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "orders",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2260,
+        3240
+      ],
+      "id": "f2b8d390-72c7-4b17-8410-923eca7a120e",
+      "name": "Split Out3"
+    },
+    {
+      "parameters": {
+        "tableId": "orders",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "client_id",
+              "fieldValue": "={{ $('Link - cliente').item.json.id }}"
+            },
+            {
+              "fieldId": "total_amount",
+              "fieldValue": "={{ $('Unificar dados').item.json.faturamento }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "=completed"
+            },
+            {
+              "fieldId": "order_id_base",
+              "fieldValue": "={{ $('Unificar dados').item.json.id_base }}"
+            },
+            {
+              "fieldId": "mensagem_enviada",
+              "fieldValue": "false"
+            },
+            {
+              "fieldId": "canal_venda",
+              "fieldValue": "={{ $('Unificar dados').item.json.source }}"
+            },
+            {
+              "fieldId": "taxas",
+              "fieldValue": "={{ $('Unificar dados').item.json.taxa_calculada }}"
+            },
+            {
+              "fieldId": "id_pedido_marktplace",
+              "fieldValue": "={{ $('Unificar dados').item.json.id_externo }}"
+            },
+            {
+              "fieldId": "faturamento_liquido",
+              "fieldValue": "={{ $('Unificar dados').item.json.faturamento_liquido }}"
+            },
+            {
+              "fieldId": "custo_frete(taxa)",
+              "fieldValue": "={{ $('Unificar dados').item.json.custo_frete_order }}"
+            },
+            {
+              "fieldId": "order_date",
+              "fieldValue": "={{ $('Unificar dados').item.json.data_compra }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ $('Unificar dados').item.json.produtos }}"
+            },
+            {
+              "fieldId": "id_anuncio",
+              "fieldValue": "={{ $('Unificar dados').item.json.id_anuncio }}"
+            },
+            {
+              "fieldId": "cpf",
+              "fieldValue": "={{ $('Unificar dados').item.json.cpf }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        5340,
+        3360
+      ],
+      "id": "6d0894d3-9347-4393-91fc-de53c7d1f826",
+      "name": "Criar Pedido",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Split Out3').item.json.order_source }}",
+                    "rightValue": "shopeebr",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "dbc2e995-1d14-4b92-a799-ca0406968ea4"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Shopee"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1d302a50-7cb1-4399-b686-da568475c732",
+                    "leftValue": "={{ $('Split Out3').item.json.order_source }}",
+                    "rightValue": "melibr",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Meli"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "db827b30-789b-4ae0-8b83-dd3e86b403f8",
+                    "leftValue": "={{ $('Split Out3').item.json.order_source }}",
+                    "rightValue": "shop",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Site/Atacado"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "8a5e5461-fef0-49e5-bbc5-3aa0fcd68256",
+                    "leftValue": "={{ $json.source }}",
+                    "rightValue": "personal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Whatsapp"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2a4c40ec-480c-40e2-846d-43e70e0177b4",
+                    "leftValue": "={{ $json.source }}",
+                    "rightValue": "raiadrogasil",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rd Market"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3760,
+        3120
+      ],
+      "id": "f9440cf3-6f6e-44d6-b410-973102488e9e",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Passo 1: Calcular a quantidade total de produtos ---\nconst produtos = $input.first().json.products;\nconst quantidadeTotal = produtos.reduce((soma, produto) => soma + produto.quantity, 0);\n\n// --- Passo 2: Calcular a taxa com a fórmula simplificada ---\n// Aplica 22% sobre o valor total da compra + R$4 por item.\nconst taxa = ($input.first().json.valor_compra * 0.22) + (quantidadeTotal * 4);\n\nconst valor_recebido = ($input.first().json.valor_compra - taxa);\n\n// Passo 3: Calcula a data de compra com a formula fornecida ---\nconst unixTimestamp = $input.first().json.data_compra;\nconst data = new Date(unixTimestamp * 1000);\n// Para gerar o formato ISO 8601 em UTC (\"2025-08-27T19:26:03.000Z\")\nconst timestampUTC = data.toISOString();\n\n// Desconto por produto (rateio da taxa total)\n  const desconto_por_produto = parseFloat(taxa.toFixed(2))/parseFloat(quantidadeTotal.toFixed(2));\n\nconst recompra = \"false\";\n\n// --- Passo 4: Retornar todos os resultados ---\nreturn [\n  {\n    json: {\n      quantidade_de_produtos:  parseFloat(quantidadeTotal.toFixed(2)),\n      taxa_calculada: parseFloat(taxa.toFixed(2)),\n      faturamento: $input.first().json.valor_compra,\n      faturamento_liquido: parseFloat(valor_recebido.toFixed(2)),\n      source: $input.first().json.source,\n      id_externo: $input.first().json.external_order_id,\n      id_base: $input.first().json.order_id,\n      metodo_pagamento: $input.first().json.metodo_pagamento,\n      comentarios: $input.first().json.comentarios,\n      data_compra: timestampUTC,\n      cpf: $input.first().json.cpf,\n      desconto_produto: desconto_por_produto,\n      enviar_recompra: recompra\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4200,
+        2880
+      ],
+      "id": "7707bd8e-4ffe-4b13-b92e-fcb9dbe7847e",
+      "name": "Tratamento de dados - shopee"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Passo 1: Calcular a quantidade total de produtos ---\nconst produtos = $input.first().json.products;\nconst quantidadeTotal = produtos.reduce((soma, produto) => soma + produto.quantity, 0);\n\n// --- Passo 2: Calcular a taxa com a fórmula de 17% + R$19,50 por item ---\n// Lembre-se que em JS o decimal é com ponto (19.50) e não vírgula (19,50).\nconst taxa = ($input.first().json.valor_compra * 0.17) + (quantidadeTotal * 19.50);\n\nconst valor_recebido = ($input.first().json.valor_compra - taxa);\n\n// Passo 3: Calcula a data de compra com a formula fornecida ---\nconst unixTimestamp = $input.first().json.data_pedido;\nconst data = new Date(unixTimestamp * 1000);\n// Para gerar o formato ISO 8601 em UTC (\"2025-08-27T19:43:20.000Z\")\nconst timestampUTC = data.toISOString();\n\n// Desconto por produto (rateio da taxa total)\n  const desconto_por_produto = parseFloat(taxa.toFixed(2))/parseFloat(quantidadeTotal.toFixed(2));\n\nconst recompra = \"false\";\n// --- Passo 4: Retornar todos os resultados ---\nreturn [\n  {\n    json: {\n      quantidade_de_produtos:  parseFloat(quantidadeTotal.toFixed(2)),\n      taxa_calculada: parseFloat(taxa.toFixed(2)),\n      faturamento: $input.first().json.valor_compra,\n      faturamento_liquido: parseFloat(valor_recebido.toFixed(2)),\n      source: $input.first().json.source,\n      id_externo: $input.first().json.external_order_id,\n      id_base: $input.first().json.order_id,\n      metodo_pagamento: $input.first().json.metodo_pagamento,\n      comentarios: $input.first().json.comentarios,\n      data_compra: timestampUTC,\n      cpf: $input.first().json.cpf,\n      desconto_produto: desconto_por_produto,\n      enviar_recompra: recompra\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4200,
+        3080
+      ],
+      "id": "7e462422-ba01-4067-8cbf-c3e23663c2ec",
+      "name": "Tratamento de dados - meli"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Passo 1: Calcular a quantidade total de produtos (código anterior) ---\nconst produtos = $input.first().json.products;\nconst quantidadeTotal = produtos.reduce((soma, produto) => soma + produto.quantity, 0);\n// --- Passo 1: Obter os dados necessários do JSON de entrada ---\n// Usamos \"|| ''\" como um valor padrão para evitar erros se o campo não existir.\nconst metodoPagamento = $input.first().json.metodo_pagamento || '';\nconst valorTotal = $('Set - campos3').first().json.valor_compra;\n\n// --- Passo 2: Calcular a taxa com base nas regras ---\n// Inicializamos a variável da taxa com 0.\nlet taxaCalculada = 0;\n\n// Usamos .includes() para verificar se a string contém a palavra-chave.\n// Isso torna a verificação flexível (ex: \"Cartão de Crédito\" ainda corresponderá a \"Cartão\").\nif (metodoPagamento.includes('Pix')) {\n  taxaCalculada = valorTotal* 0.01;\n\n} else if (metodoPagamento.includes('Cartão')) {\n  taxaCalculada = valorTotal * 0.0887;\n\n} else if (metodoPagamento.includes('Boleto')) {\n  taxaCalculada = 2.39; // Taxa fixa para Boleto\n\n}\n\nconst valor_recebido = ($input.first().json.valor_compra - taxaCalculada - $input.first().json.valor_frete)\n\n// Passo 3: Calcula a data de compra com a formula fornecida ---\nconst unixTimestamp = $input.first().json.data_compra;\nconst data = new Date(unixTimestamp * 1000);\n// Para gerar o formato ISO 8601 em UTC (\"2025-07-18T21:39:20.000Z\")\nconst timestampUTC = data.toISOString();\n\n// Desconto por produto\n  const desconto_por_produto = taxaCalculada/parseFloat(quantidadeTotal.toFixed(2))\n\n// --- Passo 4: Retornar todos os resultados ---\nconst recompra = \"false\";\n// Adicionamos o novo campo 'taxa_calculada' ao objeto de retorno.\nreturn [\n  {\n    json: {\n      quantidade_de_produtos: parseFloat(quantidadeTotal.toFixed(2)),\n      taxa_calculada: parseFloat(taxaCalculada.toFixed(2)),\n      faturamento: $input.first().json.valor_compra,\n      faturamento_liquido: parseFloat(valor_recebido.toFixed(2)),\n      source: $input.first().json.source,\n      id_externo: $input.first().json.external_order_id,\n      id_base: $input.first().json.order_id,\n      metodo_pagamento: $input.first().json.metodo_pagamento,\n      comentarios: $input.first().json.comentarios,\n      data_compra: timestampUTC,\n      cpf: $input.first().json.cpf,\n      desconto_produto: desconto_por_produto,\n      enviar_recompra: recompra\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4280,
+        3260
+      ],
+      "id": "4d807add-c523-457e-bd99-f4d1f845b196",
+      "name": "Tratamento de dados - site"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Passo 1: Calcular a quantidade total de produtos (código anterior) ---\nconst produtos = $input.first().json.products;\nconst quantidadeTotal = produtos.reduce((soma, produto) => soma + produto.quantity, 0);\n// Passo 1: Calcula a data de compra com a formula fornecida ---\nconst unixTimestamp = $input.first().json.data_compra;\nconst data = new Date(unixTimestamp * 1000);\n// Para gerar o formato ISO 8601 em UTC (\"2025-07-18T21:39:20.000Z\")\nconst timestampUTC = data.toISOString();\n\n// Desconto por produto\n  const desconto_por_produto = 0;\n\nconst recompra = \"true\";\n\n// --- Passo 2: Retornar todos os resultados ---\n// Adicionamos o novo campo 'taxa_calculada' ao objeto de retorno.\nreturn [\n  {\n    json: {\n      quantidade_de_produtos: quantidadeTotal,\n      taxa_calculada: 0,\n      faturamento: $input.first().json.valor_compra,\n      faturamento_liquido: $input.first().json.valor_compra,\n      source: \"atacado\",\n      id_externo: $input.first().json.external_order_id,\n      id_base: $input.first().json.order_id,\n      metodo_pagamento: $input.first().json.metodo_pagamento,\n      comentarios: $input.first().json.comentarios,\n      data_compra: timestampUTC,      \n      cpf: $input.first().json.cpf,\n      desconto_produto: desconto_por_produto,\n      enviar_recompra: recompra\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4280,
+        3440
+      ],
+      "id": "14ee852f-b5b1-40f6-90ec-ce04f2ac0602",
+      "name": "Tratamento de dados - atacado"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.order_source_id }}",
+                    "rightValue": 8005077,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    },
+                    "id": "30d64eed-25b7-42ba-8379-9a2977f73139"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Shop"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c867d8d2-6d3d-4f68-ad61-3ea125739643",
+                    "leftValue": "={{ $json.order_source_id }}",
+                    "rightValue": 8005285,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Atacado"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        4120,
+        3260
+      ],
+      "id": "90271bf9-3a97-415c-8842-5f19da4566f0",
+      "name": "Switch2"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_id_base",
+              "keyValue": "={{ $json.order_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2940,
+        3340
+      ],
+      "id": "3a2eac5f-e005-46bd-ac36-63e42c1150d5",
+      "name": "Supabase",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pega o objeto de metadados que contém os produtos.\nconst metadata = $('Set - campos principais').first().json.products;\n\n// Converte o objeto de metadados em uma lista (array) para podermos filtrar.\nconst listaDeItens = Object.values(metadata);\n\n// 1. Filtra a lista para manter apenas os \"produtos reais\".\nconst produtosFiltrados = listaDeItens.filter(item => item.sku && item.sku.trim() !== '');\n\n// 2. Mapeia (transforma) os produtos filtrados para o formato desejado.\n//    Note que agora estamos criando uma lista simples de objetos.\nconst listaDeProdutosFormatada = produtosFiltrados.map(produto => {\n  return {\n    nome_produto: produto.name,\n    sku_produto: produto.sku,\n    quantidade_de_itens: produto.quantity,\n    receita_produto: produto.price_brutto\n  };\n});\n\nreturn [\n  {\n    json: {\n      quantidade_de_produtos: $input.first().json.quantidade_de_produtos,\n      taxa_calculada: $input.first().json.taxa_calculada,\n      faturamento: $input.first().json.faturamento,\n      faturamento_liquido: $input.first().json.faturamento_liquido,\n      source: $input.first().json.source,\n      id_externo: $input.first().json.id_externo,\n      id_base: $input.first().json.id_base,\n      metodo_pagamento: $input.first().json.metodo_pagamento,\n      comentarios: $input.first().json.comentarios,\n      data_compra: $input.first().json.data_compra,\n      cpf: $input.first().json.cpf,\n      id_anuncio: $('Set - campos principais').first().json.external_order_id,\n      custo_frete_order: $('Set - campos principais').first().json.valor_frete,\n      produtos: listaDeProdutosFormatada,\n      desconto_por_produto: $input.first().json.desconto_produto\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5020,
+        3360
+      ],
+      "id": "5bcab580-8695-4049-bccd-3c85c8fb8a3c",
+      "name": "Unificar dados"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5b748e55-95b0-4d99-8279-c1839e0889ff",
+              "name": "order_id",
+              "value": "={{ $('Split Out3').item.json.order_id }}",
+              "type": "number"
+            },
+            {
+              "id": "87d10448-5530-4bac-8ffe-6dbb79607972",
+              "name": "external_order_id",
+              "value": "={{ $('Split Out3').item.json.external_order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4901455d-349d-4c4e-9b95-271cd42e35dd",
+              "name": "source",
+              "value": "={{ $('Split Out3').item.json.order_source }}",
+              "type": "string"
+            },
+            {
+              "id": "11c79475-65a0-4318-8203-fa24c5ff4e87",
+              "name": "confirmed",
+              "value": "={{ $('Split Out3').item.json.confirmed }}",
+              "type": "boolean"
+            },
+            {
+              "id": "52b59a30-6f93-4813-85ed-1d9d7f5e640d",
+              "name": "data_pedido",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "12c1d3a5-6618-4c0b-9423-9b33bc89dc98",
+              "name": "products",
+              "value": "={{ $('Split Out3').item.json.products }}",
+              "type": "array"
+            },
+            {
+              "id": "6b153c4d-6bd3-4bbd-b7d4-6b6626b104ff",
+              "name": "valor_frete",
+              "value": "={{ $('Split Out3').item.json.delivery_price }}",
+              "type": "number"
+            },
+            {
+              "id": "8dd40915-65c2-44b5-a728-8de15b202360",
+              "name": "metodo_pagamento",
+              "value": "={{ $('Split Out3').item.json.payment_method }}",
+              "type": "string"
+            },
+            {
+              "id": "db815d28-8ed6-4ed6-99fa-3249bd5dde4d",
+              "name": "comentarios",
+              "value": "={{ $('Split Out3').item.json.admin_comments }}",
+              "type": "string"
+            },
+            {
+              "id": "a609ab39-aafb-4e74-9df3-e52138d343c7",
+              "name": "data_compra",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "03e59953-dc5b-42af-87cd-839a31e5c61b",
+              "name": "cpf",
+              "value": "={{ $('Split Out3').item.json.invoice_nip }}",
+              "type": "string"
+            },
+            {
+              "id": "06094f7f-5070-4750-8011-012deff3ad80",
+              "name": "nome",
+              "value": "={{ $('Split Out3').item.json.invoice_fullname }}",
+              "type": "string"
+            },
+            {
+              "id": "98e13619-3921-4818-8339-c4e653128eef",
+              "name": "telefone",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "fb25468c-0b98-46dd-be3a-6d9347b29dca",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "26bd0cc3-2d65-4bce-89ec-c902344899ec",
+              "name": "client_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "bb01a8e8-27e6-4c43-a34c-1b2361aa5332",
+              "name": "valor_compra",
+              "value": "={{ $('Split Out3').item.json.payment_done }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4020,
+        2880
+      ],
+      "id": "695ae8f3-b329-4612-bff6-11d877422219",
+      "name": "Set - campos1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5b748e55-95b0-4d99-8279-c1839e0889ff",
+              "name": "order_id",
+              "value": "={{ $('Split Out3').item.json.order_id }}",
+              "type": "number"
+            },
+            {
+              "id": "87d10448-5530-4bac-8ffe-6dbb79607972",
+              "name": "external_order_id",
+              "value": "={{ $('Split Out3').item.json.external_order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4901455d-349d-4c4e-9b95-271cd42e35dd",
+              "name": "source",
+              "value": "={{ $('Split Out3').item.json.order_source }}",
+              "type": "string"
+            },
+            {
+              "id": "11c79475-65a0-4318-8203-fa24c5ff4e87",
+              "name": "confirmed",
+              "value": "={{ $('Split Out3').item.json.confirmed }}",
+              "type": "boolean"
+            },
+            {
+              "id": "52b59a30-6f93-4813-85ed-1d9d7f5e640d",
+              "name": "data_pedido",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "12c1d3a5-6618-4c0b-9423-9b33bc89dc98",
+              "name": "products",
+              "value": "={{ $('Split Out3').item.json.products }}",
+              "type": "array"
+            },
+            {
+              "id": "6b153c4d-6bd3-4bbd-b7d4-6b6626b104ff",
+              "name": "valor_frete",
+              "value": "={{ $('Split Out3').item.json.delivery_price }}",
+              "type": "number"
+            },
+            {
+              "id": "8dd40915-65c2-44b5-a728-8de15b202360",
+              "name": "metodo_pagamento",
+              "value": "={{ $('Split Out3').item.json.payment_method }}",
+              "type": "string"
+            },
+            {
+              "id": "db815d28-8ed6-4ed6-99fa-3249bd5dde4d",
+              "name": "comentarios",
+              "value": "={{ $('Split Out3').item.json.admin_comments }}",
+              "type": "string"
+            },
+            {
+              "id": "a609ab39-aafb-4e74-9df3-e52138d343c7",
+              "name": "data_compra",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "03e59953-dc5b-42af-87cd-839a31e5c61b",
+              "name": "cpf",
+              "value": "={{ $('Split Out3').item.json.invoice_nip }}",
+              "type": "string"
+            },
+            {
+              "id": "06094f7f-5070-4750-8011-012deff3ad80",
+              "name": "nome",
+              "value": "={{ $('Split Out3').item.json.invoice_fullname }}",
+              "type": "string"
+            },
+            {
+              "id": "98e13619-3921-4818-8339-c4e653128eef",
+              "name": "telefone",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "fb25468c-0b98-46dd-be3a-6d9347b29dca",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "26bd0cc3-2d65-4bce-89ec-c902344899ec",
+              "name": "client_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "bb01a8e8-27e6-4c43-a34c-1b2361aa5332",
+              "name": "valor_compra",
+              "value": "={{ $('Split Out3').item.json.payment_done }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4020,
+        3080
+      ],
+      "id": "257a0dac-e52a-489f-8512-e6951c247e8b",
+      "name": "Set - campos2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5b748e55-95b0-4d99-8279-c1839e0889ff",
+              "name": "order_id",
+              "value": "={{ $('Split Out3').item.json.order_id }}",
+              "type": "number"
+            },
+            {
+              "id": "87d10448-5530-4bac-8ffe-6dbb79607972",
+              "name": "external_order_id",
+              "value": "={{ $('Split Out3').item.json.external_order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4901455d-349d-4c4e-9b95-271cd42e35dd",
+              "name": "source",
+              "value": "={{ $('Split Out3').item.json.order_source }}",
+              "type": "string"
+            },
+            {
+              "id": "11c79475-65a0-4318-8203-fa24c5ff4e87",
+              "name": "confirmed",
+              "value": "={{ $('Split Out3').item.json.confirmed }}",
+              "type": "boolean"
+            },
+            {
+              "id": "52b59a30-6f93-4813-85ed-1d9d7f5e640d",
+              "name": "data_pedido",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "12c1d3a5-6618-4c0b-9423-9b33bc89dc98",
+              "name": "products",
+              "value": "={{ $('Split Out3').item.json.products }}",
+              "type": "array"
+            },
+            {
+              "id": "6b153c4d-6bd3-4bbd-b7d4-6b6626b104ff",
+              "name": "valor_frete",
+              "value": "={{ $('Split Out3').item.json.delivery_price }}",
+              "type": "number"
+            },
+            {
+              "id": "8dd40915-65c2-44b5-a728-8de15b202360",
+              "name": "metodo_pagamento",
+              "value": "={{ $('Split Out3').item.json.payment_method }}",
+              "type": "string"
+            },
+            {
+              "id": "db815d28-8ed6-4ed6-99fa-3249bd5dde4d",
+              "name": "comentarios",
+              "value": "={{ $('Split Out3').item.json.admin_comments }}",
+              "type": "string"
+            },
+            {
+              "id": "a609ab39-aafb-4e74-9df3-e52138d343c7",
+              "name": "data_compra",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "03e59953-dc5b-42af-87cd-839a31e5c61b",
+              "name": "cpf",
+              "value": "={{ $('Split Out3').item.json.invoice_nip }}",
+              "type": "string"
+            },
+            {
+              "id": "06094f7f-5070-4750-8011-012deff3ad80",
+              "name": "nome",
+              "value": "={{ $('Split Out3').item.json.invoice_fullname }}",
+              "type": "string"
+            },
+            {
+              "id": "98e13619-3921-4818-8339-c4e653128eef",
+              "name": "telefone",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "fb25468c-0b98-46dd-be3a-6d9347b29dca",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "26bd0cc3-2d65-4bce-89ec-c902344899ec",
+              "name": "client_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "bb01a8e8-27e6-4c43-a34c-1b2361aa5332",
+              "name": "valor_compra",
+              "value": "={{ $('Split Out3').item.json.payment_done }}",
+              "type": "string"
+            },
+            {
+              "id": "aed9a724-a5fd-43b2-8772-74c7a3c11448",
+              "name": "order_source_id",
+              "value": "={{ $json.order_source_id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3960,
+        3260
+      ],
+      "id": "307e6aae-5252-4125-8185-7bac2c5185cd",
+      "name": "Set - campos3"
+    },
+    {
+      "parameters": {
+        "content": "## Verifica se o pedido está cadastrado na base",
+        "height": 360,
+        "width": 700,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2540,
+        3160
+      ],
+      "id": "678a109b-c0a4-4379-95dd-cbf0fab22e54",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Trata os dados doo pedido e aplica taxas para enviar ao DB",
+        "height": 1140,
+        "width": 1360,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3380,
+        2800
+      ],
+      "id": "2ee87db4-1deb-4ef2-a6c0-5120c2685012",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Envia os pedidos para a database",
+        "height": 340,
+        "width": 540,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4960,
+        3240
+      ],
+      "id": "56ee4d6c-e19c-4634-b401-8730e590f6d0",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "clients",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "cpf",
+              "keyValue": "={{ $json.cpf }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        5180,
+        3360
+      ],
+      "id": "c4b33852-528b-40f9-a2ba-f5be627d1d7d",
+      "name": "Link - cliente",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "produtos",
+        "include": "selectedOtherFields",
+        "fieldsToInclude": "desconto_por_produto",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        5980,
+        3220
+      ],
+      "id": "251d13e0-b8d2-48c1-a991-23a6e799a49d",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5b748e55-95b0-4d99-8279-c1839e0889ff",
+              "name": "order_id",
+              "value": "={{ $('Split Out3').item.json.order_id }}",
+              "type": "number"
+            },
+            {
+              "id": "87d10448-5530-4bac-8ffe-6dbb79607972",
+              "name": "external_order_id",
+              "value": "={{ $('Split Out3').item.json.external_order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4901455d-349d-4c4e-9b95-271cd42e35dd",
+              "name": "source",
+              "value": "={{ $('Split Out3').item.json.order_source }}",
+              "type": "string"
+            },
+            {
+              "id": "11c79475-65a0-4318-8203-fa24c5ff4e87",
+              "name": "confirmed",
+              "value": "={{ $('Split Out3').item.json.confirmed }}",
+              "type": "boolean"
+            },
+            {
+              "id": "52b59a30-6f93-4813-85ed-1d9d7f5e640d",
+              "name": "data_pedido",
+              "value": "={{ $('Split Out3').item.json.date_add }}",
+              "type": "number"
+            },
+            {
+              "id": "12c1d3a5-6618-4c0b-9423-9b33bc89dc98",
+              "name": "products",
+              "value": "={{ $('Split Out3').item.json.products }}",
+              "type": "array"
+            },
+            {
+              "id": "6b153c4d-6bd3-4bbd-b7d4-6b6626b104ff",
+              "name": "valor_frete",
+              "value": "={{ $('Split Out3').item.json.delivery_price }}",
+              "type": "number"
+            },
+            {
+              "id": "8dd40915-65c2-44b5-a728-8de15b202360",
+              "name": "metodo_pagamento",
+              "value": "={{ $('Split Out3').item.json.payment_method }}",
+              "type": "string"
+            },
+            {
+              "id": "db815d28-8ed6-4ed6-99fa-3249bd5dde4d",
+              "name": "comentarios",
+              "value": "={{ $('Split Out3').item.json.admin_comments }}",
+              "type": "string"
+            },
+            {
+              "id": "a609ab39-aafb-4e74-9df3-e52138d343c7",
+              "name": "data_compra",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "03e59953-dc5b-42af-87cd-839a31e5c61b",
+              "name": "cpf",
+              "value": "={{ $('Split Out3').item.json.invoice_nip }}",
+              "type": "string"
+            },
+            {
+              "id": "06094f7f-5070-4750-8011-012deff3ad80",
+              "name": "nome",
+              "value": "={{ $('Split Out3').item.json.invoice_fullname }}",
+              "type": "string"
+            },
+            {
+              "id": "bb01a8e8-27e6-4c43-a34c-1b2361aa5332",
+              "name": "valor_compra",
+              "value": "={{ $('Split Out3').item.json.payment_done }}",
+              "type": "string"
+            },
+            {
+              "id": "6d25eb26-0689-48c8-b007-dd8276e62e8a",
+              "name": "produtos",
+              "value": "={{ $('Split Out3').item.json.products }}",
+              "type": "string"
+            },
+            {
+              "id": "4ee18aaa-c7ee-4d13-a44b-83318989bf5b",
+              "name": "order_source_id",
+              "value": "={{ $('Split Out3').item.json.order_source_id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3540,
+        3120
+      ],
+      "id": "2030eb56-5ad8-43ac-91e1-af5b7cd77de0",
+      "name": "Set - campos principais"
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2780,
+        3340
+      ],
+      "id": "6acb8fd3-b87b-4b32-a2f9-d5a811433e95",
+      "name": "Wait1",
+      "webhookId": "3e70976e-19ad-4e21-9368-8f6d851f8a64"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "08925163-183f-48d0-a995-630fd5c98474",
+              "leftValue": "={{ $json }}",
+              "rightValue": "=",
+              "operator": {
+                "type": "object",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3100,
+        3340
+      ],
+      "id": "15db967e-28fb-4d3a-813b-c8c3aa8a7e04",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3460,
+        3440
+      ],
+      "id": "e10cbb05-0599-4cb8-8393-ac6b8df820f7",
+      "name": "Wait4",
+      "webhookId": "d7bae931-289c-4891-be1e-d0310283fa0b"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        8760,
+        3720
+      ],
+      "id": "828bbc9a-fd86-4aa3-93d2-8b290886c41f",
+      "name": "Wait3",
+      "webhookId": "e0a3606b-c569-4557-9682-145638cae191"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": "={{ $('Loop itens produto').context['done'] }}"
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        6220,
+        3240
+      ],
+      "id": "fd9d8039-3e29-4241-9f70-96fef14e3d79",
+      "name": "Loop itens produto"
+    },
+    {
+      "parameters": {
+        "action": "generate"
+      },
+      "id": "94848fc5-d831-4d53-aebf-0b474fc4702d",
+      "name": "GeraUUID",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        8020,
+        3500
+      ],
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "87fc63dd-c63f-49b1-a56c-703fcffb08b7",
+              "leftValue": "={{ $json.products }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        6780,
+        3240
+      ],
+      "id": "e5e9450a-58b6-4b4a-8b69-ca813c19438e",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "tableId": "orders_products",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $('Loop Over Items1').item.json.order_date }}"
+            },
+            {
+              "fieldId": "order_base_id",
+              "fieldValue": "={{ $('Loop Over Items1').item.json.order_id_base }}"
+            },
+            {
+              "fieldId": "nome_produto",
+              "fieldValue": "={{ $('Loop itens produto').item.json.nome_produto }}"
+            },
+            {
+              "fieldId": "sku",
+              "fieldValue": "={{ $('Loop itens produto').item.json.sku_produto }}"
+            },
+            {
+              "fieldId": "quantidade_produtos",
+              "fieldValue": "={{ $('Loop itens produto').item.json.quantidade_de_itens }}"
+            },
+            {
+              "fieldId": "custo_medio_produto",
+              "fieldValue": "={{ $json.custo_produto }}"
+            },
+            {
+              "fieldId": "order_id",
+              "fieldValue": "={{ $('Supabase2').item.json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        8180,
+        3500
+      ],
+      "id": "30e2dbbf-9c4a-436a-b049-527d51798213",
+      "name": "Supabase3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "=getProductsList"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n\"storage_id\": \"bl_1\",\n\"filter_sku\": \"{{ $json.sku_produto }}\"\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6620,
+        3240
+      ],
+      "id": "31f97793-1846-47bf-849c-472945edc511",
+      "name": "Request product1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "=getInventoryProductsData"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n    \"inventory_id\": \"34283\",\n    \"products\": {{ $json.products[0].product_id }}\n} "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6980,
+        3220
+      ],
+      "id": "21362b15-febc-43c8-9b62-318d294dce6b",
+      "name": "Request product_data1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "12574251-b31c-4301-9e06-042fabfb056f",
+              "leftValue": "={{ $json.isBundle }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        7300,
+        3140
+      ],
+      "id": "d00c4c52-3cb8-4e3c-989a-4077d6d94d64",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Pega o objeto 'products' da variável de entrada que você especificou.\nconst productsObject = $input.first().json.products;\n\n// 2. Acessa os dados do produto pelo seu ID dinâmico.\nconst productId = Object.keys(productsObject)[0];\nconst productData = productsObject[productId];\n\n// 3. Extrai cada informação.\n\n// --- NOVO CAMPO ADICIONADO AQUI ---\n// Acessa diretamente o valor de 'is_bundle'. Usamos '?? false' como um valor padrão.\nconst isBundle = productData.is_bundle ?? \"bibi\";\nconst productId2 = Object.keys(productsObject)[0];\nconst bundleProductsObject = productData.bundle_products || {};\nconst bundleProducts = Object.keys(bundleProductsObject).map(bundleProductId => {\n  // Para cada chave (que é o ID do produto no kit)...\n  return {\n    // ...cria um objeto com o ID e a sua respectiva quantidade.\n    productId: bundleProductId,\n    quantity: bundleProductsObject[bundleProductId]\n  };\n});\n\nconst totalStock = Object.values(productData.stock || {}).reduce((sum, current) => sum + current, 0);\nconst price = Object.values(productData.prices || {})[0] ?? 0;\nconst averageCost = productData.average_cost ?? 0;\nconst images = Object.values(productData.images || {});\nconst sku = productData.sku ?? \"bibi\";\nconst nome_produto = productData.text_fields?.name ?? 'Nome não encontrado';\nconst receita_produto = $('Edit Fields').first().json.receita_produto\nconst faturamento_liquido = (receita_produto)-($('Edit Fields').first().json.desconto_por_item*$('Edit Fields').first().json.quantidade_de_itens)\nconst desconto_produto = $('Edit Fields').first().json.desconto_por_item*$('Edit Fields').first().json.quantidade_de_itens\n\n// 4. Monta o novo objeto com os dados.\nconst extractedData = {\n  isBundle: isBundle, // <-- NOVO CAMPO AQUI\n  stock: totalStock,\n  price: price,\n  averageCost: averageCost,\n  images: images,\n  sku: sku,\n  nome: nome_produto,\n  id_produto: productId2,\n  produtos_kit: bundleProducts,\n  desconto_por_item: desconto_produto,\n  receita_do_pedido: receita_produto,\n  faturamento_liquido: faturamento_liquido,\n  quantidade_de_itens: $('Edit Fields').first().json.quantidade_de_itens\n};\n\n// 5. Retorna os dados no formato que o n8n espera.\nreturn [{ json: extractedData }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7140,
+        3220
+      ],
+      "id": "1b34514a-902e-4ba1-8b24-d02a560e1739",
+      "name": "Code4",
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "sku",
+              "keyValue": "={{ $('Loop itens produto').item.json.sku_produto }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        7860,
+        3500
+      ],
+      "id": "35afa0c2-e9f8-4ae6-b22e-a8504d3a3e21",
+      "name": "Supabase9",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Criar Pedido').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "produtos_order",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        6500,
+        2380
+      ],
+      "id": "b79de5a9-9159-4011-953e-f69962914022",
+      "name": "Supabase10",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "orders_products",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $('Criar Pedido').item.json.order_date }}"
+            },
+            {
+              "fieldId": "order_base_id",
+              "fieldValue": "={{ $('Criar Pedido').item.json.order_id_base }}"
+            },
+            {
+              "fieldId": "nome_produto",
+              "fieldValue": "={{ $json.nome }}"
+            },
+            {
+              "fieldId": "sku",
+              "fieldValue": "={{ $json.sku }}"
+            },
+            {
+              "fieldId": "quantidade_produtos",
+              "fieldValue": "={{ $json.quantidade_de_itens }}"
+            },
+            {
+              "fieldId": "custo_medio_produto",
+              "fieldValue": "={{ $json.averageCost }}"
+            },
+            {
+              "fieldId": "order_id",
+              "fieldValue": "={{ $('Criar Pedido').item.json.id }}"
+            },
+            {
+              "fieldId": "receita_bruta",
+              "fieldValue": "={{ $json.receita_do_pedido }}"
+            },
+            {
+              "fieldId": "taxas_produto",
+              "fieldValue": "={{ $json.desconto_por_item }}"
+            },
+            {
+              "fieldId": "faturamento_liquido",
+              "fieldValue": "={{ $json.faturamento_liquido }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        7680,
+        3040
+      ],
+      "id": "e1635c51-dcbb-4437-9017-a49466bf1efd",
+      "name": "Supabase12",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "=getInventoryProductsData"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n    \"inventory_id\": \"34283\",\n    \"products\": {{ $json.produtos_kit[0].productId }}\n} "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7480,
+        3260
+      ],
+      "id": "462abd31-5a64-4e58-9728-66014e38e3bb",
+      "name": "Request product_data2",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Pega o objeto 'products' da variável de entrada que você especificou.\nconst productsObject = $input.first().json.products;\n\n// 2. Acessa os dados do produto pelo seu ID dinâmico.\nconst productId = Object.keys(productsObject)[0];\nconst productData = productsObject[productId];\n\n// 3. Extrai cada informação.\n\n// --- NOVO CAMPO ADICIONADO AQUI ---\n// Acessa diretamente o valor de 'is_bundle'. Usamos '?? false' como um valor padrão.\nconst isBundle = productData.is_bundle ?? \"bibi\";\nconst productId2 = Object.keys(productsObject)[0];\nconst bundleProductsObject = productData.bundle_products || {};\nconst bundleProducts = Object.keys(bundleProductsObject).map(bundleProductId => {\n  // Para cada chave (que é o ID do produto no kit)...\n  return {\n    // ...cria um objeto com o ID e a sua respectiva quantidade.\n    productId: bundleProductId,\n    quantity: bundleProductsObject[bundleProductId]\n  };\n});\n\nconst totalStock = Object.values(productData.stock || {}).reduce((sum, current) => sum + current, 0);\nconst price = Object.values(productData.prices || {})[0] ?? 0;\nconst averageCost = productData.average_cost ?? 0;\nconst images = Object.values(productData.images || {});\nconst sku = productData.sku ?? \"bibi\";\nconst nome_produto = productData.text_fields?.name ?? 'Nome não encontrado';\n\n// 4. Monta o novo objeto com os dados.\nconst extractedData = {\n  isBundle: isBundle, // <-- NOVO CAMPO AQUI\n  stock: totalStock,\n  price: price,\n  averageCost: averageCost,\n  images: images,\n  sku: sku,\n  nome: nome_produto,\n  id_produto: productId2,\n  quantidade_kit: $('Code4').first().json.produtos_kit[0].quantity\n};\n\n// 5. Retorna os dados no formato que o n8n espera.\nreturn [{ json: extractedData }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7640,
+        3260
+      ],
+      "id": "121a58b7-ea8f-44d6-9e6c-55593245d77c",
+      "name": "Code5",
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "tableId": "orders_products",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $('Criar Pedido').item.json.order_date }}"
+            },
+            {
+              "fieldId": "order_base_id",
+              "fieldValue": "={{ $('Criar Pedido').item.json.order_id_base }}"
+            },
+            {
+              "fieldId": "nome_produto",
+              "fieldValue": "={{ $('Code5').item.json.nome }}"
+            },
+            {
+              "fieldId": "sku",
+              "fieldValue": "={{ $('Code5').item.json.sku }}"
+            },
+            {
+              "fieldId": "quantidade_produtos",
+              "fieldValue": "={{ $('Code5').item.json.quantidade_kit }}"
+            },
+            {
+              "fieldId": "custo_medio_produto",
+              "fieldValue": "={{ $('Code5').item.json.averageCost }}"
+            },
+            {
+              "fieldId": "order_id",
+              "fieldValue": "={{ $('Criar Pedido').item.json.id }}"
+            },
+            {
+              "fieldId": "faturamento_liquido",
+              "fieldValue": "={{ $('Code4').item.json.faturamento_liquido }}"
+            },
+            {
+              "fieldId": "receita_bruta",
+              "fieldValue": "={{ $('Code4').item.json.receita_do_pedido }}"
+            },
+            {
+              "fieldId": "taxas_produto",
+              "fieldValue": "={{ $('Code4').item.json.desconto_por_item }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        7840,
+        3240
+      ],
+      "id": "758074aa-97d4-4e47-9fdd-bd02ee9ab1ce",
+      "name": "Supabase13",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        6660,
+        2380
+      ],
+      "id": "e651a861-93c1-4776-a3ad-4de60a98c3fe",
+      "name": "Wait",
+      "webhookId": "d15e03c5-14c7-4bbb-a745-3b86c1092dfa"
+    },
+    {
+      "parameters": {
+        "content": "## Busca pedidos últimos 6 minutos (a cada 5minutos)",
+        "height": 480,
+        "width": 960
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1460,
+        3040
+      ],
+      "id": "edad0914-f3a1-4fd5-97f6-e10cb26d1085",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Passo 1: Calcular a quantidade total de produtos (código anterior) ---\nconst produtos = $input.first().json.products;\nconst quantidadeTotal = produtos.reduce((soma, produto) => soma + produto.quantity, 0);\n\n// --- Passo 1: Obter os dados necessários do JSON de entrada ---\nconst valorTotal = $input.first().json.valor_compra;\n\n// --- Passo 2: Calcular a taxa com base nas regras (única taxa) ---\n// A taxa de 24.5% (0.245) é aplicada diretamente.\nconst taxaCalculada = valorTotal * 0.245;\n\nconst valor_recebido = (valorTotal - taxaCalculada);\n\n// Passo 3: Calcula a data de compra com a formula fornecida ---\nconst unixTimestamp = $input.first().json.data_compra;\nconst data = new Date(unixTimestamp * 1000);\n// Para gerar o formato ISO 8601 em UTC (\"2025-07-18T21:39:20.000Z\")\nconst timestampUTC = data.toISOString();\n\n// Desconto por produto\n  const desconto_por_produto = parseFloat(taxaCalculada.toFixed(2))/parseFloat(quantidadeTotal.toFixed(2))\n\nconst recompra = \"false\";\n// --- Passo 4: Retornar todos os resultados ---\nreturn [\n  {\n    json: {\n      quantidade_de_produtos: parseFloat(quantidadeTotal.toFixed(2)),\n      taxa_calculada: parseFloat(taxaCalculada.toFixed(2)),\n      faturamento: valorTotal,\n      faturamento_liquido: parseFloat(valor_recebido.toFixed(2)),\n      source: $input.first().json.source,\n      id_externo: $input.first().json.external_order_id,\n      id_base: $input.first().json.order_id,\n      metodo_pagamento: $input.first().json.metodo_pagamento,\n      comentarios: $input.first().json.comentarios,\n      data_compra: timestampUTC,\n      cpf: $input.first().json.cpf,\n      desconto_produto: desconto_por_produto,\n      enviar_recompra: recompra\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4300,
+        3740
+      ],
+      "id": "f6d1099b-2098-447b-adab-b437d82f5e27",
+      "name": "Tratamento de dados - shopee1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5b748e55-95b0-4d99-8279-c1839e0889ff",
+              "name": "order_id",
+              "value": "={{ $('Split Out3').item.json.order_id }}",
+              "type": "number"
+            },
+            {
+              "id": "87d10448-5530-4bac-8ffe-6dbb79607972",
+              "name": "external_order_id",
+              "value": "={{ $('Split Out3').item.json.external_order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4901455d-349d-4c4e-9b95-271cd42e35dd",
+              "name": "source",
+              "value": "={{ $('Split Out3').item.json.order_source }}",
+              "type": "string"
+            },
+            {
+              "id": "11c79475-65a0-4318-8203-fa24c5ff4e87",
+              "name": "confirmed",
+              "value": "={{ $('Split Out3').item.json.confirmed }}",
+              "type": "boolean"
+            },
+            {
+              "id": "52b59a30-6f93-4813-85ed-1d9d7f5e640d",
+              "name": "data_pedido",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "12c1d3a5-6618-4c0b-9423-9b33bc89dc98",
+              "name": "products",
+              "value": "={{ $('Split Out3').item.json.products }}",
+              "type": "array"
+            },
+            {
+              "id": "6b153c4d-6bd3-4bbd-b7d4-6b6626b104ff",
+              "name": "valor_frete",
+              "value": "={{ $('Split Out3').item.json.delivery_price }}",
+              "type": "number"
+            },
+            {
+              "id": "8dd40915-65c2-44b5-a728-8de15b202360",
+              "name": "metodo_pagamento",
+              "value": "={{ $('Split Out3').item.json.payment_method }}",
+              "type": "string"
+            },
+            {
+              "id": "db815d28-8ed6-4ed6-99fa-3249bd5dde4d",
+              "name": "comentarios",
+              "value": "={{ $('Split Out3').item.json.admin_comments }}",
+              "type": "string"
+            },
+            {
+              "id": "a609ab39-aafb-4e74-9df3-e52138d343c7",
+              "name": "data_compra",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "03e59953-dc5b-42af-87cd-839a31e5c61b",
+              "name": "cpf",
+              "value": "={{ $('Split Out3').item.json.invoice_nip }}",
+              "type": "string"
+            },
+            {
+              "id": "06094f7f-5070-4750-8011-012deff3ad80",
+              "name": "nome",
+              "value": "={{ $('Split Out3').item.json.invoice_fullname }}",
+              "type": "string"
+            },
+            {
+              "id": "98e13619-3921-4818-8339-c4e653128eef",
+              "name": "telefone",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "fb25468c-0b98-46dd-be3a-6d9347b29dca",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "26bd0cc3-2d65-4bce-89ec-c902344899ec",
+              "name": "client_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "bb01a8e8-27e6-4c43-a34c-1b2361aa5332",
+              "name": "valor_compra",
+              "value": "={{ $('Split Out3').item.json.payment_done }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3960,
+        3740
+      ],
+      "id": "4da735df-1eed-445e-8362-b72844b199e2",
+      "name": "Set - campos"
+    },
+    {
+      "parameters": {
+        "content": "## Separa e cria os produtos do pedido",
+        "height": 820,
+        "width": 2620,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        5680,
+        2940
+      ],
+      "id": "8f972a87-1327-4134-8059-8c4dbb21b161",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c28ffe29-40d6-47fe-9acf-20d54e4a724f",
+              "name": "sku_produto",
+              "value": "={{ $json.produtos.sku_produto }}",
+              "type": "string"
+            },
+            {
+              "id": "84df49c5-4a2e-4fc9-8b2f-8fd3adac5586",
+              "name": "nome_produto",
+              "value": "={{ $json.produtos.nome_produto }}",
+              "type": "string"
+            },
+            {
+              "id": "d3b7a9ea-ca7a-43bf-9353-ecb003d203f7",
+              "name": "receita_produto",
+              "value": "={{ $json.produtos.receita_produto }}",
+              "type": "number"
+            },
+            {
+              "id": "60cdde1a-1320-495f-9288-e402fdd8349a",
+              "name": "quantidade_de_itens",
+              "value": "={{ $json.produtos.quantidade_de_itens }}",
+              "type": "number"
+            },
+            {
+              "id": "aa59d052-1e4d-4417-94cd-068dc653989e",
+              "name": "desconto_por_item",
+              "value": "={{ $json.desconto_por_produto }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6440,
+        3240
+      ],
+      "id": "d2ceef0a-54aa-417c-b151-2ec89a753108",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bf4c72d4-85e9-4d60-a501-1e539d7161db",
+              "name": "desconto_por_produto",
+              "value": "={{ $('Unificar dados').item.json.desconto_por_produto }}",
+              "type": "number"
+            },
+            {
+              "id": "d3d83d6f-8dd5-4c0b-819f-55e7f8221e79",
+              "name": "produtos",
+              "value": "={{ $('Unificar dados').item.json.produtos }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        5800,
+        3220
+      ],
+      "id": "e7b46b5d-8c52-46c6-b426-0d4c010ea687",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const nova_receita = $input.first().json.receita_do_pedido*$input.first().json.quantidade_de_itens\nconst novo_fat_liquido = ($input.first().json.receita_do_pedido-$input.first().json.desconto_por_item)*$input.first().json.quantidade_de_itens\nreturn [\n  {\n    json: {\n      averageCost: $input.first().json.averageCost,\n      images: $input.first().json.images,\n      sku: $input.first().json.sku,\n      nome: $input.first().json.nome,\n      id_produto: $input.first().json.id_produto,\n      desconto_por_item: $input.first().json.desconto_por_item,\n      receita_do_pedido: nova_receita,\n      faturamento_liquido: novo_fat_liquido,\n      quantidade_de_itens: $input.first().json.quantidade_de_itens\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7520,
+        3040
+      ],
+      "id": "97535af5-09de-4dbb-b196-596893a4875f",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5b748e55-95b0-4d99-8279-c1839e0889ff",
+              "name": "order_id",
+              "value": "={{ $('Split Out3').item.json.order_id }}",
+              "type": "number"
+            },
+            {
+              "id": "87d10448-5530-4bac-8ffe-6dbb79607972",
+              "name": "external_order_id",
+              "value": "={{ $('Split Out3').item.json.external_order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4901455d-349d-4c4e-9b95-271cd42e35dd",
+              "name": "source",
+              "value": "={{ $('Split Out3').item.json.order_source }}",
+              "type": "string"
+            },
+            {
+              "id": "11c79475-65a0-4318-8203-fa24c5ff4e87",
+              "name": "confirmed",
+              "value": "={{ $('Split Out3').item.json.confirmed }}",
+              "type": "boolean"
+            },
+            {
+              "id": "52b59a30-6f93-4813-85ed-1d9d7f5e640d",
+              "name": "data_pedido",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "12c1d3a5-6618-4c0b-9423-9b33bc89dc98",
+              "name": "products",
+              "value": "={{ $('Split Out3').item.json.products }}",
+              "type": "array"
+            },
+            {
+              "id": "6b153c4d-6bd3-4bbd-b7d4-6b6626b104ff",
+              "name": "valor_frete",
+              "value": "={{ $('Split Out3').item.json.delivery_price }}",
+              "type": "number"
+            },
+            {
+              "id": "8dd40915-65c2-44b5-a728-8de15b202360",
+              "name": "metodo_pagamento",
+              "value": "={{ $('Split Out3').item.json.payment_method }}",
+              "type": "string"
+            },
+            {
+              "id": "db815d28-8ed6-4ed6-99fa-3249bd5dde4d",
+              "name": "comentarios",
+              "value": "={{ $('Split Out3').item.json.admin_comments }}",
+              "type": "string"
+            },
+            {
+              "id": "a609ab39-aafb-4e74-9df3-e52138d343c7",
+              "name": "data_compra",
+              "value": "={{ $('Split Out3').item.json.date_confirmed }}",
+              "type": "number"
+            },
+            {
+              "id": "03e59953-dc5b-42af-87cd-839a31e5c61b",
+              "name": "cpf",
+              "value": "={{ $('Split Out3').item.json.invoice_nip }}",
+              "type": "string"
+            },
+            {
+              "id": "06094f7f-5070-4750-8011-012deff3ad80",
+              "name": "nome",
+              "value": "={{ $('Split Out3').item.json.invoice_fullname }}",
+              "type": "string"
+            },
+            {
+              "id": "98e13619-3921-4818-8339-c4e653128eef",
+              "name": "telefone",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "fb25468c-0b98-46dd-be3a-6d9347b29dca",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "26bd0cc3-2d65-4bce-89ec-c902344899ec",
+              "name": "client_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "bb01a8e8-27e6-4c43-a34c-1b2361aa5332",
+              "name": "valor_compra",
+              "value": "={{ $('Split Out3').item.json.payment_done }}",
+              "type": "string"
+            },
+            {
+              "id": "aed9a724-a5fd-43b2-8772-74c7a3c11448",
+              "name": "order_source_id",
+              "value": "={{ $json.order_source_id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4000,
+        3480
+      ],
+      "id": "276b8b9f-9ef5-4660-98bb-670b81f0105d",
+      "name": "Set - campos4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Passo 1: Calcular a quantidade total de produtos (código anterior) ---\nconst produtos = $input.first().json.products;\nconst quantidadeTotal = produtos.reduce((soma, produto) => soma + produto.quantity, 0);\n// Passo 1: Calcula a data de compra com a formula fornecida ---\nconst unixTimestamp = $input.first().json.data_compra;\nconst data = new Date(unixTimestamp * 1000);\n// Para gerar o formato ISO 8601 em UTC (\"2025-07-18T21:39:20.000Z\")\nconst timestampUTC = data.toISOString();\n\n// Desconto por produto\n  const desconto_por_produto = 0;\n\nconst recompra = \"true\";\n\n// --- Passo 2: Retornar todos os resultados ---\n// Adicionamos o novo campo 'taxa_calculada' ao objeto de retorno.\nreturn [\n  {\n    json: {\n      quantidade_de_produtos: quantidadeTotal,\n      taxa_calculada: 0,\n      faturamento: $input.first().json.valor_compra,\n      faturamento_liquido: $input.first().json.valor_compra,\n      source: \"whatsapp\",\n      id_externo: $input.first().json.external_order_id,\n      id_base: $input.first().json.order_id,\n      metodo_pagamento: $input.first().json.metodo_pagamento,\n      comentarios: $input.first().json.comentarios,\n      data_compra: timestampUTC,      \n      cpf: $input.first().json.cpf,\n      desconto_produto: desconto_por_produto,\n      enviar_recompra: recompra\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4280,
+        3600
+      ],
+      "id": "1e6a4db1-c118-4a61-b655-2e1480bd162d",
+      "name": "Tratamento de dados - whatsapp"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        1540,
+        3240
+      ],
+      "id": "bb3c3823-163a-49ca-898a-7f61082e4735",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Request Orders1": {
+      "main": [
+        [
+          {
+            "node": "Split Out3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time2": {
+      "main": [
+        [
+          {
+            "node": "Request Orders1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time3": {
+      "main": [
+        [
+          {
+            "node": "Date & Time2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop pedidos1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out3": {
+      "main": [
+        [
+          {
+            "node": "Loop pedidos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Pedido": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Set - campos1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set - campos2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set - campos3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set - campos4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set - campos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratamento de dados - shopee": {
+      "main": [
+        [
+          {
+            "node": "Unificar dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratamento de dados - meli": {
+      "main": [
+        [
+          {
+            "node": "Unificar dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratamento de dados - site": {
+      "main": [
+        [
+          {
+            "node": "Unificar dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratamento de dados - atacado": {
+      "main": [
+        [
+          {
+            "node": "Unificar dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch2": {
+      "main": [
+        [
+          {
+            "node": "Tratamento de dados - site",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tratamento de dados - atacado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unificar dados": {
+      "main": [
+        [
+          {
+            "node": "Link - cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - campos1": {
+      "main": [
+        [
+          {
+            "node": "Tratamento de dados - shopee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - campos2": {
+      "main": [
+        [
+          {
+            "node": "Tratamento de dados - meli",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - campos3": {
+      "main": [
+        [
+          {
+            "node": "Switch2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link - cliente": {
+      "main": [
+        [
+          {
+            "node": "Criar Pedido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop itens produto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - campos principais": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Set - campos principais",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait4": {
+      "main": [
+        [
+          {
+            "node": "Loop pedidos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait3": {
+      "main": [
+        [
+          {
+            "node": "Loop itens produto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop itens produto": {
+      "main": [
+        [
+          {
+            "node": "Supabase10",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GeraUUID": {
+      "main": [
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Request product_data1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop itens produto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase3": {
+      "main": [
+        [
+          {
+            "node": "Wait3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request product1": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request product_data1": {
+      "main": [
+        [
+          {
+            "node": "Code4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Request product_data2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code4": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase9": {
+      "main": [
+        [
+          {
+            "node": "GeraUUID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase10": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase12": {
+      "main": [
+        [
+          {
+            "node": "Wait3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request product_data2": {
+      "main": [
+        [
+          {
+            "node": "Code5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code5": {
+      "main": [
+        [
+          {
+            "node": "Supabase13",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase13": {
+      "main": [
+        [
+          {
+            "node": "Wait3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop pedidos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratamento de dados - shopee1": {
+      "main": [
+        [
+          {
+            "node": "Unificar dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - campos": {
+      "main": [
+        [
+          {
+            "node": "Tratamento de dados - shopee1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Request product1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Supabase12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - campos4": {
+      "main": [
+        [
+          {
+            "node": "Tratamento de dados - whatsapp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratamento de dados - whatsapp": {
+      "main": [
+        [
+          {
+            "node": "Unificar dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Date & Time3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b19e7ef5-5c6c-453a-979b-018744941db9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "HLyg8GLGQ8mLchMg",
+  "tags": []
+}

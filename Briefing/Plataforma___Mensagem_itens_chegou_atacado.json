@@ -1,0 +1,485 @@
+{
+  "name": "Plataforma - Mensagem itens chegou atacado",
+  "nodes": [
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-document",
+        "instanceName": "SupleLive - Atendimento",
+        "remoteJid": "+16086401369",
+        "media": "={{ $json.data }}",
+        "caption": "=Bom dia, esses são os produtos que foram conferidos ontem.",
+        "fileName": "output.pdf",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        500
+      ],
+      "id": "2a066967-5eed-4b3f-acee-f7cd214a92dd",
+      "name": "Evolution API1",
+      "credentials": {
+        "evolutionApi": {
+          "id": "eJk5d1sVXT5g6VkI",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        140,
+        700
+      ],
+      "id": "41aad4cb-a972-4fae-9968-98572413de73",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -460,
+        680
+      ],
+      "id": "d1147112-14f1-4406-b2e0-e283506046e4",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_products",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_verified",
+              "condition": "eq",
+              "keyValue": "true"
+            },
+            {
+              "keyName": "mensagem_enviada_dia",
+              "condition": "is",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        680
+      ],
+      "id": "8c391426-098d-4e15-bf7f-b89a13736a95",
+      "name": "Supabase1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Os dados do nó anterior (tabela do Supabase) chegam na variável 'items'.\nconst allProducts = items.map(item => item.json);\n\n// Função para agrupar e somar os produtos por SKU.\nfunction groupAndSumProductsBySku(products) {\n    const productMap = new Map();\n    for (const product of products) {\n        const sku = product.SKU;\n        if (!sku) continue;\n        if (productMap.has(sku)) {\n            const existingProduct = productMap.get(sku);\n            existingProduct.quantity += product.quantity;\n            existingProduct.total_cost += product.total_cost;\n        } else {\n            // Armazena uma cópia do produto para não modificar o original\n            productMap.set(sku, { ...product });\n        }\n    }\n    return Array.from(productMap.values());\n}\n\n// 1. Agrupa todos os produtos.\nconst groupedProducts = groupAndSumProductsBySku(allProducts);\n\n\n// --- FORMATAÇÃO DOS DADOS PARA O TEMPLATE VISUAL ---\n\n// 2. Transforma a lista de produtos no formato que o template espera.\nconst itemsForPdf = groupedProducts.map(p => {\n    // Pula itens que ficaram com quantidade zero após o agrupamento.\n    if (p.quantity === 0) {\n        return null;\n    }\n\n    const average_cost = p.total_cost / p.quantity;\n\n    // Formata o custo para o padrão de moeda brasileiro (R$).\n    const formattedCost = average_cost.toLocaleString('pt-BR', {\n        style: 'currency',\n        currency: 'BRL'\n    });\n\n    // Retorna o objeto no formato que o template espera.\n    return {\n        description: p.name,\n        quantity: p.quantity,\n        unit_price: formattedCost, // O campo 'unit_price' já vai formatado.\n        sku_produto: p.SKU  // <-- AJUSTE FEITO AQUI\n    };\n}).filter(p => p !== null); // Remove qualquer item nulo da lista.\n\n// 3. Pega a data atual no formato DD/MM/AAAA.\nconst today = new Date();\nconst formattedDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;\n\n// 4. Monta o objeto JSON final.\nconst finalJson = {\n    date: formattedDate,\n    items: itemsForPdf // A lista de itens que será usada no loop `{{#each}}` do template.\n};\n\n\n// 5. Retorna o JSON final para o próximo nó.\nreturn [\n    {\n        json: finalJson\n    }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        580
+      ],
+      "id": "5dbfa462-050a-46bb-ab73-140be9831a33",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "resource": "pdf",
+        "templateId": "ac477b23f63de0fa",
+        "data": "={{ JSON.stringify($json) }}",
+        "expiration": 20
+      },
+      "type": "n8n-nodes-craftmypdf.craftMyPdf",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        500
+      ],
+      "id": "e2601778-f08e-4574-824b-3287589189c1",
+      "name": "CraftMyPDF",
+      "credentials": {
+        "craftMyPdfApi": {
+          "id": "WUlAPU07JpXvflo6",
+          "name": "CraftMyPDF account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "binaryPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        1660,
+        500
+      ],
+      "id": "9cd587c1-13ef-41ff-8884-f112c5e21981",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "operation": "formatDate",
+        "date": "={{ $json.timestamp }}",
+        "format": "=dd MMMM",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        680
+      ],
+      "id": "55502d67-fbeb-4ae0-b380-1087f9f6200a",
+      "name": "Date & Time"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        800,
+        580
+      ],
+      "id": "0d87e125-9785-4eb4-a5a8-c59eb12dd97c",
+      "name": "Loop Over Items2"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "sku",
+              "keyValue": "={{ $json.sku_produto }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        700
+      ],
+      "id": "8ac7e338-d982-44d3-880b-5e8a870f393f",
+      "name": "Supabase3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        600,
+        580
+      ],
+      "id": "360f8996-ceb2-4e6a-b941-211e64134e75",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Os dados do nó anterior (tabela do Supabase) chegam na variável 'items'.\nconst allProducts = items.map(item => item.json);\n\n// Função para obter uma lista de produtos únicos pelo SKU.\nfunction getUniqueProductsBySku(products) {\n    const productMap = new Map();\n    for (const product of products) {\n        const sku = product.sku;\n        if (!sku) continue;\n        if (!productMap.has(sku)) {\n            productMap.set(sku, product);\n        }\n    }\n    return Array.from(productMap.values());\n}\n\n// 1. Pega uma lista de produtos sem duplicatas.\nconst uniqueProducts = getUniqueProductsBySku(allProducts);\n\n\n// --- FORMATAÇÃO DOS DADOS PARA O TEMPLATE VISUAL ---\n\nconst itemsForPdf = uniqueProducts.map(p => {\n    const wholesalePrice = p.preco_atacado || 0;\n    const formattedPrice = wholesalePrice.toLocaleString('pt-BR', {\n        style: 'currency',\n        currency: 'BRL'\n    });\n\n    const sanitizedName = p.name ? String(p.name)\n                                    .replace(/[^\\w\\s\\d.,()/%+áéíóúâêôãõçÁÉÍÓÚÂÊÔÃÕÇ-]/g, '')\n                                    .trim()\n                                  : 'Produto sem nome';\n\n    let imageUrl = null;\n    if (p.images && Array.isArray(p.images) && p.images.length > 0 && p.images[0]) {\n        imageUrl = String(p.images[0]);\n    }\n\n    return {\n        nome_produto: sanitizedName,\n        preco_atacado: formattedPrice,\n        url_imagem: imageUrl\n    };\n})\n// =======================================================================\n// --- ORDENAÇÃO DA LISTA ---\n// Adiciona o .sort() para ordenar alfabeticamente pelo nome_produto\n// =======================================================================\n.sort((a, b) => a.nome_produto.localeCompare(b.nome_produto, 'pt-BR'));\n\n\n// 3. Pega a data atual no formato DD/MM/AAAA.\nconst today = new Date();\nconst formattedDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;\n\n// 4. Monta o objeto JSON final.\nconst finalJson = {\n    date: formattedDate,\n    items: itemsForPdf\n};\n\n\n// 5. Retorna o JSON final para o próximo nó.\nreturn [\n    {\n        json: finalJson\n    }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        500
+      ],
+      "id": "1a3007ea-4261-4991-94fd-42a7b94a65e5",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.file }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        500
+      ],
+      "id": "a3df5b2f-3583-4064-93f9-54cd4b7e5ec9",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1500,
+        500
+      ],
+      "id": "bb29e01f-8843-4cb5-9271-fb503d3e6ab5",
+      "name": "Wait",
+      "webhookId": "eed50f2f-2b57-42b9-b2e7-c0a654f841fc"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "mensagem_enviada_dia",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        340,
+        780
+      ],
+      "id": "ef87a682-1694-4f44-8e29-0ca1bd911ec0",
+      "name": "Supabase4",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Loop Over Items1": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Date & Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CraftMyPDF": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Evolution API1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "main": [
+        [
+          {
+            "node": "Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items2": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase3": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "CraftMyPDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase4": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ddef2a09-8358-424e-a61c-3c377ac5ffc2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "w3q5vw8vgqWarqit",
+  "tags": []
+}

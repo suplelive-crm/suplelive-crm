@@ -1,0 +1,1003 @@
+{
+  "name": "Agente - Mensagem de Recompra",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "orders_products",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "envio_duracao",
+              "condition": "is",
+              "keyValue": "null"
+            },
+            {
+              "keyName": "created_at",
+              "condition": "gt",
+              "keyValue": "={{ $json.newDate }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ],
+      "id": "fd0d556e-ba9b-4b8c-be27-4285ccb5b835",
+      "name": "Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        660,
+        0
+      ],
+      "id": "de83660b-cd9f-4f07-85f1-6f19f458da3f",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "sku",
+              "keyValue": "={{ $json.sku }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        100
+      ],
+      "id": "27eed111-9d4d-4107-87be-5829efaac10e",
+      "name": "Supabase1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// O n8n espera que o Code Node retorne um Array de objetos\n// Assumimos o modo \"Run Once for Each Item\" (Executar Uma Vez para Cada Item)\n\nconst items = [];\n\n// Loop para iterar sobre todos os itens que chegam do nó anterior\nfor (const item of $input.all()) {\n    \n    // Acessando os dados do item atual\n    const data = item.json;\n\n    // --- 1. Acessar os campos (Corrigido para usar a estrutura data/item.json) ---\n    // Pega a duração unitária de metadata\n    const duracaoPorUnidade = $input.first().json.duracao;\n    \n    // Pega a quantidade (stock) do nó principal\n    const quantidade = $('Edit Fields').first().json.quantidade_produtos;\n    \n    // Pega a data de compra do nó 'Edit Fields'\n    // **Nota:** Ajustei para data['Edit Fields'] para ser fiel à sua imagem (campo com espaço).\n    const dataDaCompraString = $('Edit Fields').first().json.dia_compra;\n    \n    // Validação\n    if (!dataDaCompraString || typeof duracaoPorUnidade === 'undefined' || typeof quantidade === 'undefined') {\n        // Pular item se os dados cruciais estiverem faltando\n        console.error(\"Erro: Dados cruciais (data, duração ou quantidade) faltando no item.\", data.id);\n        // Cria um item de retorno com o erro, mas mantém a execução do workflow\n        items.push({ json: { ...data, erro_calculo_data: true } }); \n        continue; \n    }\n\n    // --- 2. Calcular a Duração Total (Multiplicação) ---\n    const duracaoTotalEmDias = (Number(duracaoPorUnidade) * Number(quantidade));\n\n    // --- 3. Calcular a Data de Envio do Pedido ---\n    const dataCompra = new Date(dataDaCompraString);\n    const dataPrevistaChegada = new Date(dataCompra.getTime());\n\n    // Soma a DURAÇÃO TOTAL em dias\n    dataPrevistaChegada.setDate(dataPrevistaChegada.getDate() + duracaoTotalEmDias);\n\n    // Subtrai 15 dias para a Data de Envio do Pedido\n    const dataEnvioDoPedido = new Date(dataPrevistaChegada.getTime());\n    dataEnvioDoPedido.setDate(dataEnvioDoPedido.getDate() - 15);\n    \n    // --- 4. Formatar o resultado para o padrão AAAA-MM-DD ---\n    const ano = dataEnvioDoPedido.getFullYear();\n    const mes = String(dataEnvioDoPedido.getMonth() + 1).padStart(2, '0');\n    const dia = String(dataEnvioDoPedido.getDate()).padStart(2, '0');\n    \n    const dataDeEnvioFormatada = `${ano}-${mes}-${dia}`;\n    \n    // --- 5. Criar o novo item de dados para o próximo nó ---\n    // Usa o spread operator (...) para MANTER todos os campos originais\n    const novoItem = {\n        json: {\n            duracao_total_dias: duracaoTotalEmDias, // Opcional: para ver o cálculo total\n            data_envio_pedido: dataDeEnvioFormatada // Adiciona o resultado final\n        }\n    };\n\n    items.push(novoItem);\n}\n\n// Retorna o Array de itens para o próximo nó do workflow\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        100
+      ],
+      "id": "e791c0e8-ab1b-48a1-af35-ed4784c9d742",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5840c19d-139f-4459-be43-4120fc98ff0c",
+              "name": "dia_compra",
+              "value": "={{ $json.created_at }}",
+              "type": "string"
+            },
+            {
+              "id": "633b0098-b822-4e21-92dc-f274a4ac3c42",
+              "name": "sku",
+              "value": "={{ $json.sku }}",
+              "type": "string"
+            },
+            {
+              "id": "bfe3e21c-ceac-4579-ae08-89be37f28511",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "65ebe736-8729-4183-9371-451ea1207552",
+              "name": "quantidade_produtos",
+              "value": "={{ $json.quantidade_produtos }}",
+              "type": "number"
+            },
+            {
+              "id": "0bc35e42-60a5-41c4-abb3-d5309889bedd",
+              "name": "order_id",
+              "value": "={{ $json.order_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        100
+      ],
+      "id": "015ee36c-86d9-47eb-a659-8639b54dd0e7",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "orders_products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Edit Fields').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "envio_duracao",
+              "fieldValue": "={{ $('Code').item.json.data_envio_pedido }}"
+            },
+            {
+              "fieldId": "mensagem_recompra",
+              "fieldValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        -200
+      ],
+      "id": "67a07334-4d07-4270-bbf5-92aeb05b6363",
+      "name": "Supabase2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        60,
+        0
+      ],
+      "id": "a19824a8-e759-4c82-a52c-8523d7e215ed",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "content": "## Cria a data de envio da mensagem de recompra",
+        "height": 600,
+        "width": 2180
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -240
+      ],
+      "id": "c5966556-62d2-4445-a2c9-59bc1236a2f4",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Faz o envio da mensagem de recompra",
+        "height": 680,
+        "width": 2260
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        680
+      ],
+      "id": "7fbd83b5-27b6-4d29-b12b-f6bbb139202b",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        20,
+        860
+      ],
+      "id": "c3f851b4-3660-474a-97ce-2fc93a0479a8",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "orders_products",
+        "limit": 500,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "mensagem_recompra",
+              "condition": "eq",
+              "keyValue": "false"
+            },
+            {
+              "keyName": "envio_duracao",
+              "condition": "eq",
+              "keyValue": "={{ $json.formattedDate }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        300,
+        860
+      ],
+      "id": "2416304a-9fc0-42e6-9e75-cb1e825e99c6",
+      "name": "Supabase - busca itens",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        460,
+        860
+      ],
+      "id": "7f7061c8-626f-4d4f-bd62-ed60ecbb6f10",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8983c77b-988e-411c-b995-247223896f08",
+              "name": "sku",
+              "value": "={{ $json.sku }}",
+              "type": "string"
+            },
+            {
+              "id": "e8f20d99-8619-419c-be77-3be2cb9f1c23",
+              "name": "order_id",
+              "value": "={{ $json.order_id }}",
+              "type": "string"
+            },
+            {
+              "id": "00d12e56-804b-4db7-9d7c-ff70a730983e",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        640,
+        980
+      ],
+      "id": "59a3d81c-5936-425c-bb70-afe05d7344f7",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "operation": "formatDate",
+        "date": "={{ $json.timestamp }}",
+        "format": "yyyy/MM/dd",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        160,
+        860
+      ],
+      "id": "2a650ad7-5b70-491e-8c76-632709e12f1b",
+      "name": "Date & Time"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.order_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        820,
+        980
+      ],
+      "id": "c065e8f9-2e20-4f57-ac21-9b48754cfd48",
+      "name": "Supabase - Busca Order",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "clients",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.client_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        980
+      ],
+      "id": "712b5607-6587-4978-a95f-845c768a98cd",
+      "name": "Supabase - Busca cliente",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6a2e321d-690e-4e7d-b52a-09d00c8c4ea9",
+              "leftValue": "={{ $json.phone }}",
+              "rightValue": "null",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        980
+      ],
+      "id": "a613e82c-2ae8-4a10-9f14-0658f5bb320d",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "orders_products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Loop Over Items1').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "mensagem_recompra",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2300,
+        1140
+      ],
+      "id": "04fa2466-aaa7-4d06-9548-a4a95eaac48e",
+      "name": "Supabase - Update Msg Enviada",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-image",
+        "instanceName": "SupleLive - Atendimento",
+        "remoteJid": "={{ $('If').item.json.phone }}",
+        "media": "={{ $('Supabase - Produto').item.json.images[0] }}",
+        "caption": "=Oi, {{ $json.nome }}! Tudo bem? 😀\nO {{ $('Supabase - Produto').item.json.name }} que você comprou está chegando ao fim. Para que você não fique sem, preparei uma surpresa especial:\n\n✨ Não fique sem, por isso estamos com desconto exclusivo no Pix!\n\n👉 O seu {{ $('Supabase - Produto').item.json.name }} sai por apenas R$ {{ $json.novo_preco }} no Pix.\n📦 Garantimos o envio imediato para que chegue antes do seu produto acabar!\n⏳ Oferta válida por 1 hora a partir do recebimento desta mensagem.\n\nÉ só me responder “SIM” aqui mesmo que já garanto o seu desconto. 😉",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        2120,
+        880
+      ],
+      "id": "0a5f2b3c-5720-40f8-84b0-c7b136b1daf2",
+      "name": "Evolution API4",
+      "credentials": {
+        "evolutionApi": {
+          "id": "eJk5d1sVXT5g6VkI",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "sku",
+              "keyValue": "={{ $('Loop Over Items1').item.json.sku }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        900
+      ],
+      "id": "644dc4c5-cb6c-4fc9-bc9f-374ceb821f39",
+      "name": "Supabase - Produto",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- 1. Cálculo e Formatação do Preço (Apenas para o primeiro item de input) ---\n\n// Pega o preço do primeiro item de entrada\nconst precoBruto = $input.first().json.price;\nconst novo_prec_bruto = precoBruto * 1.1;\n\n// Formata o preço: vírgula como separador decimal e 2 casas.\n// Exemplo: 1234.56 se torna \"1.234,56\"\nconst novo_preco_formatado = novo_prec_bruto.toLocaleString('pt-BR', {\n    minimumFractionDigits: 2,\n    maximumFractionDigits: 2\n});\n\n// --- 2. Busca e Preparação do Nome ---\n\n// Pega o nome do cliente do nó 'Supabase - Busca cliente'\nconst nomeCompleto = $('Supabase - Busca cliente').first().json.name || '';\nconst primeiroNome = nomeCompleto.split(' ')[0];\n\n\n// --- 3. Retorno ---\n// Retorna o resultado no formato esperado pelo n8n\nreturn [\n    {\n        json: {\n            nome: primeiroNome,\n            novo_preco: novo_preco_formatado // Agora é uma string formatada\n        }\n    }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        900
+      ],
+      "id": "6438e36a-64e1-4660-adcd-4ae7a1dbcfce",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "orders",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('Edit Fields').item.json.order_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        100
+      ],
+      "id": "697bd764-e55c-4168-b04c-8ef8d97a0169",
+      "name": "Supabase3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f893d702-0d79-487c-aead-72fcdd1bb6f9",
+              "leftValue": "={{ $json.canal_venda }}",
+              "rightValue": "atacado",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1620,
+        100
+      ],
+      "id": "ef13bf04-787a-419b-a79e-6e69484b6531",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "orders_products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Edit Fields').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "envio_duracao",
+              "fieldValue": "={{ $('Code').item.json.data_envio_pedido }}"
+            },
+            {
+              "fieldId": "mensagem_recompra",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        120
+      ],
+      "id": "9e45235c-e452-495e-9e2c-afc687203896",
+      "name": "Supabase4",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "subtractFromDate",
+        "magnitude": "={{ $json.timestamp }}",
+        "duration": 25,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "id": "fccc9602-22c7-4c85-a1d8-f2c1ea354d59",
+      "name": "Date & Time1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "625b7f75-5e6b-4ccc-a9fe-4e5256463cd8",
+              "leftValue": "={{ $json.stock }}",
+              "rightValue": 3,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1580,
+        900
+      ],
+      "id": "fcaf5dd6-bf7d-429e-b867-3c0c7ad1a7a9",
+      "name": "If2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Supabase": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Date & Time1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Date & Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - busca itens": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "main": [
+        [
+          {
+            "node": "Supabase - busca itens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Busca Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Busca Order": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Busca cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Busca cliente": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Produto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase - Update Msg Enviada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Update Msg Enviada": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - Produto": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Evolution API4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution API4": {
+      "main": [
+        [
+          {
+            "node": "Supabase - Update Msg Enviada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase3": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Supabase2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase4": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time1": {
+      "main": [
+        [
+          {
+            "node": "Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase - Update Msg Enviada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "23b2aeb7-6428-4080-80ad-794925146d8e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "nOa9bMCMR54SYzmB",
+  "tags": []
+}

@@ -1,0 +1,1583 @@
+{
+  "name": "Plataforma - Atualizar Encomendas",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchases",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "trackingCode",
+              "condition": "neq",
+              "keyValue": "null"
+            },
+            {
+              "keyName": "is_archived",
+              "condition": "eq",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        160,
+        460
+      ],
+      "id": "ecab97e1-66ca-40aa-958b-d62badc6ab16",
+      "name": "Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "57defa9b-f520-4c49-bf8d-729bc1c40ad8",
+              "name": "trackingCode",
+              "value": "={{ $json.trackingCode }}",
+              "type": "string"
+            },
+            {
+              "id": "0b8aec5f-332f-4296-90b8-15821158e2a7",
+              "name": "carrier",
+              "value": "={{ $json.carrier }}",
+              "type": "string"
+            },
+            {
+              "id": "fcf48a99-5e64-417c-b40e-41cbc852b90b",
+              "name": "created_at",
+              "value": "={{ $json.created_at }}",
+              "type": "string"
+            },
+            {
+              "id": "0889c0f9-ca7b-4763-9553-bec4f5cd771f",
+              "name": "updated_at",
+              "value": "={{ $json.updated_at }}",
+              "type": "string"
+            },
+            {
+              "id": "9a098175-5612-48b7-8bd4-33d7298686c6",
+              "name": "row",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        360,
+        460
+      ],
+      "id": "bdf4e3b8-5209-4281-b99e-8ee8beeabd8a",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.carrier }}",
+                    "rightValue": "Correios",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "487ccf26-0b74-4748-8494-e71d9223b0a2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Correios"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2fbfb2d5-4d16-4b5d-a9bf-1bc5e51d1ae7",
+                    "leftValue": "={{ $json.carrier }}",
+                    "rightValue": "Jadlog",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Jadlog"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        580,
+        460
+      ],
+      "id": "afa7bb2e-8630-447c-a34e-87e085e47e87",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "trackingCode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        840,
+        220
+      ],
+      "id": "40800056-6055-4879-8af4-643a7b5c9002",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "={{ $json.trackingCode }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        240
+      ],
+      "id": "62fc5c14-60c1-4765-a1c1-1a551dd59c63",
+      "name": "HTTP Request",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fc4169ba-aef5-43b6-a270-d677fac78dfd",
+              "name": "json",
+              "value": "={{ $json.json }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1520,
+        240
+      ],
+      "id": "2ea2e968-1d51-4607-a46f-26831e66229d",
+      "name": "Edit Fields4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $input.first().json.json || '{}';\nconst dados = JSON.parse(entrada);\n\nconst hoje = new Date();\nconst dataCustom = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());\n\nconst codigoRastreamento = dados?.codObjeto || null;\n\nlet dataPrevista = null;\nif (dados?.dtPrevista) {\n  const [dia, mes, ano] = dados.dtPrevista.split('/');\n  if (dia && mes && ano) {\n    dataPrevista = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));\n  }\n}\n\nconst eventos = Array.isArray(dados?.eventos) ? dados.eventos : [];\neventos.sort((a, b) => new Date(b.dtHrCriado?.date) - new Date(a.dtHrCriado?.date));\n\nconst statusAtual = eventos.length > 0 ? {\n  data: eventos[0].dtHrCriado?.date || null,\n  descricao: eventos[0].descricao || '',\n  detalhe: eventos[0].detalhe || '',\n  cidade: eventos[0].unidade?.endereco?.cidade || '',\n  uf: eventos[0].unidade?.endereco?.uf || '',\n  tipo: eventos[0].codigo || '',\n  sigla: eventos[0].tipo || ''\n} : null;\n\nconst dataPostagem = eventos.length > 0\n  ? eventos[eventos.length - 1].dtHrCriado?.date || null\n  : null;\n\nreturn [\n  {\n    json: {\n      rodou_status: dataCustom,\n      codigoRastreamento,\n      dataPrevista,\n      dataPostagem, // aqui está a data de criação/postagem\n      statusAtual,\n      eventos: eventos.map(e => ({\n        data: e.dtHrCriado?.date || null,\n        descricao: e.descricao || '',\n        detalhe: e.detalhe || '',\n        cidade: e.unidade?.endereco?.cidade || '',\n        uf: e.unidade?.endereco?.uf || '',\n        tipo: e.codigo || '',\n        sigla: e.tipo || ''\n      }))\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        240
+      ],
+      "id": "9f298360-1335-4d95-840d-08b0023a4442",
+      "name": "Code",
+      "alwaysOutputData": false,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 12
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -220,
+        460
+      ],
+      "id": "09cb184b-9b48-43e2-be1b-750ef07200fb",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "json",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1720,
+        240
+      ],
+      "id": "2bb7102b-e6a0-4599-aa33-37a1858910e4",
+      "name": "Split Out8"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "trackingCode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        820,
+        840
+      ],
+      "id": "bf5ab822-5178-4685-8c94-462970a5c2eb",
+      "name": "Split Out9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://prd-traffic.jadlogtech.com.br/embarcador/api/tracking/consultar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwNTg3NywiZHQiOiIyMDIxMDYwOSJ9.ypRHGp0Emfo_VfQWmVyjKfw7Ilfoan_oR5NtPtEbx8k"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"consulta\": [\n     {\n        \"shipmentId\": \"{{ $json.trackingCode }}\"\n     }\n    ]\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        840
+      ],
+      "id": "8ba8537a-71fc-4367-b8f3-d9734fbfef50",
+      "name": "HTTP Request4",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchases",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "trackingCode",
+              "condition": "eq",
+              "keyValue": "={{ $('Split Out10').item.json.consulta.tracking.shipmentId }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $('Split Out10').item.json.consulta.tracking.status }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $json }}"
+            },
+            {
+              "fieldId": "atualizado",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "date",
+              "fieldValue": "={{ $json }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ $('Split Out10').item.json.consulta.tracking.eventos }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        860
+      ],
+      "id": "5e774377-f26c-42db-a6b4-8e14e2e2028c",
+      "name": "Supabase9",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "consulta",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        840
+      ],
+      "id": "816d8a7b-06d3-4a6c-99d0-25595e891129",
+      "name": "Split Out10"
+    },
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1440,
+        840
+      ],
+      "id": "34ebce9d-a618-4426-ab05-a0f82394b856",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        220
+      ],
+      "id": "1bb94500-a42d-40af-afe5-824677ad151d",
+      "name": "Loop Over Items4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "874ac3b0-4e87-4f34-bbd1-85bfa7c3ad05",
+              "leftValue": "={{ $json.codigoRastreamento }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2120,
+        220
+      ],
+      "id": "2bc74fd2-85e7-4e56-9b2c-46c0420fefd8",
+      "name": "If"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2640,
+        20
+      ],
+      "id": "1b333d9b-0455-4b24-abc0-702396b22d03",
+      "name": "Wait4",
+      "webhookId": "0d28c2ad-0709-4e29-a62f-5913d0e960b6"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchases",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "trackingCode",
+              "condition": "eq",
+              "keyValue": "={{ $('Split Out').item.json.trackingCode }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.statusAtual.descricao }}"
+            },
+            {
+              "fieldId": "estimated_delivery",
+              "fieldValue": "={{ $json.dataPrevista }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $json.statusAtual.data }}"
+            },
+            {
+              "fieldId": "atualizado",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ $json.eventos }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2460,
+        20
+      ],
+      "id": "1b8bcd8f-d021-4af3-876e-9018b6e6f803",
+      "name": "Supabase10",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "subtractFromDate",
+        "magnitude": "={{ $json.timestamp }}",
+        "timeUnit": "hours",
+        "duration": 6,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        460
+      ],
+      "id": "ba0ed8b7-e6cb-4468-b0c9-6086863f5a43",
+      "name": "Date & Time1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtém o item de entrada do nó anterior.\n// O '0' se refere ao primeiro item do array de entrada.\n// Ajuste 'nomeDoSeuCampoDeData' para o nome exato do campo que contém a data.\nconst dataOriginal = $input.first().json.consulta.tracking.eventos[0].data;\n\n// Se a data original não existir, retorna o item original.\nif (!dataOriginal) {\n  return items;\n}\n\n// O Luxon não reconhece o formato \"YYYY-DD-MM\" diretamente,\n// então vamos fazer a conversão manual como no exemplo anterior.\nconst [data, tempo] = dataOriginal.split(' ');\nconst [ano, dia, mes] = data.split('-');\nconst dataCorreta = `${ano}-${mes}-${dia} ${tempo}`;\n\n// Usa o Luxon para criar um objeto de data a partir da string corrigida.\nconst dataLuxon = DateTime.fromFormat(dataCorreta, 'yyyy-MM-dd HH:mm:ss');\n\n// Verifica se a conversão foi bem-sucedida.\nif (dataLuxon.isValid) {\n  // O Luxon retorna um objeto de data que pode ser formatado como você quiser.\n  // Aqui, mantemos o formato original \"YYYY-MM-DD HH:MM:SS\".\n  const dataFormatada = dataLuxon.toFormat('yyyy-MM-dd HH:mm:ss');\n  \n  // Atualiza o valor do campo no item de saída.\n  items[0].json.nomeDoSeuCampoDeData = dataFormatada;\n}\n\n// Retorna o array de itens com a data corrigida.\nreturn dataLuxon;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1700,
+        860
+      ],
+      "id": "592f0111-3dd5-4e46-8304-55b82296c656",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchases",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "trackingCode",
+              "condition": "neq",
+              "keyValue": "null"
+            },
+            {
+              "keyName": "is_archived",
+              "condition": "eq",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        80,
+        1760
+      ],
+      "id": "34d6b63d-242d-4915-bd1e-24d15b328603",
+      "name": "Supabase1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "57defa9b-f520-4c49-bf8d-729bc1c40ad8",
+              "name": "trackingCode",
+              "value": "={{ $json.trackingCode }}",
+              "type": "string"
+            },
+            {
+              "id": "0b8aec5f-332f-4296-90b8-15821158e2a7",
+              "name": "carrier",
+              "value": "={{ $json.carrier }}",
+              "type": "string"
+            },
+            {
+              "id": "fcf48a99-5e64-417c-b40e-41cbc852b90b",
+              "name": "created_at",
+              "value": "={{ $json.created_at }}",
+              "type": "string"
+            },
+            {
+              "id": "0889c0f9-ca7b-4763-9553-bec4f5cd771f",
+              "name": "updated_at",
+              "value": "={{ $json.updated_at }}",
+              "type": "string"
+            },
+            {
+              "id": "9a098175-5612-48b7-8bd4-33d7298686c6",
+              "name": "row",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        280,
+        1760
+      ],
+      "id": "13473bd5-00fe-4064-9db1-6f5848ea557e",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.carrier }}",
+                    "rightValue": "Correios",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "487ccf26-0b74-4748-8494-e71d9223b0a2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Correios"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2fbfb2d5-4d16-4b5d-a9bf-1bc5e51d1ae7",
+                    "leftValue": "={{ $json.carrier }}",
+                    "rightValue": "Jadlog",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Jadlog"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        500,
+        1760
+      ],
+      "id": "bc8af8bd-6433-4b1c-bf38-6716ceed9dcb",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "trackingCode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        760,
+        1520
+      ],
+      "id": "4ad53fdf-67d7-4d28-b0c6-4130cef8b96b",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "={{ $json.trackingCode }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        1540
+      ],
+      "id": "a05503d1-3d84-40c0-8148-395f8e3db81e",
+      "name": "HTTP Request1",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fc4169ba-aef5-43b6-a270-d677fac78dfd",
+              "name": "json",
+              "value": "={{ $json.json }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        1540
+      ],
+      "id": "17a1dd8a-0d86-45c4-a94b-acf90823d6be",
+      "name": "Edit Fields5"
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $input.first().json.json || '{}';\nconst dados = JSON.parse(entrada);\n\nconst hoje = new Date();\nconst dataCustom = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());\n\nconst codigoRastreamento = dados?.codObjeto || null;\n\nlet dataPrevista = null;\nif (dados?.dtPrevista) {\n  const [dia, mes, ano] = dados.dtPrevista.split('/');\n  if (dia && mes && ano) {\n    dataPrevista = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));\n  }\n}\n\nconst eventos = Array.isArray(dados?.eventos) ? dados.eventos : [];\neventos.sort((a, b) => new Date(b.dtHrCriado?.date) - new Date(a.dtHrCriado?.date));\n\nconst statusAtual = eventos.length > 0 ? {\n  data: eventos[0].dtHrCriado?.date || null,\n  descricao: eventos[0].descricao || '',\n  detalhe: eventos[0].detalhe || '',\n  cidade: eventos[0].unidade?.endereco?.cidade || '',\n  uf: eventos[0].unidade?.endereco?.uf || '',\n  tipo: eventos[0].codigo || '',\n  sigla: eventos[0].tipo || ''\n} : null;\n\nconst dataPostagem = eventos.length > 0\n  ? eventos[eventos.length - 1].dtHrCriado?.date || null\n  : null;\n\nreturn [\n  {\n    json: {\n      rodou_status: dataCustom,\n      codigoRastreamento,\n      dataPrevista,\n      dataPostagem, // aqui está a data de criação/postagem\n      statusAtual,\n      eventos: eventos.map(e => ({\n        data: e.dtHrCriado?.date || null,\n        descricao: e.descricao || '',\n        detalhe: e.detalhe || '',\n        cidade: e.unidade?.endereco?.cidade || '',\n        uf: e.unidade?.endereco?.uf || '',\n        tipo: e.codigo || '',\n        sigla: e.tipo || ''\n      }))\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        1540
+      ],
+      "id": "a3161c7b-ad31-4208-a004-f1f383c9a541",
+      "name": "Code1",
+      "alwaysOutputData": false,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -300,
+        1760
+      ],
+      "id": "75f56e5e-b0ee-48fa-a62b-719705e70c72",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "json",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1640,
+        1540
+      ],
+      "id": "73c747f5-72a6-4f4b-833d-40b68af6406f",
+      "name": "Split Out11"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "trackingCode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        740,
+        2140
+      ],
+      "id": "f4dfddf4-27bb-4c1b-ac99-4eb1e96c466f",
+      "name": "Split Out12"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://prd-traffic.jadlogtech.com.br/embarcador/api/tracking/consultar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwNTg3NywiZHQiOiIyMDIxMDYwOSJ9.ypRHGp0Emfo_VfQWmVyjKfw7Ilfoan_oR5NtPtEbx8k"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"consulta\": [\n     {\n        \"shipmentId\": \"{{ $json.trackingCode }}\"\n     }\n    ]\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        2140
+      ],
+      "id": "f16ef43e-c2c2-4a6a-9c2b-7b03c497b3f2",
+      "name": "HTTP Request5",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchases",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "trackingCode",
+              "condition": "eq",
+              "keyValue": "={{ $('Split Out13').item.json.consulta.tracking.shipmentId }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $('Split Out13').item.json.consulta.tracking.status }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $json }}"
+            },
+            {
+              "fieldId": "atualizado",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "estimated_delivery",
+              "fieldValue": "="
+            },
+            {
+              "fieldId": "date",
+              "fieldValue": "={{ $json }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ $('Split Out13').item.json.consulta.tracking.eventos }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1860,
+        2160
+      ],
+      "id": "a2eb152d-2b19-4a2f-9c5f-ebdd0f14399e",
+      "name": "Supabase11",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "consulta",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        2140
+      ],
+      "id": "af4b538f-6bf0-4238-b439-6f900b06dde5",
+      "name": "Split Out13"
+    },
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        2140
+      ],
+      "id": "1aaf10c7-23d4-470a-b05c-3f60698d805a",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        960,
+        1520
+      ],
+      "id": "d74cba99-1186-426c-a72b-489584be9bde",
+      "name": "Loop Over Items5"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "874ac3b0-4e87-4f34-bbd1-85bfa7c3ad05",
+              "leftValue": "={{ $json.codigoRastreamento }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2040,
+        1520
+      ],
+      "id": "9da58024-d4e1-4981-b8ed-cecd4a32f929",
+      "name": "If1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2700,
+        1320
+      ],
+      "id": "9e1c8800-8a3a-4664-b548-1032cf2be080",
+      "name": "Wait",
+      "webhookId": "0d28c2ad-0709-4e29-a62f-5913d0e960b6"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchases",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "trackingCode",
+              "condition": "eq",
+              "keyValue": "={{ $('Split Out1').item.json.trackingCode }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.statusAtual.descricao }}"
+            },
+            {
+              "fieldId": "estimated_delivery",
+              "fieldValue": "={{ $json.dataPrevista }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $json.statusAtual.data }}"
+            },
+            {
+              "fieldId": "atualizado",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ $json.eventos }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2380,
+        1320
+      ],
+      "id": "1b11b8dc-d09c-42c5-8cdc-4467de4c2522",
+      "name": "Supabase12",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "subtractFromDate",
+        "magnitude": "={{ $json.timestamp }}",
+        "timeUnit": "hours",
+        "duration": 6,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        1760
+      ],
+      "id": "bbb4625b-f4d2-44e1-8816-a6e4818b2185",
+      "name": "Date & Time"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtém o item de entrada do nó anterior.\n// O '0' se refere ao primeiro item do array de entrada.\n// Ajuste 'nomeDoSeuCampoDeData' para o nome exato do campo que contém a data.\nconst dataOriginal = $input.first().json.consulta.tracking.eventos[0].data;\n\n// Se a data original não existir, retorna o item original.\nif (!dataOriginal) {\n  return items;\n}\n\n// O Luxon não reconhece o formato \"YYYY-DD-MM\" diretamente,\n// então vamos fazer a conversão manual como no exemplo anterior.\nconst [data, tempo] = dataOriginal.split(' ');\nconst [ano, dia, mes] = data.split('-');\nconst dataCorreta = `${ano}-${mes}-${dia} ${tempo}`;\n\n// Usa o Luxon para criar um objeto de data a partir da string corrigida.\nconst dataLuxon = DateTime.fromFormat(dataCorreta, 'yyyy-MM-dd HH:mm:ss');\n\n// Verifica se a conversão foi bem-sucedida.\nif (dataLuxon.isValid) {\n  // O Luxon retorna um objeto de data que pode ser formatado como você quiser.\n  // Aqui, mantemos o formato original \"YYYY-MM-DD HH:MM:SS\".\n  const dataFormatada = dataLuxon.toFormat('yyyy-MM-dd HH:mm:ss');\n  \n  // Atualiza o valor do campo no item de saída.\n  items[0].json.nomeDoSeuCampoDeData = dataFormatada;\n}\n\n// Retorna o array de itens com a data corrigida.\nreturn dataLuxon;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        2160
+      ],
+      "id": "0e086630-9daf-42d7-9c9b-bf77dca28128",
+      "name": "Code3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Supabase": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Out9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields4": {
+      "main": [
+        [
+          {
+            "node": "Split Out8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Date & Time1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out8": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out9": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Split Out10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase9": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out10": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items4": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Supabase10",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait4": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase10": {
+      "main": [
+        [
+          {
+            "node": "Wait4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time1": {
+      "main": [
+        [
+          {
+            "node": "Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Supabase9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Out12",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields5": {
+      "main": [
+        [
+          {
+            "node": "Split Out11",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Date & Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out11": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out12": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request5": {
+      "main": [
+        [
+          {
+            "node": "Split Out13",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase11": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out13": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items5": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Supabase12",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase12": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "main": [
+        [
+          {
+            "node": "Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Supabase11",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d9b71c81-8d7a-4272-be75-7c4189568bd5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "Uv2MMCzp9PKunF3e",
+  "tags": []
+}

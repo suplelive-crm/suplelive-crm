@@ -1,0 +1,1860 @@
+{
+  "name": "Plataforma - Subir estoque produtos novos",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_products",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_verified",
+              "condition": "is",
+              "keyValue": "true"
+            },
+            {
+              "keyName": "is_in_stock",
+              "condition": "is",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -5260,
+        280
+      ],
+      "id": "615ad1a5-59b1-42d4-8156-6828149bae6d",
+      "name": "Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "=getInventoryProductsList"
+            },
+            {
+              "name": "parameters",
+              "value": "={\"inventory_id\": {{ $json.inventories[0].inventory_id }},\n\"include_variants\": 1,\n\"filter_sku\": \"{{ $('Supabase').item.json.SKU }}\"} "
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4060,
+        300
+      ],
+      "id": "d49c8579-5f87-459f-8f59-69b0ccd25e4d",
+      "name": "Request product"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "getInventories"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4260,
+        300
+      ],
+      "id": "389e5736-821b-4eea-a3bd-f32b27f579ea",
+      "name": "Request inventory"
+    },
+    {
+      "parameters": {
+        "batchSize": "=1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -4860,
+        260
+      ],
+      "id": "9de493ec-388d-4339-8e3f-28f46b4dd700",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me",
+      "typeVersion": 1,
+      "position": [
+        -280,
+        60
+      ],
+      "id": "e2ed9681-2940-4b6d-956d-e7d32d39e5a9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "=getInventoryProductsData"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n    \"inventory_id\": \"34283\",\n    \"products\": [{{ $json.id }}]\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3460,
+        320
+      ],
+      "id": "3164b547-ce04-4c6b-8d94-679ab9b4e031",
+      "name": "Request product - data",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_products",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "is_in_stock",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2080,
+        320
+      ],
+      "id": "db4ac8f3-29bd-4ed2-931c-3651661dbf66",
+      "name": "Supabase1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8cf9d3e9-ec12-439e-8542-73254f7f2956",
+              "leftValue": "={{ $json.is_verified }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "a3cb6573-ddd9-4527-b979-c9e624f7943b",
+              "leftValue": "={{ $json.is_in_stock }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -5080,
+        280
+      ],
+      "id": "06cd9e30-5bc1-49db-bc33-1df79ad50bce",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "products",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -3620,
+        320
+      ],
+      "id": "7a957b13-db0d-43be-9cc4-c7ca781edfcf",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "products",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -3300,
+        320
+      ],
+      "id": "8aa17604-90a2-438e-80db-9949cb31cd12",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0c88dc32-5168-4b61-9096-f8f2cfc31ed9",
+              "leftValue": "={{ $json.products }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3820,
+        300
+      ],
+      "id": "17bfd4b8-5f0d-4344-a5ce-3f711e482fad",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchases",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase').item.json.purchase_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "PROBLEMA - NÃO CADASTRADO NO ESTOQUE"
+            },
+            {
+              "fieldId": "is_archived",
+              "fieldValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2320,
+        -60
+      ],
+      "id": "61065728-c456-4770-8d9f-94c24d862a45",
+      "name": "Supabase2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchases",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase').item.json.purchase_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "Entregue, Conferido e Lançado no Estoque"
+            },
+            {
+              "fieldId": "is_archived",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1920,
+        320
+      ],
+      "id": "72fdc550-ba9a-46e8-b0c0-d9eaa2671194",
+      "name": "Supabase3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 20
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -5660,
+        280
+      ],
+      "id": "346984b2-0b61-41dc-968f-999532ec53c2",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "SupleLive - Atendimento",
+        "remoteJid": "+5527999916672",
+        "messageText": "=Olá, acabamos de conferir encomendas que que chegaram e *não está cadastrado no BASE*, por isso ele ainda não subiu para o estoque\n\nNome do (s) Item que chegou (am):\n{{ $json.lista_formatada }}\n\nFaça urgente:\n[ ] - Cadastrar o produto no estoque do Base\n\nFaça essa etapa e espere receber a mensagem que o produto foi lançado no estoque.",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -2780,
+        -640
+      ],
+      "id": "d32bb100-c92e-48fa-91cf-caf34c091364",
+      "name": "Evolution API1",
+      "credentials": {
+        "evolutionApi": {
+          "id": "eJk5d1sVXT5g6VkI",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const lista = $input.first().json.propertyName.map(p => p.trim());\n\nconst textoFinal = lista.map(item => `- ${item}`).join('\\n');\n\nreturn [\n  {\n    json: {\n      lista_formatada: textoFinal\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2940,
+        -640
+      ],
+      "id": "02c8d7af-3507-4447-8eed-c345845daf24",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "propertyName"
+            }
+          ]
+        },
+        "options": {
+          "mergeLists": true
+        }
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -3220,
+        -640
+      ],
+      "id": "7f9a6d8e-b9ff-4302-8842-a66b4f329fa9",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "produtos_nome"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -2620,
+        -640
+      ],
+      "id": "ed0d0a1d-e561-4110-8ed0-b9e693086f2a",
+      "name": "Redis2",
+      "credentials": {
+        "redis": {
+          "id": "G0BxaMmtrlhEWpAX",
+          "name": "Redis - localhost"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "produtos_nome",
+        "keyType": "list",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -3920,
+        -560
+      ],
+      "id": "c6d566a9-08b6-4459-a73c-387a91337e7d",
+      "name": "Redis1",
+      "credentials": {
+        "redis": {
+          "id": "G0BxaMmtrlhEWpAX",
+          "name": "Redis - localhost"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "produtos_nome",
+        "messageData": "={{ $('If').item.json.name }}",
+        "tail": true
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -3600,
+        -60
+      ],
+      "id": "487d8bcc-d23d-4389-a53e-f728c4ac0096",
+      "name": "Redis",
+      "credentials": {
+        "redis": {
+          "id": "G0BxaMmtrlhEWpAX",
+          "name": "Redis - localhost"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "compare": "={{ $json.propertyName }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        -3400,
+        -640
+      ],
+      "id": "8e6e27b2-3f06-4a2e-acd6-9f7dbb00d2cc",
+      "name": "Remove Duplicates"
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "Nome da Tarefa",
+              "value": "=Produto: {{ $('Split Out1').item.json.sku }} - {{ $('Supabase').item.json.name }}"
+            },
+            {
+              "name": "Responsável",
+              "value": "Felipe Lippaus"
+            },
+            {
+              "name": "Status",
+              "value": "Pendente"
+            },
+            {
+              "name": "Vencimento",
+              "value": "={{ $now }}"
+            },
+            {
+              "name": "Loja",
+              "value": "Blank"
+            },
+            {
+              "name": "Tipo de tarefa",
+              "value": "Conferir produto no Estoque"
+            },
+            {
+              "name": "Estoque",
+              "value": "Vix"
+            },
+            {
+              "name": "Check-List",
+              "value": "=Conferir se houve mudanças no produto (comparação de fotos, facts, descrição)\nConferir se tem o preço base no valor R$ {{ $('Code1').item.json.new_base_price }}\nIntegração [ML - VITALIFE1] - 4 Anúncios\nIntegração [ML - VXSHOP] - 4 Anúncios\nIntegração [Atacado] - Preço: R$ {{ $('Code1').item.json.new_wholesale_price }}\nIntegração [Suplelive]\nIntegração [Shopee - suplenium]\nIntegração [Shopee - primevitaminas]\nIntegração [RD - Vix Suplementos]\n\nObservação: Verificar se o produto não pode subir em algum marketplace."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -1780,
+        320
+      ],
+      "typeVersion": 1,
+      "id": "7c291a81-125c-4233-9844-abcd11554cca"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.baselinker.com/connector.php",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-BLToken",
+              "value": "8002123-8021293-LQOUPBP5D3PP22WISELRPCK16J237W4MQVIJ33QNBSA72WC1QZDXPMPEKU6F0HF2"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "method",
+              "value": "addInventoryProduct"
+            },
+            {
+              "name": "parameters",
+              "value": "={\n    \"inventory_id\": \"34283\",\n    \"product_id\": \"{{ $json.product_id }}\",\n\"stock\": {\n        \"bl_43152\": {{ $json.new_estoque }}\n    },\n  \"prices\": {\n        \"33907\": {{ $json.new_base_price }},\n        \"41014\": {{ $json.new_wholesale_price }}\n    },\n    \"average_cost\": {{ $json.new_avg_price }}\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2860,
+        320
+      ],
+      "id": "3342c609-f899-4e97-9c25-5d84120dddb5",
+      "name": "Upload inventory",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Este código vai no nó \"Code\" do n8n ---\n\n/*\nComo funciona:\n1. Define as configurações e IDs.\n2. Puxa os dados dos nós anteriores.\n3. Adiciona uma condição para cada preço (ML e Atacado).\n4. Garante que os valores de preço sejam sempre numéricos antes de formatar.\n5. Retorna os dados prontos para os próximos passos.\n*/\n\n// --- 1. CONFIGURAÇÕES ---\nconst ID_DO_ESTOQUE_PRINCIPAL = \"bl_43152\";\nconst ID_PRECO_ANTIGO_ML = \"33907\";\nconst ID_PRECO_ANTIGO_ATACADO = \"41014\";\n\n\n// --- 2. EXTRAÇÃO DOS DADOS ---\nconst itemPrincipal = $input.item;\nconst itemEditFields = $items(\"Edit Fields\")[0];\nconst itemSplitOut = $items(\"Split Out\")[0];\n\nconst product_id = itemSplitOut.json.id;\nconst current_stock = itemPrincipal.json.stock[ID_DO_ESTOQUE_PRINCIPAL] || 0;\nconst current_avg_cost = itemPrincipal.json.average_cost;\nconst added_quantity = itemEditFields.json.quantity;\nconst added_cost = itemEditFields.json.cost;\n\nconst preco_ml = itemEditFields.json.preco_ml;\nconst preco_atacado = itemEditFields.json.preco_atacado;\n\nconst PRECO_ANTIGO_ML_VARIAVEL = itemPrincipal.json.prices[ID_PRECO_ANTIGO_ML];\nconst PRECO_ANTIGO_ATACADO_VARIAVEL = itemPrincipal.json.prices[ID_PRECO_ANTIGO_ATACADO];\n\n\n// --- 3. VERIFICAÇÃO ---\nif (preco_ml === undefined) {\n  throw new Error(`A variável 'preco_ml' não foi encontrada no nó 'Edit Fields'.`);\n}\nif (preco_atacado === undefined) {\n  throw new Error(`A variável 'preco_atacado' não foi encontrada no nó 'Edit Fields'.`);\n}\nif (PRECO_ANTIGO_ML_VARIAVEL === undefined) {\n  throw new Error(`O preço antigo do ML (ID: ${ID_PRECO_ANTIGO_ML}) não foi encontrado.`);\n}\nif (PRECO_ANTIGO_ATACADO_VARIAVEL === undefined) {\n  throw new Error(`O preço antigo de Atacado (ID: ${ID_PRECO_ANTIGO_ATACADO}) não foi encontrado.`);\n}\n\n\n// --- 4. CÁLCULOS ---\n\nconst new_estoque = current_stock + added_quantity;\nlet new_avg_price;\nif (new_estoque === 0) {\n  new_avg_price = added_cost;\n} else {\n  const total_cost = (current_stock * current_avg_cost) + (added_quantity * added_cost);\n  new_avg_price = total_cost / new_estoque;\n}\n\nlet new_base_price;\nif (preco_ml < 10) {\n  new_base_price = PRECO_ANTIGO_ML_VARIAVEL;\n} else {\n  new_base_price = (preco_ml * 0.88) - 19.95;\n}\n\nlet new_wholesale_price;\nif (preco_atacado < 10) {\n  new_wholesale_price = PRECO_ANTIGO_ATACADO_VARIAVEL;\n} else {\n  // A fórmula aqui é apenas passar o valor adiante, como você definiu.\n  new_wholesale_price = preco_atacado;\n}\n\n// --- CORREÇÃO DO ERRO ---\n// Garantimos que, se algum dos preços calculados for nulo ou inválido, ele se torne 0.\nconst final_base_price = Number(new_base_price) || 0;\nconst final_wholesale_price = Number(new_wholesale_price) || 0;\n\n\n// --- 5. MONTANDO O RETORNO ---\nreturn [{\n  json: {\n    product_id: product_id,\n    new_estoque: new_estoque,\n    new_avg_price: parseFloat(new_avg_price.toFixed(4)),\n    // Usamos as variáveis finais e seguras\n    new_base_price: parseFloat(final_base_price.toFixed(2)),\n    new_wholesale_price: parseFloat(final_wholesale_price.toFixed(2))\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3160,
+        320
+      ],
+      "id": "ff96e7da-34be-4dc2-969f-cf885a822565",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0cc53d86-aafb-4c10-b817-d78cd56bde52",
+              "name": "preco_ml",
+              "value": "={{ $json.preco_ml }}",
+              "type": "number"
+            },
+            {
+              "id": "2e0e9dca-c600-4d0c-b855-02155b8fe16f",
+              "name": "name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "504a3483-49c7-4863-93ff-44499e04865e",
+              "name": "quantity",
+              "value": "={{ $json.quantity }}",
+              "type": "number"
+            },
+            {
+              "id": "0336f168-4937-4832-8e4d-50c492a95f2f",
+              "name": "cost",
+              "value": "={{ $json.cost }}",
+              "type": "number"
+            },
+            {
+              "id": "02f6f7a6-c3d1-4333-9c07-49c40a750e7b",
+              "name": "SKU",
+              "value": "={{ $json.SKU }}",
+              "type": "string"
+            },
+            {
+              "id": "074feed9-2afa-4cba-bf6d-3ef0743be760",
+              "name": "preco_atacado",
+              "value": "={{ $json.preco_atacado }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4440,
+        300
+      ],
+      "id": "48ec492d-05e2-44da-b9df-c8d0e8b67075",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9d308014-ac67-417a-a187-3265808d794e",
+              "leftValue": "={{ $json.product_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2280,
+        320
+      ],
+      "id": "86c802db-9a00-4d7f-a218-902f0ef34837",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "amount": 40
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -5460,
+        280
+      ],
+      "id": "65df0dbd-7325-417e-a0b1-df4354e200f7",
+      "name": "Wait",
+      "webhookId": "f33c5a2a-3bc7-4ee0-b75c-8b01a4a56135",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "tableId": "log_lançamento_estoque",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "dia_lancado",
+              "fieldValue": "={{ $('Schedule Trigger').item.json.timestamp }}"
+            },
+            {
+              "fieldId": "sku",
+              "fieldValue": "={{ $('Edit Fields').item.json.SKU }}"
+            },
+            {
+              "fieldId": "quantidade",
+              "fieldValue": "={{ $('Edit Fields').item.json.quantity }}"
+            },
+            {
+              "fieldId": "pruchase_id",
+              "fieldValue": "={{ $('Supabase1').item.json.purchase_id }}"
+            },
+            {
+              "fieldId": "tracking_code",
+              "fieldValue": "={{ $('Supabase3').item.json.trackingCode }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1460,
+        320
+      ],
+      "id": "80f0c829-3f70-432b-b16a-6470ac723f7e",
+      "name": "Supabase6",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "32cdc595-2104-4848-ba1d-c4865e396fe6",
+              "leftValue": "={{ $json.propertyName }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3740,
+        -560
+      ],
+      "id": "4dc08a40-bf38-4d01-922c-6442ca832584",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "produtos_nome_subiu",
+        "messageData": "={{ $('If').item.json.name }}",
+        "tail": true
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -1300,
+        320
+      ],
+      "id": "b7dec3ed-9133-4c19-885c-fa91cf4c32f5",
+      "name": "Redis3",
+      "credentials": {
+        "redis": {
+          "id": "G0BxaMmtrlhEWpAX",
+          "name": "Redis - localhost"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "produtos_nome_subiu",
+        "keyType": "list",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -3520,
+        -440
+      ],
+      "id": "b7c6a867-9897-4ce2-9289-ff8422d14449",
+      "name": "Redis4",
+      "credentials": {
+        "redis": {
+          "id": "G0BxaMmtrlhEWpAX",
+          "name": "Redis - localhost"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "SupleLive - Atendimento",
+        "remoteJid": "+5527999916672",
+        "messageText": "=Olá, acabamos de conferir encomendas que que chegaram, as tarefas já estão no Coda\n\nNome do (s) Item que chegou (am):\n{{ $json.lista_formatada }}\n\n\nVá para o coda e já faça a tarefa.",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -2760,
+        -440
+      ],
+      "id": "0f9c66df-ee16-4b29-8579-99e3fcde6d6a",
+      "name": "Evolution API",
+      "credentials": {
+        "evolutionApi": {
+          "id": "eJk5d1sVXT5g6VkI",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const lista = $input.first().json.propertyName.map(p => p.trim());\n\nconst textoFinal = lista.map(item => `- ${item}`).join('\\n');\n\nreturn [\n  {\n    json: {\n      lista_formatada: textoFinal\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2960,
+        -440
+      ],
+      "id": "99c9e981-668e-43e8-bd2d-f8a32235cd80",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "propertyName"
+            }
+          ]
+        },
+        "options": {
+          "mergeLists": true
+        }
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -3140,
+        -440
+      ],
+      "id": "592309b4-b7a2-454b-9905-340f9361ed14",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "produtos_nome_subiu"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -2580,
+        -440
+      ],
+      "id": "5ccc0581-82ae-4362-90e5-35a5e7e4d7b6",
+      "name": "Redis5",
+      "credentials": {
+        "redis": {
+          "id": "G0BxaMmtrlhEWpAX",
+          "name": "Redis - localhost"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "compare": "={{ $json.propertyName }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        -3340,
+        -440
+      ],
+      "id": "0364ded6-3f5a-41e7-8119-8ca4dd536801",
+      "name": "Remove Duplicates1"
+    },
+    {
+      "parameters": {
+        "content": "## Confere os produtos que possuem para subir no estoque Base!\n",
+        "height": 400,
+        "width": 980
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -5700,
+        100
+      ],
+      "id": "8c7669b6-321b-487c-8a18-14342aa21f85",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Procura o produto dentro da base",
+        "height": 260,
+        "width": 600,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4480,
+        220
+      ],
+      "id": "8d2e3e57-f64e-4264-ac76-127252926ee7",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Envia o produto para a base com o novo estoque",
+        "height": 300,
+        "width": 1000,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -3660,
+        220
+      ],
+      "id": "33726022-aa20-490e-a320-0df33d4775ef",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## Alteração plataforma e coda\n** Altera o bando de dados da plataforma para produto no estoque, cria tarefa no Coda e salva no banco redis qual item foi subido junto com criar um log na tabela log_lançamento_estoque",
+        "height": 300,
+        "width": 1000,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2540,
+        200
+      ],
+      "id": "90f2f6d4-0962-43b4-8a24-20137d209952",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Envia mensagem do que foi feito, se foi lançado ou se precisa criar o produto na Base",
+        "height": 500,
+        "width": 1680,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4020,
+        -740
+      ],
+      "id": "25a1b522-b6a3-4c25-a1df-112bd36878a7",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## Salva produtos que não existem no Base para enviar mensagem",
+        "height": 260,
+        "width": 1100,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -3660,
+        -120
+      ],
+      "id": "ac244a08-647d-4f68-9c27-094af09d50a5",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "subidos_semana",
+        "messageData": "={{ $json['Nome da Tarefa'] }}+{{ $now }}",
+        "tail": true
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -1620,
+        320
+      ],
+      "id": "ecb50ccb-7b1a-4085-996e-f435de038ac2",
+      "name": "Redis6",
+      "credentials": {
+        "redis": {
+          "id": "G0BxaMmtrlhEWpAX",
+          "name": "Redis - localhost"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "key": "subidos_semana",
+        "keyType": "list",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -3940,
+        -1160
+      ],
+      "id": "ccd6feeb-8cbb-456c-bb1f-7137c8dc9975",
+      "name": "Redis7",
+      "credentials": {
+        "redis": {
+          "id": "G0BxaMmtrlhEWpAX",
+          "name": "Redis - localhost"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "subidos_semana"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -5540,
+        -1360
+      ],
+      "id": "ca8fcdc7-9654-4fec-b244-38eaa7b122ac",
+      "name": "Redis8",
+      "credentials": {
+        "redis": {
+          "id": "G0BxaMmtrlhEWpAX",
+          "name": "Redis - localhost"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// O nome da propriedade que contém a lista de strings\nconst PROPERTY_NAME = 'propertyName'; \n// Define o limite de tempo (1 hora em milissegundos)\nconst TIME_LIMIT_MS = 60 * 60 * 1000; \n\n// A lista de histórico (a única entrada do nó Code)\nconst inputList = items[0]?.json[PROPERTY_NAME] || []; \n\n// 1. Agrupa as ocorrências por nome único de produto e armazena as datas\n// Estrutura: { \"Nome do Produto\": [ Date1, Date2, ... ] }\nconst productHistory = new Map();\n\nfor (const fullString of inputList) {\n  if (typeof fullString === 'string') {\n    // 1.1. Separa o nome do produto da data\n    const parts = fullString.split('+');\n    if (parts.length < 2) continue; // Ignora se o formato não está correto\n\n    const productName = parts[0].trim();\n    const dateString = parts[1];\n    \n    // 1.2. Converte a string de data para um objeto Date.\n    const dateObject = new Date(dateString);\n\n    if (isNaN(dateObject)) continue; // Ignora se a data for inválida\n\n    // 1.3. Adiciona a data ao histórico do produto\n    if (!productHistory.has(productName)) {\n      productHistory.set(productName, []);\n    }\n    productHistory.get(productName).push(dateObject.getTime()); // Armazena em milissegundos\n  }\n}\n\nconst itemsToSend = [];\n\n// 2. Itera sobre cada grupo de produtos e aplica a lógica de filtro\nfor (const [productName, timestamps] of productHistory.entries()) {\n  \n  const count = timestamps.length;\n  let shouldSend = false;\n  \n  if (count === 1) {\n    // Regra 1: Se só tem 1 item, ele deve ser enviado.\n    shouldSend = true;\n    \n  } else if (count >= 2) {\n    // Regra 2: Temos repetições.\n    \n    // 2.1. Ordena as datas para pegar a primeira e a última ocorrência.\n    timestamps.sort((a, b) => a - b);\n    \n    const earliestTimestamp = timestamps[0];\n    const latestTimestamp = timestamps[timestamps.length - 1];\n    \n    // 2.2. Calcula a diferença de tempo em milissegundos.\n    const timeDifferenceMs = latestTimestamp - earliestTimestamp;\n    \n    // 2.3. Aplica a lógica: Diferença MENOR que 1 hora?\n    if (timeDifferenceMs < TIME_LIMIT_MS) {\n      shouldSend = true; // É um item recente/não consolidado, deve ser enviado.\n    }\n    // Se for maior que 1h, 'shouldSend' permanece 'false' e o item é ignorado.\n  }\n\n  // 3. Monta o Output (Apenas o Nome do Produto)\n  if (shouldSend) {\n    itemsToSend.push({\n      json: {\n        // CORREÇÃO: Retorna SOMENTE o nome do produto.\n        productNameUnique: productName, \n      },\n    });\n  }\n}\n\nreturn itemsToSend;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3720,
+        -1160
+      ],
+      "id": "fad88c8d-ff36-47b9-bd1a-5df594494069",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -3560,
+        -1120
+      ],
+      "id": "36bb5f17-79ac-4547-a923-c0b714a2d6de",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "docId": "eUx5R3MiEK",
+        "tableId": "grid-Q-_OTD_ZKt",
+        "options": {}
+      },
+      "name": "Coda",
+      "type": "n8n-nodes-base.coda",
+      "position": [
+        -3180,
+        -1060
+      ],
+      "typeVersion": 1,
+      "id": "4d3797ae-6eda-4f4a-8034-8313acd80a99",
+      "credentials": {
+        "codaApi": {
+          "id": "BB7kRfBUX0Wgvn0U",
+          "name": "Coda account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "Nome da Tarefa",
+              "value": "={{ $json.productNameUnique }}"
+            },
+            {
+              "name": "Responsável",
+              "value": "Felipe Lippaus"
+            },
+            {
+              "name": "Status",
+              "value": "Pendente"
+            },
+            {
+              "name": "Vencimento",
+              "value": "={{ $now }}"
+            },
+            {
+              "name": "Loja",
+              "value": "Blank"
+            },
+            {
+              "name": "Tipo de tarefa",
+              "value": "Conferir produto no Estoque"
+            },
+            {
+              "name": "Estoque",
+              "value": "Vix"
+            },
+            {
+              "name": "Check-List",
+              "value": "=Conferir se houve mudanças no produto (comparação de fotos, facts, descrição)\nConferir se tem o preço base no valor R$ {{ $('Code1').item.json.new_base_price }}\nIntegração [ML - VITALIFE1] - 4 Anúncios\nIntegração [ML - VXSHOP] - 4 Anúncios\nIntegração [Atacado] - Preço: R$ {{ $('Code1').item.json.new_wholesale_price }}\nIntegração [Suplelive]\nIntegração [Shopee - suplenium]\nIntegração [Shopee - primevitaminas]\nIntegração [RD - Vix Suplementos]\n\nObservação: Verificar se o produto não pode subir em algum marketplace."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set1",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        -3360,
+        -1060
+      ],
+      "typeVersion": 1,
+      "id": "3fe20f71-4618-44c9-8b31-bb249a924378",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -5720,
+        -1360
+      ],
+      "id": "f4105e1b-9eee-4d7b-aa91-7a6d4c041698",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "content": "## Envia tarefa para o coda, removendo se a tarefa já foi enviada na semana",
+        "height": 500,
+        "width": 1000,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4020,
+        -1320
+      ],
+      "id": "7854c770-0c27-488f-9472-5dd3e943629a",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## Limpa as tarefas do coda semanal",
+        "height": 360,
+        "width": 440,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -5780,
+        -1540
+      ],
+      "id": "abec2595-7473-442f-9b14-fe8dd7c4cb1b",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -2660,
+        320
+      ],
+      "id": "655386cc-ea59-4a30-82ca-70dd0b71429f",
+      "name": "Wait1",
+      "webhookId": "5d778f0c-8414-4096-b9b1-4305175f8a49"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -3020,
+        320
+      ],
+      "id": "be0b1300-273c-4406-b3c7-b4353760c68f",
+      "name": "Wait2",
+      "webhookId": "cea94f90-c25e-4a53-80b8-ea9e092f853c"
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2025-10-31T14:20:45.004-03:00",
+          "Readable date": "October 31st 2025, 2:20:45 pm",
+          "Readable time": "2:20:45 pm",
+          "Day of week": "Friday",
+          "Year": "2025",
+          "Month": "October",
+          "Day of month": "31",
+          "Hour": "14",
+          "Minute": "20",
+          "Second": "45",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Supabase": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request product": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request inventory": {
+      "main": [
+        [
+          {
+            "node": "Request product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Redis1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Redis7",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request product - data": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Supabase3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Request product - data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Redis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase2": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase3": {
+      "main": [
+        [
+          {
+            "node": "Set",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution API1": {
+      "main": [
+        [
+          {
+            "node": "Redis2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Evolution API1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis1": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis": {
+      "main": [
+        [
+          {
+            "node": "Supabase2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set": {
+      "main": [
+        [
+          {
+            "node": "Redis6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload inventory": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Request inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Redis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase6": {
+      "main": [
+        [
+          {
+            "node": "Redis3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Redis4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis3": {
+      "main": [
+        [
+          {
+            "node": "Replace Me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis4": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution API": {
+      "main": [
+        [
+          {
+            "node": "Redis5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "Evolution API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis6": {
+      "main": [
+        [
+          {
+            "node": "Supabase6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis7": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Set1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Coda": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set1": {
+      "main": [
+        [
+          {
+            "node": "Coda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Redis8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Upload inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "744ab04a-fff7-4cc6-84d9-ff99169732bf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "LneEqGcXGO6eWxBz",
+  "tags": []
+}

@@ -1,0 +1,770 @@
+{
+  "name": "Plataforma - Sincronizar Devoluções",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "returns",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "trackingCode",
+              "condition": "neq",
+              "keyValue": "null"
+            },
+            {
+              "keyName": "is_verified",
+              "condition": "eq",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2520,
+        380
+      ],
+      "id": "dc1fff5f-d45b-42e2-bd70-95d6a7da16a0",
+      "name": "Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "57defa9b-f520-4c49-bf8d-729bc1c40ad8",
+              "name": "trackingCode",
+              "value": "={{ $json.trackingCode }}",
+              "type": "string"
+            },
+            {
+              "id": "0b8aec5f-332f-4296-90b8-15821158e2a7",
+              "name": "carrier",
+              "value": "={{ $json.carrier }}",
+              "type": "string"
+            },
+            {
+              "id": "fcf48a99-5e64-417c-b40e-41cbc852b90b",
+              "name": "created_at",
+              "value": "={{ $json.created_at }}",
+              "type": "string"
+            },
+            {
+              "id": "0889c0f9-ca7b-4763-9553-bec4f5cd771f",
+              "name": "updated_at",
+              "value": "={{ $json.updated_at }}",
+              "type": "string"
+            },
+            {
+              "id": "9a098175-5612-48b7-8bd4-33d7298686c6",
+              "name": "row",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2320,
+        380
+      ],
+      "id": "881ce893-004c-452f-a577-3fb0b1633274",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.carrier }}",
+                    "rightValue": "Correios",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "487ccf26-0b74-4748-8494-e71d9223b0a2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Correios"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2fbfb2d5-4d16-4b5d-a9bf-1bc5e51d1ae7",
+                    "leftValue": "={{ $json.carrier }}",
+                    "rightValue": "Jadlog",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Jadlog"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -2100,
+        380
+      ],
+      "id": "dfd459d2-556f-4db1-b7cd-1d26f8e6a5f8",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "trackingCode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -1840,
+        140
+      ],
+      "id": "c690d3dc-9d72-447e-af28-bfd8c1db392b",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-labs.wonca.com.br/wonca.labs.v1.LabsService/Track",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Apikey WNgBGbjeRSefHGihDVlxlEy3ZHW2EE9z-GtOjW2W684"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "={{ $json.trackingCode }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1400,
+        160
+      ],
+      "id": "4e70889b-b674-4333-b667-9e430cb2e3d4",
+      "name": "HTTP Request",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fc4169ba-aef5-43b6-a270-d677fac78dfd",
+              "name": "json",
+              "value": "={{ $json.json }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1160,
+        160
+      ],
+      "id": "6583b914-43ea-4845-b08c-80376911a1ee",
+      "name": "Edit Fields4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $input.first().json.json || '{}';\nconst dados = JSON.parse(entrada);\n\nconst hoje = new Date();\nconst dataCustom = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());\n\nconst codigoRastreamento = dados?.codObjeto || null;\n\nlet dataPrevista = null;\nif (dados?.dtPrevista) {\n  const [dia, mes, ano] = dados.dtPrevista.split('/');\n  if (dia && mes && ano) {\n    dataPrevista = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));\n  }\n}\n\nconst eventos = Array.isArray(dados?.eventos) ? dados.eventos : [];\neventos.sort((a, b) => new Date(b.dtHrCriado?.date) - new Date(a.dtHrCriado?.date));\n\nconst statusAtual = eventos.length > 0 ? {\n  data: eventos[0].dtHrCriado?.date || null,\n  descricao: eventos[0].descricao || '',\n  detalhe: eventos[0].detalhe || '',\n  cidade: eventos[0].unidade?.endereco?.cidade || '',\n  uf: eventos[0].unidade?.endereco?.uf || '',\n  tipo: eventos[0].codigo || '',\n  sigla: eventos[0].tipo || ''\n} : null;\n\nconst dataPostagem = eventos.length > 0\n  ? eventos[eventos.length - 1].dtHrCriado?.date || null\n  : null;\n\nreturn [\n  {\n    json: {\n      rodou_status: dataCustom,\n      codigoRastreamento,\n      dataPrevista,\n      dataPostagem, // aqui está a data de criação/postagem\n      statusAtual,\n      eventos: eventos.map(e => ({\n        data: e.dtHrCriado?.date || null,\n        descricao: e.descricao || '',\n        detalhe: e.detalhe || '',\n        cidade: e.unidade?.endereco?.cidade || '',\n        uf: e.unidade?.endereco?.uf || '',\n        tipo: e.codigo || '',\n        sigla: e.tipo || ''\n      }))\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        160
+      ],
+      "id": "a75192c4-09c9-4c30-92c9-22bd8b48b1b1",
+      "name": "Code",
+      "alwaysOutputData": false,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 12
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2900,
+        380
+      ],
+      "id": "01e19185-657f-4a80-80b6-31c677e3445a",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "json",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -960,
+        160
+      ],
+      "id": "a1e080b7-c5e3-4199-be70-d41988bed594",
+      "name": "Split Out8"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "trackingCode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -1860,
+        760
+      ],
+      "id": "61f66a5c-839f-494a-9ae8-82d3ce0a3340",
+      "name": "Split Out9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://prd-traffic.jadlogtech.com.br/embarcador/api/tracking/consultar",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOjEwNTg3NywiZHQiOiIyMDIxMDYwOSJ9.ypRHGp0Emfo_VfQWmVyjKfw7Ilfoan_oR5NtPtEbx8k"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"consulta\": [\n     {\n        \"shipmentId\": \"{{ $json.trackingCode }}\"\n     }\n    ]\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1660,
+        760
+      ],
+      "id": "9ca0c107-799e-4e65-9ff2-bfc8d75b9b97",
+      "name": "HTTP Request4",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "returns",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "trackingCode",
+              "condition": "eq",
+              "keyValue": "={{ $json.consulta.shipmentId }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.consulta.tracking.status }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $json.consulta.tracking.eventos[1].data }}"
+            },
+            {
+              "fieldId": "atualizado",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "estimated_delivery",
+              "fieldValue": "={{ $json.dataPrevista }}"
+            },
+            {
+              "fieldId": "date",
+              "fieldValue": "={{ $json.consulta.tracking.eventos[0].data }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -980,
+        780
+      ],
+      "id": "bc62d5c8-6919-4481-8dfe-9ff4ee4896e2",
+      "name": "Supabase9",
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "consulta",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -1460,
+        760
+      ],
+      "id": "21d20b3e-58d7-4501-8594-f23e4c75577a",
+      "name": "Split Out10"
+    },
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1240,
+        760
+      ],
+      "id": "dfb5f1e7-2f71-4254-886f-c8d0428cec47",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1640,
+        140
+      ],
+      "id": "40d9cb89-adb3-4a52-9a53-630177f278ef",
+      "name": "Loop Over Items4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "874ac3b0-4e87-4f34-bbd1-85bfa7c3ad05",
+              "leftValue": "={{ $json.codigoRastreamento }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -560,
+        140
+      ],
+      "id": "d466fffd-c535-409a-9bae-5fc7ae49446d",
+      "name": "If"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        -60
+      ],
+      "id": "432db527-10db-4232-9dda-d48130f0426e",
+      "name": "Wait4",
+      "webhookId": "0d28c2ad-0709-4e29-a62f-5913d0e960b6"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "returns",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "trackingCode",
+              "condition": "eq",
+              "keyValue": "={{ $('Split Out').item.json.trackingCode }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $json.statusAtual.descricao }}"
+            },
+            {
+              "fieldId": "estimated_delivery",
+              "fieldValue": "={{ $json.dataPrevista }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $json.statusAtual.data }}"
+            },
+            {
+              "fieldId": "atualizado",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        -60
+      ],
+      "id": "2832b31a-7f3b-47d5-9532-d1cc003478f3",
+      "name": "Supabase10",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "7oM18DswbLxqHh83",
+          "name": "Supabase externo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "subtractFromDate",
+        "magnitude": "={{ $json.timestamp }}",
+        "timeUnit": "hours",
+        "duration": 6,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        -2720,
+        380
+      ],
+      "id": "b09eb347-24ba-427b-a65c-fb129ca41104",
+      "name": "Date & Time1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Supabase": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Out9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields4": {
+      "main": [
+        [
+          {
+            "node": "Split Out8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Date & Time1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out8": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out9": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Split Out10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase9": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out10": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Supabase9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items4": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Supabase10",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait4": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase10": {
+      "main": [
+        [
+          {
+            "node": "Wait4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time1": {
+      "main": [
+        [
+          {
+            "node": "Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b7c17cd0-c1bb-4b26-8d06-44d828b259f1",
+  "meta": {
+    "instanceId": "ef76e0d609d8d56b55052ed7013e207d8432cc3121eee577c2995f1fc79274d4"
+  },
+  "id": "620zRbNMNLtYbnzy",
+  "tags": []
+}
