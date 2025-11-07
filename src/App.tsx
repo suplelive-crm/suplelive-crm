@@ -28,6 +28,7 @@ import { AutomationPage } from '@/pages/AutomationPage';
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { TrackingPage } from '@/pages/TrackingPage';
+import { JobsPage } from '@/pages/JobsPage';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useAuthStore } from '@/store/authStore';
 
@@ -282,6 +283,18 @@ function AppContent() {
               <Navigate to="/onboarding" replace />
             ) : (
               <TrackingPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/jobs"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <JobsPage />
             )}
           </ProtectedRoute>
         }

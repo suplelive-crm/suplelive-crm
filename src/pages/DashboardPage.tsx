@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, UserPlus, ShoppingCart, DollarSign, MessageSquare, Zap, ArrowRight, BarChartHorizontal } from 'lucide-react';
+import { Users, UserPlus, ShoppingCart, DollarSign, MessageSquare, Zap, ArrowRight, BarChartHorizontal, Package, Activity } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
@@ -10,64 +10,185 @@ import { Button } from '@/components/ui/button';
 import { useCrmStore } from '@/store/crmStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+
+interface DashboardStats {
+  totalClients: number;
+  totalOrders: number;
+  totalRevenue: number;
+  totalEvents: number;
+  totalStockChanges: number;
+  activeWarehouses: number;
+  revenueGrowth: number;
+  ordersGrowth: number;
+}
 
 export function DashboardPage() {
   const { stats, fetchStats } = useCrmStore();
   const { currentWorkspace } = useWorkspaceStore();
   const navigate = useNavigate();
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    totalClients: 0,
+    totalOrders: 0,
+    totalRevenue: 0,
+    totalEvents: 0,
+    totalStockChanges: 0,
+    activeWarehouses: 0,
+    revenueGrowth: 0,
+    ordersGrowth: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (currentWorkspace) {
       fetchStats();
+      loadDashboardStats();
     }
   }, [fetchStats, currentWorkspace]);
 
+  const loadDashboardStats = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Total de clientes
+      const { count: clientsCount } = await supabase
+        .from('clients')
+        .select('*', { count: 'exact', head: true })
+        .eq('workspace_id', currentWorkspace!.id);
+
+      // 2. Total de pedidos
+      const { count: ordersCount } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('workspace_id', currentWorkspace!.id);
+
+      // 3. Receita total
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('total_amount')
+        .eq('workspace_id', currentWorkspace!.id);
+
+      const totalRevenue = ordersData?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+
+      // 4. Eventos processados (últimos 30 dias)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { count: eventsCount } = await supabase
+        .from('event_queue')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'completed')
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      // 5. Alterações de estoque (últimos 30 dias)
+      const { count: stockChangesCount } = await supabase
+        .from('stock_change_log')
+        .select('*', { count: 'exact', head: true })
+        .eq('workspace_id', currentWorkspace!.id)
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      // 6. Warehouses ativos
+      const { count: warehousesCount } = await supabase
+        .from('baselinker_warehouses')
+        .select('*', { count: 'exact', head: true })
+        .eq('workspace_id', currentWorkspace!.id)
+        .eq('is_active', true);
+
+      // 7. Crescimento de receita (comparar últimos 30 dias com 30 dias anteriores)
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+      const { data: recentOrders } = await supabase
+        .from('orders')
+        .select('total_amount, created_at')
+        .eq('workspace_id', currentWorkspace!.id)
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      const { data: previousOrders } = await supabase
+        .from('orders')
+        .select('total_amount, created_at')
+        .eq('workspace_id', currentWorkspace!.id)
+        .gte('created_at', sixtyDaysAgo.toISOString())
+        .lt('created_at', thirtyDaysAgo.toISOString());
+
+      const recentRevenue = recentOrders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+      const previousRevenue = previousOrders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+      const revenueGrowth = previousRevenue > 0 ? ((recentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+
+      // 8. Crescimento de pedidos
+      const ordersGrowth = (previousOrders?.length || 0) > 0
+        ? (((recentOrders?.length || 0) - (previousOrders?.length || 0)) / (previousOrders?.length || 0)) * 100
+        : 0;
+
+      setDashboardStats({
+        totalClients: clientsCount || 0,
+        totalOrders: ordersCount || 0,
+        totalRevenue,
+        totalEvents: eventsCount || 0,
+        totalStockChanges: stockChangesCount || 0,
+        activeWarehouses: warehousesCount || 0,
+        revenueGrowth: Math.round(revenueGrowth),
+        ordersGrowth: Math.round(ordersGrowth),
+      });
+    } catch (error) {
+      console.error('Error loading dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const statsData = [
     {
-      title: 'Total de Leads',
-      value: stats.totalLeads || 0,
-      icon: UserPlus,
-      trend: { value: 12, isPositive: true },
-      valueClassName: 'text-blue-600',
-      iconClassName: 'bg-blue-50'
-    },
-    {
       title: 'Total de Clientes',
-      value: stats.totalClients || 0,
+      value: loading ? '...' : dashboardStats.totalClients,
       icon: Users,
-      trend: { value: 8, isPositive: true },
+      trend: null,
       valueClassName: 'text-indigo-600',
       iconClassName: 'bg-indigo-50'
     },
     {
       title: 'Total de Pedidos',
-      value: stats.totalOrders || 0,
+      value: loading ? '...' : dashboardStats.totalOrders,
       icon: ShoppingCart,
-      trend: { value: 15, isPositive: true },
+      trend: dashboardStats.ordersGrowth !== 0 ? {
+        value: Math.abs(dashboardStats.ordersGrowth),
+        isPositive: dashboardStats.ordersGrowth > 0
+      } : null,
       valueClassName: 'text-purple-600',
       iconClassName: 'bg-purple-50'
     },
     {
       title: 'Receita Total',
-      value: `R$ ${stats.totalRevenue?.toLocaleString() || '0'}`,
+      value: loading ? '...' : `R$ ${dashboardStats.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: DollarSign,
-      trend: { value: 23, isPositive: true },
+      trend: dashboardStats.revenueGrowth !== 0 ? {
+        value: Math.abs(dashboardStats.revenueGrowth),
+        isPositive: dashboardStats.revenueGrowth > 0
+      } : null,
       valueClassName: 'text-emerald-600',
       iconClassName: 'bg-emerald-50'
     },
     {
-      title: 'Conversas',
-      value: stats.totalConversations || 0,
-      icon: MessageSquare,
-      trend: { value: 5, isPositive: true },
+      title: 'Eventos (30 dias)',
+      value: loading ? '...' : dashboardStats.totalEvents,
+      icon: Activity,
+      trend: null,
+      valueClassName: 'text-blue-600',
+      iconClassName: 'bg-blue-50'
+    },
+    {
+      title: 'Alterações Estoque (30d)',
+      value: loading ? '...' : dashboardStats.totalStockChanges,
+      icon: Package,
+      trend: null,
       valueClassName: 'text-amber-600',
       iconClassName: 'bg-amber-50'
     },
     {
-      title: 'Canais Ativos',
-      value: stats.activeChannels || 0,
+      title: 'Warehouses Ativos',
+      value: loading ? '...' : dashboardStats.activeWarehouses,
       icon: Zap,
-      trend: { value: 2, isPositive: true },
+      trend: null,
       valueClassName: 'text-rose-600',
       iconClassName: 'bg-rose-50'
     },

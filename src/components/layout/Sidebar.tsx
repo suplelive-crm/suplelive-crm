@@ -24,7 +24,8 @@ import {
   HelpCircle,
   Package,
   Truck,
-  ShoppingBag
+  ShoppingBag,
+  Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +47,7 @@ const navigation = [
   /*{ name: 'Integrações', href: '/integrations', icon: Zap },*/
   /*{ name: 'Analytics', href: '/analytics', icon: BarChart3 },*/
   { name: 'Acompanhamento', href: '/tracking', icon: Truck },
+  { name: 'Jobs & Logs', href: '/jobs', icon: Activity },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 
