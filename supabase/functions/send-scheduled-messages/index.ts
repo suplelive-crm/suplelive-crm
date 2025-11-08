@@ -1,9 +1,11 @@
 // Send Scheduled Messages
 // Runs daily (or hourly) to send pending scheduled messages
 // This is the only function that needs a cron job
+// Fetches Evolution API credentials from workspace settings
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getEvolutionConfig } from '../_shared/workspace-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,14 +28,6 @@ serve(async (req) => {
         },
       }
     );
-
-    // Get Evolution API config
-    const evolutionUrl = Deno.env.get('EVOLUTION_API_URL');
-    const evolutionKey = Deno.env.get('EVOLUTION_API_KEY');
-
-    if (!evolutionUrl || !evolutionKey) {
-      throw new Error('Evolution API not configured');
-    }
 
     // Fetch messages to send (scheduled_for <= now and status = pending)
     const now = new Date().toISOString();
@@ -87,14 +81,17 @@ serve(async (req) => {
           continue;
         }
 
+        // Get Evolution API credentials from workspace settings
+        const evolutionConfig = await getEvolutionConfig(supabaseClient, msg.workspace_id);
+
         // Send message via Evolution API
         const response = await fetch(
-          `${evolutionUrl}/message/sendText/${instance.instance_name}`,
+          `${evolutionConfig.api_url}/message/sendText/${instance.instance_name}`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              apikey: evolutionKey,
+              apikey: evolutionConfig.api_key,
             },
             body: JSON.stringify({
               number: msg.clients.phone,

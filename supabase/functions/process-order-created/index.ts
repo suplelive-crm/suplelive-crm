@@ -5,10 +5,18 @@
 // 3. Create order products
 // 4. Send upsell message immediately
 // 5. Schedule reorder messages
-// Uses existing baselinker-proxy and Evolution API integration
+// Fetches API keys from workspace settings in database
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  fetchOrderDetails,
+  BaselinkerConfig
+} from '../_shared/baselinker.ts';
+import {
+  getBaselinkerToken,
+  getEvolutionConfig
+} from '../_shared/workspace-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,7 +67,13 @@ serve(async (req) => {
       throw new Error('Invalid event data');
     }
 
-    console.log(`Processing order creation: ${event.order_id}`);
+    // Get workspace_id from event payload
+    const workspaceId = event.workspace_id;
+    if (!workspaceId) {
+      throw new Error('No workspace_id in event data');
+    }
+
+    console.log(`Processing order creation: ${event.order_id} for workspace ${workspaceId}`);
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -72,59 +86,18 @@ serve(async (req) => {
       }
     );
 
-    // Get Baselinker config
-    const baselinkerToken = Deno.env.get('BASELINKER_TOKEN');
-    if (!baselinkerToken) {
-      throw new Error('BASELINKER_TOKEN not configured');
-    }
+    // Get Baselinker token from workspace settings
+    const baselinkerToken = await getBaselinkerToken(supabaseClient, workspaceId);
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    // Get workspace (for now, get first one - in production, map from Baselinker account)
-    const { data: syncState } = await supabaseClient
-      .from('baselinker_sync_state')
-      .select('workspace_id')
-      .limit(1)
-      .single();
-
-    if (!syncState) {
-      throw new Error('No workspace configured');
-    }
-
-    const workspaceId = syncState.workspace_id;
-
-    // Fetch full order details from Baselinker using existing proxy
+    // Fetch full order details from Baselinker using shared helper
     console.log(`Fetching order ${event.order_id} details from Baselinker`);
 
-    const orderResponse = await fetch(`${supabaseUrl}/functions/v1/baselinker-proxy`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        apiKey: baselinkerToken,
-        method: 'getOrders',
-        parameters: {
-          order_id: event.order_id,
-        },
-      }),
-    });
+    const baselinkerConfig: BaselinkerConfig = {
+      token: baselinkerToken,
+      workspace_id: workspaceId,
+    };
 
-    if (!orderResponse.ok) {
-      const errorText = await orderResponse.text();
-      throw new Error(`Failed to fetch order from Baselinker: ${orderResponse.status} - ${errorText}`);
-    }
-
-    const orderResult = await orderResponse.json();
-
-    if (orderResult.status === 'ERROR') {
-      throw new Error(`Baselinker API error: ${orderResult.error_message || 'Unknown error'}`);
-    }
-
-    const orders = orderResult.orders || [];
-    const fullOrder = orders[0];
+    const fullOrder = await fetchOrderDetails(baselinkerConfig, event.order_id);
 
     if (!fullOrder) {
       throw new Error(`Order ${event.order_id} not found in Baselinker`);
@@ -560,30 +533,29 @@ async function sendWhatsAppMessage(workspaceId: string, phone: string, message: 
     return;
   }
 
-  // Call Evolution API
-  const evolutionUrl = Deno.env.get('EVOLUTION_API_URL');
-  const evolutionKey = Deno.env.get('EVOLUTION_API_KEY');
+  // Get Evolution API credentials from workspace settings
+  try {
+    const evolutionConfig = await getEvolutionConfig(supabase, workspaceId);
 
-  if (!evolutionUrl || !evolutionKey) {
-    console.log('Evolution API not configured');
-    return;
+    const response = await fetch(`${evolutionConfig.api_url}/message/sendText/${instance.instance_name}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: evolutionConfig.api_key,
+      },
+      body: JSON.stringify({
+        number: phone,
+        text: message,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to send WhatsApp message: ${response.statusText}`);
+    }
+
+    console.log(`WhatsApp message sent to ${phone}`);
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', error);
+    throw error;
   }
-
-  const response = await fetch(`${evolutionUrl}/message/sendText/${instance.instance_name}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: evolutionKey,
-    },
-    body: JSON.stringify({
-      number: phone,
-      text: message,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to send WhatsApp message: ${response.statusText}`);
-  }
-
-  console.log(`WhatsApp message sent to ${phone}`);
 }

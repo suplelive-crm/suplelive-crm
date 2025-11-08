@@ -1,10 +1,19 @@
 // Baselinker Event Poller
 // Polls Baselinker getJournalList API for new events every 30s-1min
 // This should be triggered by a cron job or invoked periodically
-// Uses existing baselinker-proxy function
+// Fetches API keys from workspace settings in database
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  fetchJournalEvents,
+  baselinkerRequest,
+  BaselinkerConfig
+} from '../_shared/baselinker.ts';
+import {
+  getWorkspacesWithIntegration,
+  getBaselinkerToken
+} from '../_shared/workspace-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,39 +87,66 @@ serve(async (req) => {
       }
     );
 
-    // Get Baselinker token from workspace settings or env
-    const baselinkerToken = Deno.env.get('BASELINKER_TOKEN');
-    if (!baselinkerToken) {
-      throw new Error('BASELINKER_TOKEN not configured');
-    }
+    // Get all workspaces with Baselinker integration enabled
+    const workspaces = await getWorkspacesWithIntegration(supabaseClient, 'baselinker');
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    // Get all workspaces with Baselinker sync enabled
-    const { data: syncStates, error: syncError } = await supabaseClient
-      .from('baselinker_sync_state')
-      .select('*')
-      .eq('is_syncing', false);
-
-    if (syncError) {
-      throw new Error(`Failed to fetch sync states: ${syncError.message}`);
-    }
-
-    if (!syncStates || syncStates.length === 0) {
+    if (workspaces.length === 0) {
       return new Response(
-        JSON.stringify({ message: 'No workspaces to sync' }),
+        JSON.stringify({ message: 'No workspaces with Baselinker enabled' }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
 
+    console.log(`Found ${workspaces.length} workspaces with Baselinker enabled`);
+
     const results = [];
 
     // Process each workspace
-    for (const syncState of syncStates) {
+    for (const workspace of workspaces) {
+      const workspaceId = workspace.workspace_id;
+
       try {
+        // Get Baselinker token from workspace settings
+        const baselinkerToken = await getBaselinkerToken(supabaseClient, workspaceId);
+
+        // Get or create sync state for this workspace
+        let { data: syncState, error: syncError } = await supabaseClient
+          .from('baselinker_sync_state')
+          .select('*')
+          .eq('workspace_id', workspaceId)
+          .maybeSingle();
+
+        if (syncError) {
+          throw new Error(`Failed to fetch sync state: ${syncError.message}`);
+        }
+
+        // Create sync state if doesn't exist
+        if (!syncState) {
+          const { data: newSyncState, error: createError } = await supabaseClient
+            .from('baselinker_sync_state')
+            .insert({
+              workspace_id: workspaceId,
+              last_log_id: 0,
+              is_syncing: false,
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            throw new Error(`Failed to create sync state: ${createError.message}`);
+          }
+
+          syncState = newSyncState;
+        }
+
+        // Skip if already syncing
+        if (syncState.is_syncing) {
+          console.log(`Workspace ${workspaceId} already syncing, skipping`);
+          continue;
+        }
+
         // Mark as syncing
         await supabaseClient
           .from('baselinker_sync_state')
@@ -136,45 +172,26 @@ serve(async (req) => {
           18, // status_changed
         ];
 
-        console.log(`Fetching events from Baselinker for workspace ${syncState.workspace_id}, last_log_id: ${lastLogId}`);
+        console.log(`Fetching events from Baselinker for workspace ${workspaceId}, last_log_id: ${lastLogId}`);
 
-        // Call existing baselinker-proxy function to get journal events
-        const baselinkerResponse = await fetch(`${supabaseUrl}/functions/v1/baselinker-proxy`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${serviceRoleKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            apiKey: baselinkerToken,
-            method: 'getJournalList',
-            parameters: {
-              last_log_id: lastLogId,
-              logs_types: relevantEventTypes,
-              limit: 100,
-            },
-          }),
-        });
+        // Use shared Baselinker helper to fetch journal events
+        const baselinkerConfig: BaselinkerConfig = {
+          token: baselinkerToken,
+          workspace_id: workspaceId,
+        };
 
-        if (!baselinkerResponse.ok) {
-          const errorText = await baselinkerResponse.text();
-          throw new Error(`Baselinker proxy error: ${baselinkerResponse.status} - ${errorText}`);
-        }
+        const events = await fetchJournalEvents(
+          baselinkerConfig,
+          lastLogId,
+          relevantEventTypes
+        );
 
-        const baselinkerResult = await baselinkerResponse.json();
-
-        if (baselinkerResult.status === 'ERROR') {
-          throw new Error(`Baselinker API error: ${baselinkerResult.error_message || 'Unknown error'}`);
-        }
-
-        // Extract events from response
-        const events = baselinkerResult.logs || [];
-
-        console.log(`Workspace ${syncState.workspace_id}: Found ${events.length} new events`);
+        console.log(`Workspace ${workspaceId}: Found ${events.length} new events`);
 
         if (events.length === 0) {
           results.push({
-            workspace_id: syncState.workspace_id,
+            workspace_id: workspaceId,
+            workspace_name: workspace.workspace_name,
             events_processed: 0,
             last_log_id: lastLogId,
           });
@@ -191,8 +208,9 @@ serve(async (req) => {
           continue;
         }
 
-        // Insert events into queue
+        // Insert events into queue with workspace context
         const eventsToInsert = events.map((event) => ({
+          workspace_id: workspaceId,
           event_log_id: event.log_id,
           event_type: event.log_type,
           event_name: getEventName(event.log_type),
@@ -226,31 +244,42 @@ serve(async (req) => {
           .eq('id', syncState.id);
 
         results.push({
-          workspace_id: syncState.workspace_id,
+          workspace_id: workspaceId,
+          workspace_name: workspace.workspace_name,
           events_processed: events.length,
           last_log_id: maxLogId,
         });
 
-        console.log(`Workspace ${syncState.workspace_id}: Processed ${events.length} events, last_log_id: ${maxLogId}`);
+        console.log(`Workspace ${workspaceId} (${workspace.workspace_name}): Processed ${events.length} events, last_log_id: ${maxLogId}`);
       } catch (error) {
-        console.error(`Error processing workspace ${syncState.workspace_id}:`, error);
+        console.error(`Error processing workspace ${workspaceId}:`, error);
 
-        // Update sync state with error
-        await supabaseClient
+        // Get sync state to update error
+        const { data: syncStateForError } = await supabaseClient
           .from('baselinker_sync_state')
-          .update({
-            is_syncing: false,
-            sync_errors: [
-              {
-                timestamp: new Date().toISOString(),
-                error: error.message,
-              },
-            ],
-          })
-          .eq('id', syncState.id);
+          .select('id')
+          .eq('workspace_id', workspaceId)
+          .maybeSingle();
+
+        if (syncStateForError) {
+          // Update sync state with error
+          await supabaseClient
+            .from('baselinker_sync_state')
+            .update({
+              is_syncing: false,
+              sync_errors: [
+                {
+                  timestamp: new Date().toISOString(),
+                  error: error.message,
+                },
+              ],
+            })
+            .eq('id', syncStateForError.id);
+        }
 
         results.push({
-          workspace_id: syncState.workspace_id,
+          workspace_id: workspaceId,
+          workspace_name: workspace.workspace_name,
           error: error.message,
         });
       }

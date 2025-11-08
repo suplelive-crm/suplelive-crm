@@ -1,9 +1,14 @@
 // Update Baselinker Stock
 // Edge Function to update stock in Baselinker and log all changes
-// Uses existing baselinker-proxy function
+// Fetches Baselinker token from workspace settings
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  baselinkerRequest,
+  BaselinkerConfig
+} from '../_shared/baselinker.ts';
+import { getBaselinkerToken } from '../_shared/workspace-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -115,61 +120,31 @@ serve(async (req) => {
 
     console.log(`Current stock for ${sku}: ${previousQty}, New stock: ${new_quantity}`);
 
-    // 3. Get Baselinker API token from workspace configuration
-    const { data: workspaceData, error: workspaceError } = await supabaseClient
-      .from('workspaces')
-      .select('id')
-      .eq('id', workspace_id)
-      .single();
+    // 3. Get Baselinker token from workspace settings
+    const baselinkerToken = await getBaselinkerToken(supabaseClient, workspace_id);
 
-    if (workspaceError) {
-      throw new Error(`Failed to fetch workspace: ${workspaceError.message}`);
-    }
+    // 4. Update stock in Baselinker using shared helper
+    console.log(`Updating stock in Baselinker via API`);
 
-    // Get Baselinker token from environment or workspace settings
-    // For now, using environment variable. In production, should fetch from workspace settings
-    const baselinkerToken = Deno.env.get('BASELINKER_TOKEN');
-    if (!baselinkerToken) {
-      throw new Error('Baselinker API token not configured');
-    }
+    const baselinkerConfig: BaselinkerConfig = {
+      token: baselinkerToken,
+      workspace_id: workspace_id,
+    };
 
-    // 4. Update stock in Baselinker using existing baselinker-proxy
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    console.log(`Calling baselinker-proxy to update stock in Baselinker`);
-
-    const baselinkerResponse = await fetch(`${supabaseUrl}/functions/v1/baselinker-proxy`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        apiKey: baselinkerToken,
-        method: 'updateInventoryProductsQuantity',
-        parameters: {
-          inventory_id: warehouse_id,
-          products: {
-            [sku]: {
-              stock: new_quantity,
-            },
+    const baselinkerResult = await baselinkerRequest(
+      baselinkerConfig,
+      'updateInventoryProductsQuantity',
+      {
+        inventory_id: warehouse_id,
+        products: {
+          [sku]: {
+            stock: new_quantity,
           },
         },
-      }),
-    });
+      }
+    );
 
-    if (!baselinkerResponse.ok) {
-      const errorText = await baselinkerResponse.text();
-      throw new Error(`Baselinker proxy error: ${baselinkerResponse.status} - ${errorText}`);
-    }
-
-    const baselinkerResult = await baselinkerResponse.json();
     console.log('Baselinker update result:', baselinkerResult);
-
-    if (baselinkerResult.status === 'ERROR') {
-      throw new Error(`Baselinker API error: ${baselinkerResult.error_message || 'Unknown error'}`);
-    }
 
     // 5. Update local products table
     const { error: updateError } = await supabaseClient

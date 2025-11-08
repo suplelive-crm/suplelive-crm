@@ -5,6 +5,7 @@ const BASELINKER_API_URL = 'https://api.baselinker.com/connector.php';
 
 export interface BaselinkerConfig {
   token: string;
+  workspace_id?: string; // Optional workspace context for logging
 }
 
 export interface BaselinkerResponse<T = any> {

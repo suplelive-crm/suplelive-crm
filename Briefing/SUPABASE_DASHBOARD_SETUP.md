@@ -89,38 +89,144 @@ VALUES ('<seu-workspace-id>', 0, false);
 
 ---
 
-## Passo 2: Configurar Variáveis de Ambiente (Secrets)
+## Passo 2: Configurar Credenciais do Workspace
 
-### 2.1 Acessar Edge Functions Settings
+### 2.1 Sobre as Credenciais
 
-1. No menu lateral, clique em **Project Settings** (ícone de engrenagem)
-2. Clique em **Edge Functions**
-3. Role até a seção **Environment variables**
+**IMPORTANTE**: As Edge Functions agora buscam automaticamente as credenciais do banco de dados (coluna `settings` na tabela `workspaces`). Você **NÃO precisa mais** configurar variáveis de ambiente para cada integração.
 
-### 2.2 Adicionar Secrets
+**Apenas as seguintes variáveis de ambiente são necessárias:**
+- `SUPABASE_URL` - URL do projeto (já configurado automaticamente)
+- `SUPABASE_ANON_KEY` - Chave anônima (já configurado automaticamente)
+- `SUPABASE_SERVICE_ROLE_KEY` - Chave de serviço (já configurado automaticamente)
 
-Clique em **Add variable** para cada uma das seguintes:
+### 2.2 Configurar Credenciais por Workspace
 
-| Name | Value | Descrição |
-|------|-------|-----------|
-| `BASELINKER_TOKEN` | `seu-token-aqui` | Token da API do Baselinker |
-| `EVOLUTION_API_URL` | `https://sua-evolution-api.com` | URL da sua Evolution API |
-| `EVOLUTION_API_KEY` | `sua-key-aqui` | API Key da Evolution API |
+Cada workspace tem suas próprias credenciais armazenadas na coluna `settings` (JSONB). Siga uma das opções abaixo:
 
-**Como pegar esses valores:**
+#### Opção A: Via SQL Editor (Recomendado para setup inicial)
 
-- **BASELINKER_TOKEN**:
+1. Primeiro, identifique o ID do seu workspace:
+
+```sql
+-- Ver todos os workspaces
+SELECT id, name FROM workspaces;
+```
+
+2. Copie o `id` (UUID) do workspace que você quer configurar.
+
+3. Execute o seguinte comando **substituindo os valores**:
+
+```sql
+-- Configurar credenciais do workspace
+UPDATE workspaces
+SET settings = '{
+  "baselinker": {
+    "enabled": true,
+    "token": "SEU_TOKEN_BASELINKER_AQUI",
+    "warehouse_es": 1,
+    "warehouse_sp": 2
+  },
+  "evolution": {
+    "enabled": true,
+    "api_url": "https://sua-evolution-api.com",
+    "api_key": "SUA_KEY_EVOLUTION_AQUI"
+  },
+  "openai": {
+    "enabled": false,
+    "api_key": "",
+    "model": "gpt-4"
+  },
+  "n8n": {
+    "enabled": false,
+    "webhook_url": ""
+  }
+}'::jsonb
+WHERE id = 'SEU_WORKSPACE_ID_AQUI';
+```
+
+**Como pegar as credenciais:**
+
+- **BASELINKER TOKEN**:
   1. Acesse https://panel.baselinker.com/
-  2. Vá em Settings → API
-  3. Copie o token
+  2. Vá em **Settings** → **API**
+  3. Copie o token gerado
+  4. Cole no campo `baselinker.token`
 
-- **EVOLUTION_API_URL**: URL base da sua instância Evolution (ex: https://evolution.seudominio.com)
+- **EVOLUTION API**:
+  - `api_url`: URL base da sua instância Evolution (ex: `https://evolution.seudominio.com`)
+  - `api_key`: API Key configurada na sua Evolution API
 
-- **EVOLUTION_API_KEY**: API Key configurada na sua Evolution API
+- **WAREHOUSE IDS** (opcional):
+  - `warehouse_es`: ID do armazém do Espírito Santo (geralmente 1 ou `bl_1`)
+  - `warehouse_sp`: ID do armazém de São Paulo (geralmente 2 ou `bl_2`)
 
-### 2.3 Salvar
+4. Execute a query e verifique se retornou `UPDATE 1`
 
-Clique em **Save** após adicionar todas as variáveis.
+#### Opção B: Via Interface da Aplicação (Após primeiro deploy)
+
+Depois que a aplicação estiver rodando:
+
+1. Acesse a página `/integrations` no seu aplicativo
+2. Clique em **Configurar** em cada integração
+3. Preencha os campos com suas credenciais
+4. Marque **Ativar integração**
+5. Clique em **Salvar**
+
+As configurações serão salvas automaticamente no banco de dados.
+
+### 2.3 Verificar Configuração
+
+Execute esta query para confirmar que as credenciais foram salvas:
+
+```sql
+SELECT
+  id,
+  name,
+  settings->'baselinker'->>'enabled' as baselinker_enabled,
+  settings->'evolution'->>'enabled' as evolution_enabled,
+  CASE
+    WHEN settings->'baselinker'->>'token' IS NOT NULL
+    THEN '✓ Token configurado'
+    ELSE '✗ Token não configurado'
+  END as baselinker_status,
+  CASE
+    WHEN settings->'evolution'->>'api_key' IS NOT NULL
+    THEN '✓ API Key configurada'
+    ELSE '✗ API Key não configurada'
+  END as evolution_status
+FROM workspaces;
+```
+
+Deve retornar algo como:
+```
+id         | name      | baselinker_enabled | evolution_enabled | baselinker_status     | evolution_status
+-----------|-----------|--------------------|--------------------|----------------------|---------------------
+uuid-here  | Workspace | true               | true              | ✓ Token configurado  | ✓ API Key configurada
+```
+
+### 2.4 Múltiplos Workspaces (Opcional)
+
+Se você tem múltiplos workspaces, repita o processo para cada um:
+
+```sql
+-- Configurar segundo workspace
+UPDATE workspaces
+SET settings = '{
+  "baselinker": {
+    "enabled": true,
+    "token": "TOKEN_DO_WORKSPACE_2"
+  },
+  "evolution": {
+    "enabled": true,
+    "api_url": "https://evolution-workspace2.com",
+    "api_key": "KEY_DO_WORKSPACE_2"
+  }
+}'::jsonb
+WHERE id = 'WORKSPACE_ID_2';
+```
+
+Cada workspace terá suas próprias credenciais isoladas! 🎉
 
 ---
 
@@ -599,4 +705,67 @@ const { data: warehouses } = await supabase
 
 ---
 
-**Última atualização**: 2025-01-07
+## 📌 Mudanças Importantes (Multi-Tenant Credentials)
+
+### O Que Mudou?
+
+**ANTES**: As credenciais ficavam em variáveis de ambiente fixas no Supabase
+```bash
+BASELINKER_TOKEN=token-unico
+EVOLUTION_API_KEY=key-unica
+```
+❌ Problema: Um único token para todos os usuários/workspaces
+
+**AGORA**: Cada workspace tem suas próprias credenciais no banco de dados
+```sql
+workspaces.settings = {
+  "baselinker": { "token": "token-workspace-1" },
+  "evolution": { "api_key": "key-workspace-1" }
+}
+```
+✅ Solução: Credenciais isoladas por workspace
+
+### Vantagens do Novo Sistema
+
+1. **Multi-tenancy Real**: Cada cliente pode ter suas próprias contas Baselinker/Evolution
+2. **Segurança**: Credenciais isoladas, sem compartilhamento entre workspaces
+3. **Escalabilidade**: Adicione novos workspaces sem reconfigurar o servidor
+4. **Flexibilidade**: Ative/desative integrações por workspace
+5. **Gestão Simplificada**: Configure tudo via SQL ou interface web
+
+### Migração Necessária?
+
+Se você estava usando a versão antiga com variáveis de ambiente:
+
+1. **Copie suas credenciais atuais** de **Project Settings** → **Edge Functions** → **Environment variables**
+2. **Cole no banco** usando o comando SQL do **Passo 2.2** acima
+3. **Teste** executando o event poller manualmente (Passo 6.1)
+4. **Remova as variáveis antigas** (opcional, mas recomendado para segurança)
+
+### Como as Edge Functions Buscam Credenciais Agora
+
+Todas as Edge Functions usam o helper `workspace-config.ts`:
+
+```typescript
+// Busca automática por workspace
+const token = await getBaselinkerToken(supabase, workspaceId);
+const evolutionConfig = await getEvolutionConfig(supabase, workspaceId);
+```
+
+**Fluxo**:
+1. Evento chega com `workspace_id`
+2. Edge Function busca `workspaces.settings` para aquele workspace
+3. Usa as credenciais específicas daquele workspace
+4. Processa o evento com isolamento total
+
+### Documentação Adicional
+
+Para mais detalhes sobre configuração de credenciais, veja:
+- [WORKSPACE_CREDENTIALS_CONFIG.md](./WORKSPACE_CREDENTIALS_CONFIG.md) - Guia completo de credenciais
+- Exemplos de configuração
+- Troubleshooting
+- Segurança e boas práticas
+
+---
+
+**Última atualização**: 2025-01-08 (Adicionado suporte multi-tenant)

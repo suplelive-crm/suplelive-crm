@@ -9,6 +9,7 @@
 
 CREATE TABLE IF NOT EXISTS public.event_queue (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
   event_log_id BIGINT UNIQUE NOT NULL,
   event_type INTEGER NOT NULL,
   event_name TEXT,
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.event_queue (
 );
 
 -- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_event_queue_workspace ON public.event_queue(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_event_queue_status ON public.event_queue(status) WHERE status IN ('pending', 'failed');
 CREATE INDEX IF NOT EXISTS idx_event_queue_event_type ON public.event_queue(event_type);
 CREATE INDEX IF NOT EXISTS idx_event_queue_order_id ON public.event_queue(order_id) WHERE order_id IS NOT NULL;
