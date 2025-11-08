@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { ErrorHandler } from '@/lib/error-handler';
+import { useWorkspaceStore } from './workspaceStore';
 
 interface AuthState {
   user: User | null;
