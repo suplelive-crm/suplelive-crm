@@ -45,52 +45,29 @@ O sistema está configurado para funcionar automaticamente para **TODOS os works
 
 ---
 
-### PASSO 2: Configurar Cron Jobs (2 minutos)
+### PASSO 2: Configurar Cron Jobs (1 minuto)
 
-Execute estas queries no SQL Editor:
+1. **Copie e cole** o conteúdo completo deste arquivo no SQL Editor:
+   ```
+   Briefing/CONFIGURAR_CRON_JOBS_FIXED.sql
+   ```
 
-```sql
--- Event Poller (roda a cada 1 minuto para TODOS os workspaces)
-SELECT cron.schedule(
-  'baselinker-event-poller',
-  '* * * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://oqwstanztqdiexgrpdta.supabase.co/functions/v1/baselinker-event-poller',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.service_role_key', true)
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);
+2. **Execute** (botão verde "Run")
 
--- Scheduled Messages (roda diariamente às 9h)
-SELECT cron.schedule(
-  'send-scheduled-messages',
-  '0 9 * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://oqwstanztqdiexgrpdta.supabase.co/functions/v1/send-scheduled-messages',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.service_role_key', true)
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);
+3. **Verificar** se os 2 jobs foram criados:
+   ```sql
+   SELECT jobid, jobname, schedule, active FROM cron.job;
+   ```
+
+**Resultado esperado**:
+```
+jobid | jobname                    | schedule  | active
+------|----------------------------|-----------|-------
+1     | baselinker-event-poller    | * * * * * | t
+2     | send-scheduled-messages    | 0 9 * * * | t
 ```
 
-**Verificar**:
-
-```sql
-SELECT jobid, jobname, schedule, active
-FROM cron.job;
-```
-
-Deve retornar 2 jobs com `active = t`.
+✅ Deve retornar 2 jobs com `active = t`.
 
 ---
 
