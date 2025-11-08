@@ -69,25 +69,61 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
     isConnected: () => {
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) return false;
-      const savedConfig = localStorage.getItem(`baselinker_config_${currentWorkspace.id}`);
-      return !!savedConfig && !!JSON.parse(savedConfig).apiKey;
+
+      // Buscar do workspaces.settings
+      const baselinkerSettings = currentWorkspace.settings?.baselinker;
+      return !!(baselinkerSettings?.enabled && baselinkerSettings?.token);
     },
     
     connect: async (config: BaselinkerConfig) => {
       await ErrorHandler.handleAsync(async () => {
         const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
         if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
-        
+
         console.log("DEBUG (connect): Verificando chave da Supabase:", import.meta.env.VITE_SUPABASE_ANON_KEY);
-        
+
         initializeBaselinker(
           import.meta.env.VITE_SUPABASE_URL,
-          import.meta.env.VITE_SUPABASE_ANON_KEY 
+          import.meta.env.VITE_SUPABASE_ANON_KEY
         );
-        
-        localStorage.setItem(`baselinker_config_${currentWorkspace.id}`, JSON.stringify(config));
+
+        // Salvar no banco (workspaces.settings)
+        const { data: workspace, error } = await supabase
+          .from('workspaces')
+          .select('settings')
+          .eq('id', currentWorkspace.id)
+          .single();
+
+        if (error) throw error;
+
+        const updatedSettings = {
+          ...(workspace.settings || {}),
+          baselinker: {
+            enabled: true,
+            token: config.apiKey,
+            warehouse_es: config.warehouse_es || 1,
+            warehouse_sp: config.warehouse_sp || 2,
+            sync_interval: config.syncInterval || 5,
+            sync_orders: config.syncOrders !== false,
+            sync_customers: config.syncCustomers !== false,
+            sync_inventory: config.syncInventory !== false,
+            inventory_id: config.inventoryId || ''
+          }
+        };
+
+        await supabase
+          .from('workspaces')
+          .update({ settings: updatedSettings })
+          .eq('id', currentWorkspace.id);
+
+        // Atualizar workspace no store também
+        useWorkspaceStore.getState().updateCurrentWorkspace({
+          ...currentWorkspace,
+          settings: updatedSettings
+        });
+
         set({ config });
-        
+
         await supabase
           .from('baselinker_sync')
           .upsert({
@@ -97,7 +133,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           }, {
             onConflict: 'workspace_id'
           });
-        
+
         get().startSyncInterval();
         await get().syncAll(true);
       });
@@ -107,8 +143,35 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
       await ErrorHandler.handleAsync(async () => {
         const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
         if (!currentWorkspace) return;
-        
-        localStorage.removeItem(`baselinker_config_${currentWorkspace.id}`);
+
+        // Remover do banco
+        const { data: workspace } = await supabase
+          .from('workspaces')
+          .select('settings')
+          .eq('id', currentWorkspace.id)
+          .single();
+
+        const updatedSettings = {
+          ...(workspace?.settings || {}),
+          baselinker: {
+            enabled: false,
+            token: '',
+            warehouse_es: 1,
+            warehouse_sp: 2
+          }
+        };
+
+        await supabase
+          .from('workspaces')
+          .update({ settings: updatedSettings })
+          .eq('id', currentWorkspace.id);
+
+        // Atualizar workspace no store
+        useWorkspaceStore.getState().updateCurrentWorkspace({
+          ...currentWorkspace,
+          settings: updatedSettings
+        });
+
         get().stopSyncInterval();
         set({ config: null });
       });

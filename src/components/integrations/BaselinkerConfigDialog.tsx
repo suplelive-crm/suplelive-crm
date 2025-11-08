@@ -67,12 +67,22 @@ export function BaselinkerConfigDialog() {
       setConnected(connected);
       
       if (connected) {
-        // Load saved config
-        const savedConfig = localStorage.getItem(`baselinker_config_${currentWorkspace?.id}`);
-        if (savedConfig) {
-          const parsedConfig = JSON.parse(savedConfig);
+        // Load saved config from database
+        const baselinkerSettings = currentWorkspace?.settings?.baselinker;
+        if (baselinkerSettings && baselinkerSettings.token) {
+          const parsedConfig = {
+            apiKey: baselinkerSettings.token,
+            syncInterval: baselinkerSettings.sync_interval || 5,
+            syncOrders: baselinkerSettings.sync_orders !== false,
+            syncCustomers: baselinkerSettings.sync_customers !== false,
+            syncInventory: baselinkerSettings.sync_inventory !== false,
+            orderStatuses: ['new', 'paid', 'processing', 'ready_for_shipping', 'shipped'],
+            inventoryId: baselinkerSettings.inventory_id || '',
+            warehouse_es: baselinkerSettings.warehouse_es || 1,
+            warehouse_sp: baselinkerSettings.warehouse_sp || 2,
+          };
           setConfig(parsedConfig);
-          
+
           // Test connection to make sure it's still valid
           const { apiKey } = parsedConfig;
           if (apiKey) {
@@ -133,10 +143,19 @@ export function BaselinkerConfigDialog() {
     if (!currentWorkspace) return;
 
     try {
-      const savedConfig = localStorage.getItem(`baselinker_config_${currentWorkspace.id}`);
-      if (savedConfig) {
-        const parsed = JSON.parse(savedConfig);
-        setConfig(parsed);
+      // Buscar do banco
+      const baselinkerSettings = currentWorkspace.settings?.baselinker;
+
+      if (baselinkerSettings && baselinkerSettings.token) {
+        setConfig({
+          apiKey: baselinkerSettings.token,
+          syncInterval: baselinkerSettings.sync_interval || 5,
+          syncOrders: baselinkerSettings.sync_orders !== false,
+          syncCustomers: baselinkerSettings.sync_customers !== false,
+          syncInventory: baselinkerSettings.sync_inventory !== false,
+          orderStatuses: ['new', 'paid', 'processing', 'ready_for_shipping', 'shipped'],
+          inventoryId: baselinkerSettings.inventory_id || '',
+        });
       }
     } catch (error) {
       console.error('Error loading Baselinker config:', error);

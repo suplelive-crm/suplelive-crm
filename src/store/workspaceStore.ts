@@ -23,6 +23,7 @@ interface WorkspaceState {
   fetchUserInvitations: () => Promise<void>;
   createWorkspace: (data: { name: string; plan_id: string }) => Promise<Workspace>;
   setCurrentWorkspace: (workspace: Workspace) => void;
+  updateCurrentWorkspace: (workspace: Workspace) => void;
   checkWorkspaceUniqueness: (name: string, slug: string) => Promise<{ nameExists: boolean; slugExists: boolean }>;
   
   // User management
@@ -333,7 +334,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       // Clear workspace
       localStorage.removeItem('currentWorkspaceId');
       console.log('Clearing current workspace');
-      set({ 
+      set({
         currentWorkspace: null,
         channels: [],
         whatsappInstances: [],
@@ -341,6 +342,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         userInvitations: []
       });
     }
+  },
+
+  updateCurrentWorkspace: (workspace) => {
+    set({ currentWorkspace: workspace });
+    localStorage.setItem('currentWorkspaceId', workspace.id);
   },
 
   inviteUser: async (email, role) => {
