@@ -57,16 +57,18 @@ export function DashboardPage() {
         .eq('workspace_id', currentWorkspace!.id);
 
       // 2. Total de pedidos
+      // NOTE: Orders doesn't have workspace_id, filter through clients
       const { count: ordersCount } = await supabase
         .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('workspace_id', currentWorkspace!.id);
+        .select('*, clients!inner(workspace_id)', { count: 'exact', head: true })
+        .eq('clients.workspace_id', currentWorkspace!.id);
 
       // 3. Receita total
+      // NOTE: Orders doesn't have workspace_id, filter through clients
       const { data: ordersData } = await supabase
         .from('orders')
-        .select('total_amount')
-        .eq('workspace_id', currentWorkspace!.id);
+        .select('total_amount, clients!inner(workspace_id)')
+        .eq('clients.workspace_id', currentWorkspace!.id);
 
       const totalRevenue = ordersData?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
 
@@ -91,25 +93,26 @@ export function DashboardPage() {
       const { count: warehousesCount } = await supabase
         .from('baselinker_warehouses')
         .select('*', { count: 'exact', head: true })
-        .eq('workspace_id', currentWorkspace!.id)
-        .eq('is_active', true);
+        .eq('workspace_id', currentWorkspace!.id);
 
       // 7. Crescimento de receita (comparar últimos 30 dias com 30 dias anteriores)
       const sixtyDaysAgo = new Date();
       sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
+      // NOTE: Orders doesn't have workspace_id, access workspace through: orders.client_id -> clients.workspace_id
+      // NOTE: Orders table uses 'order_date' instead of 'created_at'
       const { data: recentOrders } = await supabase
         .from('orders')
-        .select('total_amount, created_at')
-        .eq('workspace_id', currentWorkspace!.id)
-        .gte('created_at', thirtyDaysAgo.toISOString());
+        .select('total_amount, order_date, clients!inner(workspace_id)')
+        .eq('clients.workspace_id', currentWorkspace!.id)
+        .gte('order_date', thirtyDaysAgo.toISOString());
 
       const { data: previousOrders } = await supabase
         .from('orders')
-        .select('total_amount, created_at')
-        .eq('workspace_id', currentWorkspace!.id)
-        .gte('created_at', sixtyDaysAgo.toISOString())
-        .lt('created_at', thirtyDaysAgo.toISOString());
+        .select('total_amount, order_date, clients!inner(workspace_id)')
+        .eq('clients.workspace_id', currentWorkspace!.id)
+        .gte('order_date', sixtyDaysAgo.toISOString())
+        .lt('order_date', thirtyDaysAgo.toISOString());
 
       const recentRevenue = recentOrders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
       const previousRevenue = previousOrders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;

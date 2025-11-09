@@ -4,6 +4,7 @@ import { useWorkspaceStore } from './workspaceStore';
 import { ErrorHandler } from '@/lib/error-handler';
 import { Purchase, PurchaseProduct, Return, Transfer, TrackingResponse } from '@/types/tracking';
 import { trackPackage, parseTrackingResponse, getTrackingUrl, runTrackingAutomation } from '@/lib/tracking-api';
+import { getBaselinker } from '@/lib/baselinker-api';
 
 // Tipos para os dados do formulário, para clareza
 interface PurchaseFormData {
@@ -487,12 +488,186 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
     addProductToInventory: async (purchaseId) => {
         await ErrorHandler.handleAsync(async () => {
-            const { error: productsUpdateError } = await supabase.from('purchase_products').update({ is_in_stock: true, updated_at: new Date().toISOString() }).eq('purchase_id', purchaseId);
-            if (productsUpdateError) { console.error("Erro ao atualizar produtos para 'em estoque':", productsUpdateError); throw productsUpdateError; }
-            const { error: purchaseUpdateError } = await supabase.from('purchases').update({ is_archived: true, status: 'Adicionado ao estoque', updated_at: new Date().toISOString() }).eq('id', purchaseId);
-            if (purchaseUpdateError) { console.error("Erro ao adicionar compra ao estoque:", purchaseUpdateError); throw purchaseUpdateError; }
+            const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
+            if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+            // 1. Buscar dados da compra e produtos
+            const { data: purchase, error: purchaseError } = await supabase
+                .from('purchases')
+                .select('*, purchase_products(*)')
+                .eq('id', purchaseId)
+                .single();
+
+            if (purchaseError || !purchase) {
+                throw new Error('Compra não encontrada');
+            }
+
+            if (!purchase.warehouse) {
+                throw new Error('Warehouse não especificado na compra. Edite a compra e selecione um warehouse.');
+            }
+
+            // 2. Validar se o warehouse está ativo
+            const { data: warehouseConfig, error: warehouseError } = await supabase
+                .from('baselinker_warehouses')
+                .select('*')
+                .eq('workspace_id', currentWorkspace.id)
+                .eq('warehouse_id', purchase.warehouse)
+                .eq('is_active', true)
+                .single();
+
+            if (warehouseError || !warehouseConfig) {
+                throw new Error(`Warehouse ${purchase.warehouse} não está ativo ou não existe. Ative o warehouse nas configurações.`);
+            }
+
+            if (!warehouseConfig.allow_stock_updates) {
+                throw new Error(`Warehouse ${warehouseConfig.warehouse_name} não permite atualizações de estoque.`);
+            }
+
+            // 3. Buscar configuração do Baselinker
+            const configKey = `baselinker_config_${currentWorkspace.id}`;
+            const savedConfig = localStorage.getItem(configKey);
+
+            if (!savedConfig) {
+                throw new Error('Configuração do Baselinker não encontrada. Configure a API Key na página de Integrações.');
+            }
+
+            const config = JSON.parse(savedConfig);
+            const apiKey = config.apiKey;
+            const inventoryId = config.inventoryId;
+
+            if (!apiKey || !inventoryId) {
+                throw new Error('API Key ou Inventory ID do Baselinker não configurado');
+            }
+
+            const baselinker = getBaselinker();
+            if (!baselinker) {
+                throw new Error('Baselinker não está inicializado');
+            }
+
+            // 4. Para cada produto, adicionar ao estoque no Baselinker e criar log
+            const products = purchase.purchase_products || [];
+            const errors: string[] = [];
+            const successes: string[] = [];
+
+            for (const product of products) {
+                try {
+                    // 4.1. Buscar product_id do Baselinker pelo SKU
+                    const { data: dbProduct, error: productError } = await supabase
+                        .from('products')
+                        .select('id, name, baselinker_product_id')
+                        .eq('workspace_id', currentWorkspace.id)
+                        .eq('sku', product.sku)
+                        .eq('warehouse', purchase.warehouse)
+                        .single();
+
+                    if (productError || !dbProduct || !dbProduct.baselinker_product_id) {
+                        errors.push(`Produto ${product.sku} não encontrado no Baselinker ou sem product_id configurado`);
+                        continue;
+                    }
+
+                    // 4.2. Adicionar quantidade no Baselinker
+                    await baselinker.addProductQuantity(apiKey, {
+                        inventory_id: inventoryId,
+                        product_id: dbProduct.baselinker_product_id,
+                        variant_id: '0', // Sem variante
+                        quantity: product.quantity
+                    });
+
+                    successes.push(`${product.sku}: +${product.quantity}`);
+
+                    // 4.3. Criar log de lançamento
+                    await supabase.from('log_lançamento_estoque').insert({
+                        workspace_id: currentWorkspace.id,
+                        dia_lancado: new Date().toISOString(),
+                        sku: product.sku,
+                        quantidade: product.quantity,
+                        purchase_id: purchaseId,
+                        tracking_code: purchase.tracking_code,
+                        estoque_origem: purchase.warehouse,
+                        status: 'success'
+                    });
+
+                    // 4.4. Criar entrada no stock_change_log
+                    const { data: currentStock } = await supabase
+                        .from('products')
+                        .select('stock_quantity')
+                        .eq('id', dbProduct.id)
+                        .single();
+
+                    const previousQty = currentStock?.stock_quantity || 0;
+                    const newQty = previousQty + product.quantity;
+
+                    await supabase.from('stock_change_log').insert({
+                        workspace_id: currentWorkspace.id,
+                        product_id: dbProduct.id,
+                        sku: product.sku,
+                        change_type: 'add',
+                        warehouse: purchase.warehouse,
+                        reference_type: 'purchase',
+                        reference_id: purchaseId,
+                        quantity_before: previousQty,
+                        quantity_after: newQty,
+                        quantity_change: product.quantity,
+                        notes: `Compra adicionada ao estoque - ${purchase.tracking_code}`,
+                        created_by: currentWorkspace.id
+                    });
+
+                } catch (error: any) {
+                    console.error(`Erro ao adicionar ${product.sku}:`, error);
+                    errors.push(`${product.sku}: ${error.message}`);
+
+                    // Criar log de erro
+                    await supabase.from('log_lançamento_estoque').insert({
+                        workspace_id: currentWorkspace.id,
+                        dia_lancado: new Date().toISOString(),
+                        sku: product.sku,
+                        quantidade: product.quantity,
+                        purchase_id: purchaseId,
+                        tracking_code: purchase.tracking_code,
+                        estoque_origem: purchase.warehouse,
+                        status: 'error',
+                        error_message: error.message
+                    });
+                }
+            }
+
+            // 5. Atualizar status dos produtos e da compra
+            const { error: productsUpdateError } = await supabase
+                .from('purchase_products')
+                .update({ is_in_stock: true, updated_at: new Date().toISOString() })
+                .eq('purchase_id', purchaseId);
+
+            if (productsUpdateError) {
+                console.error("Erro ao atualizar produtos para 'em estoque':", productsUpdateError);
+                throw productsUpdateError;
+            }
+
+            const { error: purchaseUpdateError } = await supabase
+                .from('purchases')
+                .update({
+                    is_archived: true,
+                    status: errors.length > 0 ? 'Parcialmente adicionado' : 'Adicionado ao estoque',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', purchaseId);
+
+            if (purchaseUpdateError) {
+                console.error("Erro ao adicionar compra ao estoque:", purchaseUpdateError);
+                throw purchaseUpdateError;
+            }
+
             get().fetchPurchases();
-            ErrorHandler.showSuccess('Compra e produtos adicionados ao estoque!');
+
+            // 6. Mostrar resultado
+            if (errors.length > 0) {
+                ErrorHandler.showError(
+                    `Alguns produtos falharam:\n${errors.join('\n')}\n\nSucessos: ${successes.join(', ')}`
+                );
+            } else {
+                ErrorHandler.showSuccess(
+                    `Compra adicionada ao estoque!\n${successes.join(', ')}`
+                );
+            }
         });
     },
 
@@ -543,12 +718,217 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
     addTransferToInventory: async (transferId) => {
         await ErrorHandler.handleAsync(async () => {
-            // Mark all products as verified and update transfer status
+            const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
+            if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+            // 1. Buscar dados da transferência e produtos
+            const { data: transfer, error: transferError } = await supabase
+                .from('transfers')
+                .select('*, transfer_products(*)')
+                .eq('id', transferId)
+                .single();
+
+            if (transferError || !transfer) {
+                throw new Error('Transferência não encontrada');
+            }
+
+            if (!transfer.source_stock || !transfer.destination_stock) {
+                throw new Error('Warehouse de origem ou destino não especificado na transferência.');
+            }
+
+            // 2. Validar se ambos os warehouses estão ativos
+            const { data: sourceWarehouse, error: sourceError } = await supabase
+                .from('baselinker_warehouses')
+                .select('*')
+                .eq('workspace_id', currentWorkspace.id)
+                .eq('warehouse_id', transfer.source_stock)
+                .eq('is_active', true)
+                .single();
+
+            if (sourceError || !sourceWarehouse) {
+                throw new Error(`Warehouse de origem ${transfer.source_stock} não está ativo ou não existe.`);
+            }
+
+            const { data: destWarehouse, error: destError } = await supabase
+                .from('baselinker_warehouses')
+                .select('*')
+                .eq('workspace_id', currentWorkspace.id)
+                .eq('warehouse_id', transfer.destination_stock)
+                .eq('is_active', true)
+                .single();
+
+            if (destError || !destWarehouse) {
+                throw new Error(`Warehouse de destino ${transfer.destination_stock} não está ativo ou não existe.`);
+            }
+
+            if (!sourceWarehouse.allow_stock_updates || !destWarehouse.allow_stock_updates) {
+                throw new Error('Um dos warehouses não permite atualizações de estoque.');
+            }
+
+            // 3. Buscar configuração do Baselinker
+            const configKey = `baselinker_config_${currentWorkspace.id}`;
+            const savedConfig = localStorage.getItem(configKey);
+
+            if (!savedConfig) {
+                throw new Error('Configuração do Baselinker não encontrada. Configure a API Key na página de Integrações.');
+            }
+
+            const config = JSON.parse(savedConfig);
+            const apiKey = config.apiKey;
+            const inventoryId = config.inventoryId;
+
+            if (!apiKey || !inventoryId) {
+                throw new Error('API Key ou Inventory ID do Baselinker não configurado');
+            }
+
+            const baselinker = getBaselinker();
+            if (!baselinker) {
+                throw new Error('Baselinker não está inicializado');
+            }
+
+            // 4. Para cada produto, retirar do estoque origem e adicionar ao destino no Baselinker
+            const products = transfer.transfer_products || [];
+            const errors: string[] = [];
+            const successes: string[] = [];
+
+            for (const product of products) {
+                try {
+                    // 4.1. Buscar product_id do Baselinker para warehouse de origem
+                    const { data: sourceProduct, error: sourceProductError } = await supabase
+                        .from('products')
+                        .select('id, name, baselinker_product_id')
+                        .eq('workspace_id', currentWorkspace.id)
+                        .eq('sku', product.sku)
+                        .eq('warehouse', transfer.source_stock)
+                        .single();
+
+                    if (sourceProductError || !sourceProduct || !sourceProduct.baselinker_product_id) {
+                        errors.push(`Produto ${product.sku} não encontrado no warehouse de origem`);
+                        continue;
+                    }
+
+                    // 4.2. Buscar product_id do Baselinker para warehouse de destino
+                    const { data: destProduct, error: destProductError } = await supabase
+                        .from('products')
+                        .select('id, name, baselinker_product_id')
+                        .eq('workspace_id', currentWorkspace.id)
+                        .eq('sku', product.sku)
+                        .eq('warehouse', transfer.destination_stock)
+                        .single();
+
+                    if (destProductError || !destProduct || !destProduct.baselinker_product_id) {
+                        errors.push(`Produto ${product.sku} não encontrado no warehouse de destino`);
+                        continue;
+                    }
+
+                    // 4.3. Retirar quantidade do warehouse de origem no Baselinker
+                    await baselinker.removeProductQuantity(apiKey, {
+                        inventory_id: inventoryId,
+                        product_id: sourceProduct.baselinker_product_id,
+                        variant_id: '0',
+                        quantity: product.quantity
+                    });
+
+                    // 4.4. Adicionar quantidade no warehouse de destino no Baselinker
+                    await baselinker.addProductQuantity(apiKey, {
+                        inventory_id: inventoryId,
+                        product_id: destProduct.baselinker_product_id,
+                        variant_id: '0',
+                        quantity: product.quantity
+                    });
+
+                    successes.push(`${product.sku}: ${transfer.source_stock} → ${transfer.destination_stock} (${product.quantity})`);
+
+                    // 4.5. Criar log de lançamento de transferência
+                    await supabase.from('log_lançamento_transferencia').insert({
+                        workspace_id: currentWorkspace.id,
+                        dia_lancado: new Date().toISOString(),
+                        sku: product.sku,
+                        quantidade: product.quantity,
+                        tracking_code: transfer.tracking_code,
+                        tipo: 'transfer',
+                        estoque_origem: transfer.source_stock,
+                        estoque_destino: transfer.destination_stock,
+                        status: 'success'
+                    });
+
+                    // 4.6. Criar entradas no stock_change_log (saída da origem e entrada no destino)
+                    // Saída do warehouse de origem
+                    const { data: sourceStock } = await supabase
+                        .from('products')
+                        .select('stock_quantity')
+                        .eq('id', sourceProduct.id)
+                        .single();
+
+                    const sourcePrevQty = sourceStock?.stock_quantity || 0;
+                    const sourceNewQty = sourcePrevQty - product.quantity;
+
+                    await supabase.from('stock_change_log').insert({
+                        workspace_id: currentWorkspace.id,
+                        product_id: sourceProduct.id,
+                        sku: product.sku,
+                        change_type: 'transfer_out',
+                        warehouse: transfer.source_stock,
+                        reference_type: 'transfer',
+                        reference_id: transferId,
+                        quantity_before: sourcePrevQty,
+                        quantity_after: sourceNewQty,
+                        quantity_change: -product.quantity,
+                        notes: `Transferência para ${transfer.destination_stock} - ${transfer.tracking_code}`,
+                        created_by: currentWorkspace.id
+                    });
+
+                    // Entrada no warehouse de destino
+                    const { data: destStock } = await supabase
+                        .from('products')
+                        .select('stock_quantity')
+                        .eq('id', destProduct.id)
+                        .single();
+
+                    const destPrevQty = destStock?.stock_quantity || 0;
+                    const destNewQty = destPrevQty + product.quantity;
+
+                    await supabase.from('stock_change_log').insert({
+                        workspace_id: currentWorkspace.id,
+                        product_id: destProduct.id,
+                        sku: product.sku,
+                        change_type: 'transfer_in',
+                        warehouse: transfer.destination_stock,
+                        reference_type: 'transfer',
+                        reference_id: transferId,
+                        quantity_before: destPrevQty,
+                        quantity_after: destNewQty,
+                        quantity_change: product.quantity,
+                        notes: `Transferência de ${transfer.source_stock} - ${transfer.tracking_code}`,
+                        created_by: currentWorkspace.id
+                    });
+
+                } catch (error: any) {
+                    console.error(`Erro ao processar transferência de ${product.sku}:`, error);
+                    errors.push(`${product.sku}: ${error.message}`);
+
+                    // Criar log de erro
+                    await supabase.from('log_lançamento_transferencia').insert({
+                        workspace_id: currentWorkspace.id,
+                        dia_lancado: new Date().toISOString(),
+                        sku: product.sku,
+                        quantidade: product.quantity,
+                        tracking_code: transfer.tracking_code,
+                        tipo: 'transfer',
+                        estoque_origem: transfer.source_stock,
+                        estoque_destino: transfer.destination_stock,
+                        status: 'error',
+                        error_message: error.message
+                    });
+                }
+            }
+
+            // 5. Atualizar status dos produtos e da transferência
             const { error: productsUpdateError } = await supabase
                 .from('transfer_products')
-                .update({ 
-                    is_verified: true, 
-                    updated_at: new Date().toISOString() 
+                .update({
+                    is_verified: true,
+                    updated_at: new Date().toISOString()
                 })
                 .eq('transfer_id', transferId);
 
@@ -559,12 +939,12 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
 
             const { error: transferUpdateError } = await supabase
                 .from('transfers')
-                .update({ 
+                .update({
                     conferido: true,
                     in_stock: true,
                     retirado_stock: true,
-                    status: 'Lançado no estoque', 
-                    updated_at: new Date().toISOString() 
+                    status: errors.length > 0 ? 'Parcialmente lançado' : 'Lançado no estoque',
+                    updated_at: new Date().toISOString()
                 })
                 .eq('id', transferId);
 
@@ -574,7 +954,17 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
             }
 
             get().fetchTransfers();
-            ErrorHandler.showSuccess('Transferência lançada no estoque com sucesso!');
+
+            // 6. Mostrar resultado
+            if (errors.length > 0) {
+                ErrorHandler.showError(
+                    `Alguns produtos falharam:\n${errors.join('\n')}\n\nSucessos: ${successes.join(', ')}`
+                );
+            } else {
+                ErrorHandler.showSuccess(
+                    `Transferência lançada no estoque!\n${successes.join(', ')}`
+                );
+            }
         });
     },
 

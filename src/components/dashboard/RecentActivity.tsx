@@ -22,13 +22,15 @@ import { ptBR } from 'date-fns/locale';
 
 interface Activity {
   id: string;
-  type: 'order' | 'stock_change' | 'transfer' | 'purchase' | 'event' | 'message';
+  type: 'pedido' | 'estoque' | 'transferencia' | 'compra' | 'evento' | 'mensagem';
   user?: string;
   action: string;
   target: string;
   time: string;
   icon: any;
   metadata?: any;
+  warehouse?: string;
+  warehouseOrigin?: string;
 }
 
 const getInitials = (name: string) => {
@@ -38,12 +40,12 @@ const getInitials = (name: string) => {
 
 const getBadgeVariant = (type: string) => {
   switch (type) {
-    case 'order': return 'bg-amber-100 text-amber-800 border-amber-200';
-    case 'stock_change': return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'transfer': return 'bg-purple-100 text-purple-800 border-purple-200';
-    case 'purchase': return 'bg-green-100 text-green-800 border-green-200';
-    case 'event': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-    case 'message': return 'bg-pink-100 text-pink-800 border-pink-200';
+    case 'pedido': return 'bg-amber-100 text-amber-800 border-amber-200';
+    case 'estoque': return 'bg-blue-100 text-blue-800 border-blue-200';
+    case 'transferencia': return 'bg-purple-100 text-purple-800 border-purple-200';
+    case 'compra': return 'bg-green-100 text-green-800 border-green-200';
+    case 'evento': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+    case 'mensagem': return 'bg-pink-100 text-pink-800 border-pink-200';
     default: return 'bg-gray-100 text-gray-800 border-gray-200';
   }
 };
@@ -65,132 +67,134 @@ export function RecentActivity() {
       const allActivities: Activity[] = [];
 
       // 1. Buscar pedidos recentes
+      // NOTE: Orders doesn't have workspace_id, filter through clients
+      // NOTE: Orders uses 'order_date' instead of 'created_at'
       const { data: orders } = await supabase
         .from('orders')
-        .select('*, clients(name)')
-        .eq('workspace_id', currentWorkspace!.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
+        .select('*, clients!inner(name, workspace_id)')
+        .eq('clients.workspace_id', currentWorkspace!.id)
+        .order('order_date', { ascending: false })
+        .limit(10);
 
       if (orders) {
         orders.forEach(order => {
+          const statusMap: Record<string, string> = {
+            'pending': 'Pedido pendente',
+            'paid': 'Pedido pago',
+            'processing': 'Pedido em processamento',
+            'shipped': 'Pedido enviado',
+            'delivered': 'Pedido entregue',
+            'cancelled': 'Pedido cancelado'
+          };
+
           allActivities.push({
             id: `order-${order.id}`,
-            type: 'order',
+            type: 'pedido',
             user: order.clients?.name || 'Cliente',
-            action: 'Novo pedido criado',
+            action: statusMap[order.status] || 'Novo pedido',
             target: `R$ ${order.total_amount?.toFixed(2) || '0,00'}`,
-            time: formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: ptBR }),
+            time: formatDistanceToNow(new Date(order.order_date), { addSuffix: true, locale: ptBR }),
             icon: ShoppingCart,
             metadata: order,
           });
         });
       }
 
-      // 2. Buscar alterações de estoque recentes
-      const { data: stockChanges } = await supabase
-        .from('stock_change_log')
-        .select('*')
-        .eq('workspace_id', currentWorkspace!.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (stockChanges) {
-        stockChanges.forEach(change => {
-          const icon = change.quantity_change > 0 ? TrendingUp : TrendingDown;
-          const actionText = change.quantity_change > 0 ? 'Adicionou' : 'Removeu';
-
-          allActivities.push({
-            id: `stock-${change.id}`,
-            type: 'stock_change',
-            user: change.user_name || 'Sistema',
-            action: `${actionText} ${Math.abs(change.quantity_change)} unidades`,
-            target: change.product_name || change.sku,
-            time: formatDistanceToNow(new Date(change.created_at), { addSuffix: true, locale: ptBR }),
-            icon,
-            metadata: change,
-          });
-        });
-      }
-
-      // 3. Buscar transferências recentes
-      const { data: transfers } = await supabase
-        .from('log_lançamento_transferencia')
-        .select('*')
-        .eq('workspace_id', currentWorkspace!.id)
-        .order('dia_lancado', { ascending: false })
-        .limit(5);
-
-      if (transfers) {
-        transfers.forEach(transfer => {
-          allActivities.push({
-            id: `transfer-${transfer.id}`,
-            type: 'transfer',
-            user: transfer.user_name || 'Sistema',
-            action: 'Transferência de estoque',
-            target: `${transfer.sku} (${transfer.quantidade})`,
-            time: formatDistanceToNow(new Date(transfer.dia_lancado), { addSuffix: true, locale: ptBR }),
-            icon: ArrowLeftRight,
-            metadata: transfer,
-          });
-        });
-      }
-
-      // 4. Buscar eventos recentes (event_queue)
-      const { data: events } = await supabase
-        .from('event_queue')
-        .select('*')
-        .eq('status', 'completed')
-        .order('processed_at', { ascending: false })
-        .limit(5);
-
-      if (events) {
-        events.forEach(event => {
-          allActivities.push({
-            id: `event-${event.id}`,
-            type: 'event',
-            user: 'Sistema',
-            action: event.event_name.replace(/_/g, ' '),
-            target: event.order_id ? `Pedido #${event.order_id}` : 'Processado',
-            time: formatDistanceToNow(new Date(event.processed_at || event.created_at), { addSuffix: true, locale: ptBR }),
-            icon: CheckCircle,
-            metadata: event,
-          });
-        });
-      }
-
-      // 5. Buscar compras recentes
+      // 2. Buscar compras recentes e agrupar por dia_lancado
       const { data: purchases } = await supabase
         .from('log_lançamento_estoque')
         .select('*')
         .eq('workspace_id', currentWorkspace!.id)
+        .eq('status', 'success')
         .order('dia_lancado', { ascending: false })
-        .limit(5);
+        .limit(20);
 
       if (purchases) {
+        // Agrupar compras pela mesma dia_lancado (mesmo evento)
+        const purchaseGroups = new Map<string, any[]>();
         purchases.forEach(purchase => {
+          const key = `${purchase.dia_lancado}-${purchase.estoque_origem}`;
+          if (!purchaseGroups.has(key)) {
+            purchaseGroups.set(key, []);
+          }
+          purchaseGroups.get(key)!.push(purchase);
+        });
+
+        // Criar uma atividade por grupo
+        purchaseGroups.forEach((group, key) => {
+          const firstPurchase = group[0];
+          const items = group.map(p => `${p.sku} (${p.quantidade})`).join(', ');
+
           allActivities.push({
-            id: `purchase-${purchase.id}`,
-            type: 'purchase',
-            user: purchase.user_name || 'Sistema',
+            id: `purchase-${key}`,
+            type: 'compra',
+            user: 'Sistema',
             action: 'Compra recebida',
-            target: `${purchase.sku} (${purchase.quantidade})`,
-            time: formatDistanceToNow(new Date(purchase.dia_lancado), { addSuffix: true, locale: ptBR }),
+            target: items,
+            time: formatDistanceToNow(new Date(firstPurchase.dia_lancado), { addSuffix: true, locale: ptBR }),
             icon: Package,
-            metadata: purchase,
+            warehouse: firstPurchase.estoque_origem,
+            metadata: { group, count: group.length },
+          });
+        });
+      }
+
+      // 3. Buscar transferências recentes e agrupar por dia_lancado
+      const { data: transfers } = await supabase
+        .from('log_lançamento_transferencia')
+        .select('*')
+        .eq('workspace_id', currentWorkspace!.id)
+        .eq('status', 'success')
+        .order('dia_lancado', { ascending: false })
+        .limit(20);
+
+      if (transfers) {
+        // Agrupar transferências pela mesma dia_lancado (mesmo evento)
+        const transferGroups = new Map<string, any[]>();
+        transfers.forEach(transfer => {
+          const key = `${transfer.dia_lancado}-${transfer.estoque_origem}-${transfer.estoque_destino}`;
+          if (!transferGroups.has(key)) {
+            transferGroups.set(key, []);
+          }
+          transferGroups.get(key)!.push(transfer);
+        });
+
+        // Criar uma atividade por grupo
+        transferGroups.forEach((group, key) => {
+          const firstTransfer = group[0];
+          const items = group.map(t => `${t.sku} (${t.quantidade})`).join(', ');
+
+          allActivities.push({
+            id: `transfer-${key}`,
+            type: 'transferencia',
+            user: 'Sistema',
+            action: 'Transferência',
+            target: items,
+            time: formatDistanceToNow(new Date(firstTransfer.dia_lancado), { addSuffix: true, locale: ptBR }),
+            icon: ArrowLeftRight,
+            warehouse: firstTransfer.estoque_destino,
+            warehouseOrigin: firstTransfer.estoque_origem,
+            metadata: { group, count: group.length },
           });
         });
       }
 
       // Ordenar todas as atividades por tempo (mais recentes primeiro)
       allActivities.sort((a, b) => {
-        const timeA = a.metadata?.created_at || a.metadata?.dia_lancado || a.metadata?.processed_at;
-        const timeB = b.metadata?.created_at || b.metadata?.dia_lancado || b.metadata?.processed_at;
-        return new Date(timeB).getTime() - new Date(timeA).getTime();
+        const getTime = (activity: Activity) => {
+          // Orders use order_date
+          if (activity.metadata?.order_date) return new Date(activity.metadata.order_date).getTime();
+          if (activity.metadata?.created_at) return new Date(activity.metadata.created_at).getTime();
+          if (activity.metadata?.dia_lancado) return new Date(activity.metadata.dia_lancado).getTime();
+          if (activity.metadata?.group?.[0]?.dia_lancado) return new Date(activity.metadata.group[0].dia_lancado).getTime();
+          if (activity.metadata?.processed_at) return new Date(activity.metadata.processed_at).getTime();
+          return 0;
+        };
+        return getTime(b) - getTime(a);
       });
 
-      // Pegar apenas as 10 mais recentes
-      setActivities(allActivities.slice(0, 10));
+      // Pegar apenas as 15 mais recentes
+      setActivities(allActivities.slice(0, 15));
     } catch (error) {
       console.error('Error loading activities:', error);
     } finally {
@@ -243,14 +247,20 @@ export function RecentActivity() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-1">
-                <div className="flex items-center">
+                <div className="flex items-center flex-wrap gap-2">
                   <p className="text-sm font-medium leading-none">
                     {activity.user || 'Sistema'}
                   </p>
-                  <Badge className={`ml-2 ${getBadgeVariant(activity.type)}`}>
+                  <Badge className={`${getBadgeVariant(activity.type)}`}>
                     <Icon className="h-3 w-3 mr-1" />
-                    <span className="text-xs">{activity.type}</span>
+                    <span className="text-xs capitalize">{activity.type}</span>
                   </Badge>
+                  {activity.warehouse && (
+                    <Badge variant="outline" className="text-xs">
+                      {activity.warehouseOrigin && `${activity.warehouseOrigin} → `}
+                      {activity.warehouse}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {activity.action} <span className="font-medium">{activity.target}</span>

@@ -41,10 +41,11 @@ const navigation = [
   { name: 'Clientes', href: '/clients', icon: Users },
   /*{ name: 'Kanban', href: '/kanban', icon: Kanban },*/
   { name: 'Pedidos', href: '/orders', icon: ShoppingCart },
+  { name: 'Estoque', href: '/estoque', icon: Package },
   /*{ name: 'Mensagens', href: '/messages', icon: MessageSquare },*/
   { name: 'Campanhas', href: '/campaigns', icon: Target },
   { name: 'Automação', href: '/automation', icon: Bot },
-  /*{ name: 'Integrações', href: '/integrations', icon: Zap },*/
+  { name: 'Integrações', href: '/integrations', icon: Zap },
   /*{ name: 'Analytics', href: '/analytics', icon: BarChart3 },*/
   { name: 'Acompanhamento', href: '/tracking', icon: Truck },
   { name: 'Jobs & Logs', href: '/jobs', icon: Activity },

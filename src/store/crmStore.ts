@@ -105,6 +105,7 @@ export const useCrmStore = create<CrmState>((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // NOTE: Orders doesn't have workspace_id, filter through clients relationship
       const [
         { count: leadsCount },
         { count: clientsCount },
@@ -116,10 +117,10 @@ export const useCrmStore = create<CrmState>((set, get) => ({
       ] = await Promise.all([
         supabase.from('leads').select('*', { count: 'exact', head: true }).eq('workspace_id', currentWorkspace.id),
         supabase.from('clients').select('*', { count: 'exact', head: true }).eq('workspace_id', currentWorkspace.id),
-        supabase.from('orders').select('*', { count: 'exact', head: true }),
+        supabase.from('orders').select('*, clients!inner(workspace_id)', { count: 'exact', head: true }).eq('clients.workspace_id', currentWorkspace.id),
         supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('workspace_id', currentWorkspace.id),
         supabase.from('channels').select('*', { count: 'exact', head: true }).eq('workspace_id', currentWorkspace.id).eq('status', 'connected'),
-        supabase.from('orders').select('total_amount, status'),
+        supabase.from('orders').select('total_amount, status, clients!inner(workspace_id)').eq('clients.workspace_id', currentWorkspace.id),
         supabase.from('messages').select('timestamp').order('timestamp', { ascending: false }).limit(1)
       ]);
 

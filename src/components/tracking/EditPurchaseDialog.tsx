@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Package, DollarSign, Truck, Lock, FileText, Info } from 'lucide-react';
+import { Plus, Trash2, Calendar, Package, DollarSign, Truck, Lock, FileText, Info, Warehouse } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,9 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTrackingStore } from '@/store/trackingStore';
 import { useCrmStore } from '@/store/crmStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useToast } from '@/hooks/use-toast';
 import { ProductAutocomplete } from './ProductAutocomplete';
 import { Purchase, PurchaseProduct } from '@/types/tracking';
+import { supabase } from '@/lib/supabase';
 
 interface EditPurchaseDialogProps {
   open: boolean;
@@ -31,14 +33,17 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
     trackingCode: '',
     delivery_fee: 0,
     observation: '',
+    warehouse: '',
   });
 
   const [products, setProducts] = useState<FormProduct[]>([]);
+  const [warehouses, setWarehouses] = useState<Array<{ warehouse_id: string; warehouse_name: string }>>([]);
   const [loading, setLoading] = useState(false);
   const { updatePurchase } = useTrackingStore();
   const { products: dbProducts, fetchProducts } = useCrmStore();
+  const { currentWorkspace } = useWorkspaceStore();
   const { toast } = useToast();
-  
+
   useEffect(() => {
     if (purchase) {
       setFormData({
@@ -49,13 +54,33 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
         trackingCode: purchase.trackingCode || '',
         delivery_fee: purchase.delivery_fee || 0,
         observation: purchase.observation || '',
+        warehouse: (purchase as any).warehouse || '',
       });
-      setProducts(structuredClone(purchase.products || [])); 
+      setProducts(structuredClone(purchase.products || []));
     }
     if (open) {
       fetchProducts();
+      fetchActiveWarehouses();
     }
   }, [purchase, open, fetchProducts]);
+
+  const fetchActiveWarehouses = async () => {
+    if (!currentWorkspace) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('baselinker_warehouses')
+        .select('warehouse_id, warehouse_name')
+        .eq('workspace_id', currentWorkspace.id)
+        .eq('is_active', true)
+        .eq('allow_stock_updates', true);
+
+      if (error) throw error;
+      setWarehouses(data || []);
+    } catch (error) {
+      console.error('Error fetching warehouses:', error);
+    }
+  };
 
   const confirmWithPassword = () => {
     const secret = "802061";
@@ -183,6 +208,29 @@ export function EditPurchaseDialog({ open, onOpenChange, purchase }: EditPurchas
             <div className="space-y-2">
               <Label htmlFor="deliveryFee" className="flex items-center gap-2"><DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *</Label>
               <Input id="deliveryFee" type="number" min="0" step="0.01" value={formData.delivery_fee} onChange={(e) => setFormData({ ...formData, delivery_fee: parseFloat(e.target.value) || 0 })} required/>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="warehouse" className="flex items-center gap-2">
+                <Warehouse className="h-4 w-4 text-gray-500" /> Warehouse de Destino *
+              </Label>
+              <Select value={formData.warehouse || ''} onValueChange={(value: string) => setFormData({ ...formData, warehouse: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      Nenhum warehouse ativo configurado
+                    </SelectItem>
+                  ) : (
+                    warehouses.map((wh) => (
+                      <SelectItem key={wh.warehouse_id} value={wh.warehouse_id}>
+                        {wh.warehouse_name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="space-y-2">

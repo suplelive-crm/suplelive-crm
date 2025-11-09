@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Package, DollarSign, Truck, FileText } from 'lucide-react';
+import { Plus, Trash2, Calendar, Package, DollarSign, Truck, FileText, Warehouse } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,8 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { useTrackingStore } from '@/store/trackingStore';
 import { useCrmStore } from '@/store/crmStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useToast } from '@/hooks/use-toast';
 import { ProductAutocomplete } from './ProductAutocomplete';
+import { supabase } from '@/lib/supabase';
 
 interface CreatePurchaseDialogProps {
   open: boolean;
@@ -33,23 +35,45 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     customer_name: '',
     trackingCode: '',
     delivery_fee: 0,
-    observation: ''
+    observation: '',
+    warehouse: ''
   });
 
   const [products, setProducts] = useState<FormProduct[]>([
     { name: '', quantity: 1, cost: 0, SKU: '' }
   ]);
 
+  const [warehouses, setWarehouses] = useState<Array<{ warehouse_id: string; warehouse_name: string }>>([]);
   const [loading, setLoading] = useState(false);
   const { createPurchase } = useTrackingStore();
   const { products: dbProducts, fetchProducts } = useCrmStore();
+  const { currentWorkspace } = useWorkspaceStore();
   const { toast } = useToast();
-  
+
   useEffect(() => {
     if (open) {
       fetchProducts();
+      fetchActiveWarehouses();
     }
   }, [open, fetchProducts]);
+
+  const fetchActiveWarehouses = async () => {
+    if (!currentWorkspace) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('baselinker_warehouses')
+        .select('warehouse_id, warehouse_name')
+        .eq('workspace_id', currentWorkspace.id)
+        .eq('is_active', true)
+        .eq('allow_stock_updates', true);
+
+      if (error) throw error;
+      setWarehouses(data || []);
+    } catch (error) {
+      console.error('Error fetching warehouses:', error);
+    }
+  };
 
   const handleAddProduct = () => {
     setProducts([...products, { name: '', quantity: 1, cost: 0, SKU: '' }]);
@@ -88,6 +112,11 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
       return;
     }
 
+    if (!formData.warehouse) {
+      toast({ title: 'Erro', description: 'Por favor, selecione o warehouse de destino', variant: 'destructive' });
+      return;
+    }
+
     if (products.length === 0 || products.some(p => !p.name || !p.SKU || (p.quantity ?? 0) <= 0 || (p.cost ?? -1) < 0)) {
       toast({ title: 'Erro', description: 'Por favor, preencha corretamente todos os produtos (Nome, SKU, Quantidade e Custo)', variant: 'destructive' });
       return;
@@ -97,14 +126,15 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
     try {
       await createPurchase(formData, products as any);
 
-      setFormData({ 
-        date: new Date().toISOString().split('T')[0], 
-        carrier: '', 
-        storeName: '', 
-        customer_name: '', 
-        trackingCode: '', 
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        carrier: '',
+        storeName: '',
+        customer_name: '',
+        trackingCode: '',
         delivery_fee: 0,
-        observation: ''
+        observation: '',
+        warehouse: ''
       });
       setProducts([{ name: '', quantity: 1, cost: 0, SKU: '' }]);
       onOpenChange(false);
@@ -175,6 +205,29 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
                 <DollarSign className="h-4 w-4 text-gray-500" /> Taxa de Entrega *
               </Label>
               <Input id="deliveryFee" type="number" min="0" step="0.01" value={formData.delivery_fee} onChange={(e) => setFormData({ ...formData, delivery_fee: parseFloat(e.target.value) || 0 })} required/>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="warehouse" className="flex items-center gap-2">
+                <Warehouse className="h-4 w-4 text-gray-500" /> Warehouse de Destino *
+              </Label>
+              <Select value={formData.warehouse || ''} onValueChange={(value: string) => setFormData({ ...formData, warehouse: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      Nenhum warehouse ativo configurado
+                    </SelectItem>
+                  ) : (
+                    warehouses.map((wh) => (
+                      <SelectItem key={wh.warehouse_id} value={wh.warehouse_id}>
+                        {wh.warehouse_name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           

@@ -29,6 +29,7 @@ import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { TrackingPage } from '@/pages/TrackingPage';
 import { JobsPage } from '@/pages/JobsPage';
+import { EstoquePage } from '@/pages/EstoquePage';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useAuthStore } from '@/store/authStore';
 
@@ -299,6 +300,18 @@ function AppContent() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/estoque"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <EstoquePage />
+            )}
+          </ProtectedRoute>
+        }
+      />
 
       {/* Root redirect */}
       <Route
@@ -367,7 +380,12 @@ function App() {
   }
 
   return (
-    <Router>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <div className="min-h-screen bg-gray-50">
         <AppContent />
         <Toaster />

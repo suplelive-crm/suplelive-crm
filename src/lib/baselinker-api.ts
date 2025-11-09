@@ -196,6 +196,43 @@ export class BaselinkerAPI {
     return this.makeRequest(apiKey, 'updateInventoryProductsQuantity', parameters);
   }
 
+  // Helper methods for stock management
+  async addProductQuantity(apiKey: string, parameters: {
+    inventory_id: string;
+    product_id: string;
+    variant_id?: string;
+    quantity: number;
+  }): Promise<any> {
+    return this.makeRequest(apiKey, 'addInventoryProductsQuantity', {
+      inventory_id: parameters.inventory_id,
+      products: {
+        [parameters.product_id]: {
+          [parameters.variant_id || '0']: {
+            quantity: parameters.quantity
+          }
+        }
+      }
+    });
+  }
+
+  async removeProductQuantity(apiKey: string, parameters: {
+    inventory_id: string;
+    product_id: string;
+    variant_id?: string;
+    quantity: number;
+  }): Promise<any> {
+    return this.makeRequest(apiKey, 'removeInventoryProductsQuantity', {
+      inventory_id: parameters.inventory_id,
+      products: {
+        [parameters.product_id]: {
+          [parameters.variant_id || '0']: {
+            quantity: parameters.quantity
+          }
+        }
+      }
+    });
+  }
+
   // Product catalog methods
   async getProductsList(apiKey: string, parameters: {
     filter_category_id?: string;

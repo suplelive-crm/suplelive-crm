@@ -575,53 +575,75 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           }
           
           console.log(`Found ${allProducts.length} products to sync`);
-          
+
+          // Get warehouses for mapping
+          const { data: warehouses } = await supabase
+            .from('baselinker_warehouses')
+            .select('*')
+            .eq('workspace_id', currentWorkspace.id);
+
+          const warehouseMap = new Map();
+          warehouses?.forEach(wh => {
+            warehouseMap.set(wh.warehouse_id, wh);
+          });
+
           for (const product of allProducts) {
             const productDetails = await baselinker.getInventoryProductsData(config.apiKey, {
               inventory_id: config.inventoryId,
               products: [product.id]
             });
-            
+
             const productData = productDetails.products?.[product.id];
-            
+
             if (!productData) continue;
-            
-            const { data: existingProducts } = await supabase
-              .from('products')
-              .select('id')
-              .eq('external_id', product.id)
-              .eq('workspace_id', currentWorkspace.id);
-            
-            if (existingProducts && existingProducts.length > 0) {
-              await supabase
+
+            // Get stock per warehouse from Baselinker
+            // productData.stock is an object like { "123": 50, "456": 30 }
+            const stockByWarehouse = productData.stock || {};
+
+            // Create or update one row per warehouse
+            for (const [warehouseId, stockQuantity] of Object.entries(stockByWarehouse)) {
+              // Find existing product for this SKU and warehouse
+              const { data: existingProducts } = await supabase
                 .from('products')
-                .update({
-                  name: product.name,
-                  sku: product.sku,
-                  ean: product.ean,
-                  price: parseFloat(product.price),
-                  stock: parseInt(product.stock),
-                  description: productData?.description || '',
-                  images: productData?.images || [],
-                  metadata: { baselinker_data: productData },
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', existingProducts[0].id);
-            } else {
-              await supabase
-                .from('products')
-                .insert({
-                  name: product.name,
-                  sku: product.sku,
-                  ean: product.ean,
-                  price: parseFloat(product.price),
-                  stock: parseInt(product.stock),
-                  description: productData?.description || '',
-                  images: productData?.images || [],
-                  external_id: product.id,
-                  workspace_id: currentWorkspace.id,
-                  metadata: { baselinker_data: productData }
-                });
+                .select('id')
+                .eq('sku', product.sku)
+                .eq('warehouseID', warehouseId)
+                .eq('workspace_id', currentWorkspace.id);
+
+              const productRecord = {
+                name: product.name || productData.name,
+                sku: product.sku,
+                ean: product.ean,
+                price: parseFloat(productData.price_brutto || product.price || 0),
+                cost: parseFloat(productData.purchase_price_brutto || 0),
+                stock_es: parseInt(stockQuantity as string), // Legacy column name
+                warehouseID: warehouseId,
+                description: productData?.text_fields?.description || '',
+                images: productData?.images || [],
+                metadata: {
+                  baselinker_data: productData,
+                  baselinker_product_id: product.id
+                },
+                updated_at: new Date().toISOString()
+              };
+
+              if (existingProducts && existingProducts.length > 0) {
+                // Update existing product
+                await supabase
+                  .from('products')
+                  .update(productRecord)
+                  .eq('id', existingProducts[0].id);
+              } else {
+                // Insert new product
+                await supabase
+                  .from('products')
+                  .insert({
+                    ...productRecord,
+                    external_id: product.id,
+                    workspace_id: currentWorkspace.id,
+                  });
+              }
             }
           }
           
@@ -737,7 +759,10 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           { count: customersCount },
           { count: productsCount }
         ] = await Promise.all([
-          supabase.from('orders').select('*', { count: 'exact', head: true }).not('external_id', 'is', null),
+          // NOTE: Orders doesn't have workspace_id, filter through clients
+          supabase.from('orders').select('*, clients!inner(workspace_id)', { count: 'exact', head: true })
+            .eq('clients.workspace_id', currentWorkspace.id)
+            .not('external_id', 'is', null),
           supabase.from('clients').select('*', { count: 'exact', head: true }).eq('workspace_id', currentWorkspace.id),
           supabase.from('products').select('*', { count: 'exact', head: true }).eq('workspace_id', currentWorkspace.id)
         ]);
