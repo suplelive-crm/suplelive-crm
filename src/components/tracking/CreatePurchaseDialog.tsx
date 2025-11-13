@@ -64,9 +64,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
       const { data, error } = await supabase
         .from('baselinker_warehouses')
         .select('warehouse_id, warehouse_name')
-        .eq('workspace_id', currentWorkspace.id)
-        .eq('is_active', true)
-        .eq('allow_stock_updates', true);
+        .eq('workspace_id', currentWorkspace.id);
 
       if (error) throw error;
       setWarehouses(data || []);
@@ -261,6 +259,7 @@ export function CreatePurchaseDialog({ open, onOpenChange }: CreatePurchaseDialo
                     value={product}
                     onSelect={(selectedProduct) => handleProductSelect(index, selectedProduct)}
                     onInputChange={(text) => handleProductFieldChange(index, 'name', text)}
+                    selectedWarehouse={formData.warehouse}
                   />
                 </div>
 

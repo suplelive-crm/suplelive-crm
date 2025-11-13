@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useBaselinkerStore } from '@/store/baselinkerStore';
 import { useToast } from '@/hooks/use-toast';
+import { BaselinkerWarehouseConfig } from './BaselinkerWarehouseConfig';
 
 export function BaselinkerConfigDialog() {
   const [open, setOpen] = useState(false);
@@ -215,20 +216,31 @@ export function BaselinkerConfigDialog() {
 
     setLoading(true);
     setAuthError('');
-    
+
     try {
       // Test connection first
       console.log("Testing connection with API key:", config.apiKey);
       const connectionResult = await testConnection(config.apiKey);
       console.log("Connection test result:", connectionResult);
-      
+
       if (!connectionResult.success) {
-        setAuthError('Chave da API inválida ou sem permissões necessárias.');
-        toast({
-          title: 'Erro de Autenticação',
-          description: 'A chave da API Baselinker é inválida ou não tem as permissões necessárias. Verifique sua chave da API no painel Baselinker.',
-          variant: 'destructive',
-        });
+        // Verificar se é erro de rate limit
+        if (connectionResult.message?.includes('token bloqueado') ||
+            connectionResult.message?.includes('temporariamente bloqueado')) {
+          setAuthError('Rate limit atingido. Aguarde alguns minutos.');
+          toast({
+            title: 'Muitas requisições',
+            description: connectionResult.message,
+            variant: 'destructive',
+          });
+        } else {
+          setAuthError('Chave da API inválida ou sem permissões necessárias.');
+          toast({
+            title: 'Erro de Autenticação',
+            description: connectionResult.message || 'A chave da API Baselinker é inválida ou não tem as permissões necessárias.',
+            variant: 'destructive',
+          });
+        }
         return;
       }
 
@@ -460,7 +472,7 @@ export function BaselinkerConfigDialog() {
             <TabsTrigger value="config" id="config-tab">Configuração</TabsTrigger>
             <TabsTrigger value="orders">Pedidos</TabsTrigger>
             <TabsTrigger value="customers">Clientes</TabsTrigger>
-            <TabsTrigger value="inventory">Estoque</TabsTrigger>
+            <TabsTrigger value="inventory">Warehouses</TabsTrigger>
           </TabsList>
 
           <TabsContent value="config" className="space-y-4">
@@ -549,7 +561,10 @@ export function BaselinkerConfigDialog() {
                         </SelectTrigger>
                         <SelectContent>
                           {inventories.map((inventory) => (
-                            <SelectItem key={inventory.id} value={inventory.id.toString()}>
+                            <SelectItem
+                              key={inventory.inventory_id || inventory.id}
+                              value={(inventory.inventory_id || inventory.id)?.toString() || ''}
+                            >
                               {inventory.name}
                             </SelectItem>
                           ))}
@@ -952,7 +967,7 @@ export function BaselinkerConfigDialog() {
                     Não conectado ao Baselinker
                   </h3>
                   <p className="text-gray-500 mb-4">
-                    Configure a conexão com Baselinker para sincronizar estoque
+                    Configure a conexão com Baselinker para configurar warehouses
                   </p>
                   <Button onClick={() => document.getElementById('config-tab')?.click()}>
                     Ir para Configuração
@@ -960,109 +975,7 @@ export function BaselinkerConfigDialog() {
                 </CardContent>
               </Card>
             ) : (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>Configuração de Estoque</span>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleSyncNow('inventory')}
-                        disabled={loading || !config.inventoryId}
-                      >
-                        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                        Sincronizar Estoque
-                      </Button>
-                    </CardTitle>
-                    <CardDescription>
-                      Configure como os produtos e estoque serão sincronizados do Baselinker
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label>Inventário a Sincronizar</Label>
-                      <Select 
-                        value={config.inventoryId} 
-                        onValueChange={(value) => setConfig({ ...config, inventoryId: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um inventário" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {inventories.map((inventory) => (
-                            <SelectItem key={inventory.id} value={inventory.id.toString()}>
-                              {inventory.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Selecione o inventário principal do Baselinker para sincronizar
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label>Sincronizar estoque bidirecional</Label>
-                          <p className="text-xs text-gray-500">Atualizar estoque no Baselinker quando alterado no OmniCRM</p>
-                        </div>
-                        <Switch
-                          checked={false}
-                          disabled={true}
-                        />
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label>Sincronizar preços</Label>
-                          <p className="text-xs text-gray-500">Atualizar preços dos produtos</p>
-                        </div>
-                        <Switch
-                          checked={true}
-                          disabled={true}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Estatísticas de Estoque</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="p-3 bg-blue-50 rounded-lg text-center">
-                        <p className="text-2xl font-bold text-blue-600">{syncStats.productsCount}</p>
-                        <p className="text-sm text-blue-800">Total de Produtos</p>
-                      </div>
-                      <div className="p-3 bg-green-50 rounded-lg text-center">
-                        <p className="text-2xl font-bold text-green-600">
-                          {/* Placeholder for in stock products count */}
-                          {Math.floor(syncStats.productsCount * 0.75)}
-                        </p>
-                        <p className="text-sm text-green-800">Em Estoque</p>
-                      </div>
-                      <div className="p-3 bg-red-50 rounded-lg text-center">
-                        <p className="text-2xl font-bold text-red-600">
-                          {/* Placeholder for out of stock products count */}
-                          {Math.floor(syncStats.productsCount * 0.25)}
-                        </p>
-                        <p className="text-sm text-red-800">Sem Estoque</p>
-                      </div>
-                      <div className="p-3 bg-purple-50 rounded-lg text-center">
-                        <p className="text-2xl font-bold text-purple-600">
-                          {/* Placeholder for low stock products count */}
-                          {Math.floor(syncStats.productsCount * 0.15)}
-                        </p>
-                        <p className="text-sm text-purple-800">Estoque Baixo</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
+              <BaselinkerWarehouseConfig />
             )}
           </TabsContent>
         </Tabs>

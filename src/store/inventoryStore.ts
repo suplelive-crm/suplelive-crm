@@ -96,29 +96,54 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         await get().loadWarehouses();
       }
 
-      const { data, error } = await supabase
+      // Buscar produtos
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
         .eq('workspace_id', currentWorkspace.id)
         .order('sku', { ascending: true });
 
-      if (error) throw error;
+      if (productsError) throw productsError;
+
+      // Buscar estoques por warehouse da nova tabela
+      const { data: stockData, error: stockError } = await supabase
+        .from('product_stock_by_warehouse')
+        .select('product_id, warehouse_id, stock_quantity')
+        .eq('workspace_id', currentWorkspace.id);
+
+      if (stockError) {
+        console.error('Error loading stock data:', stockError);
+      }
+
+      // Criar mapa de estoque: Map<product_id, Map<warehouse_id, stock>>
+      const stockMap = new Map<string, Map<string, number>>();
+      (stockData || []).forEach(stock => {
+        if (!stockMap.has(stock.product_id)) {
+          stockMap.set(stock.product_id, new Map());
+        }
+        stockMap.get(stock.product_id)!.set(stock.warehouse_id, stock.stock_quantity);
+      });
 
       const warehouses = get().warehouses;
 
-      // Map products with warehouse information
-      const products: ProductWarehouse[] = (data || []).map(product => ({
-        id: product.id,
-        sku: product.sku,
-        name: product.name,
-        warehouseID: product.warehouseID || '',
-        warehouseName: warehouses.get(product.warehouseID)?.name || product.warehouseID,
-        warehouseCode: warehouses.get(product.warehouseID)?.code || product.warehouseID,
-        stock: product.stock_es || 0, // Legacy column name
-        cost: product.cost,
-        price: product.price,
-        ean: product.ean,
-      }));
+      // Map products com estoque dinâmico por warehouse
+      const products: ProductWarehouse[] = (productsData || []).map(product => {
+        const productStocks = stockMap.get(product.id);
+        const warehouseStock = productStocks?.get(product.warehouseID) ?? product.stock_es ?? 0; // Fallback para stock_es durante migração
+
+        return {
+          id: product.id,
+          sku: product.sku,
+          name: product.name,
+          warehouseID: product.warehouseID || '',
+          warehouseName: warehouses.get(product.warehouseID)?.name || product.warehouseID,
+          warehouseCode: warehouses.get(product.warehouseID)?.code || product.warehouseID,
+          stock: warehouseStock,
+          cost: product.cost,
+          price: product.price,
+          ean: product.ean,
+        };
+      });
 
       set({ products, loading: false });
     }, () => {
@@ -195,6 +220,37 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
 
   updateProductStock: async (productId: string, newStock: number) => {
     await ErrorHandler.handleAsync(async () => {
+      const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
+      if (!currentWorkspace) {
+        throw new Error('Nenhum workspace selecionado');
+      }
+
+      // Buscar informações do produto
+      const { data: product, error: fetchError } = await supabase
+        .from('products')
+        .select('sku, warehouseID')
+        .eq('id', productId)
+        .single();
+
+      if (fetchError || !product) throw fetchError || new Error('Produto não encontrado');
+
+      // Atualizar na tabela nova (product_stock_by_warehouse)
+      const { error: stockError } = await supabase
+        .from('product_stock_by_warehouse')
+        .upsert({
+          workspace_id: currentWorkspace.id,
+          product_id: productId,
+          warehouse_id: product.warehouseID,
+          sku: product.sku,
+          stock_quantity: newStock,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'workspace_id,sku,warehouse_id'
+        });
+
+      if (stockError) throw stockError;
+
+      // Atualizar também stock_es (temporário para compatibilidade)
       const { error } = await supabase
         .from('products')
         .update({ stock_es: newStock })

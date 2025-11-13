@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useTrackingStore } from '@/store/trackingStore';
 import { useCrmStore } from '@/store/crmStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useToast } from '@/hooks/use-toast';
 import { ProductAutocomplete } from './ProductAutocomplete';
+import { supabase } from '@/lib/supabase';
 
 interface CreateTransferDialogProps {
   open: boolean;
@@ -20,12 +22,6 @@ type FormProduct = {
   quantity: number;
   sku: string;
 };
-
-const stockLocations = [
-  { value: 'vitoria', label: 'Vitória' },
-  { value: 'sao_paulo', label: 'São Paulo' },
-  { value: 'full', label: 'Full' },
-];
 
 export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialogProps) {
   const [formData, setFormData] = useState({
@@ -42,16 +38,35 @@ export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialo
     { name: '', quantity: 1, sku: '' }
   ]);
 
+  const [warehouses, setWarehouses] = useState<Array<{ warehouse_id: string; warehouse_name: string }>>([]);
   const [loading, setLoading] = useState(false);
   const { createTransfer } = useTrackingStore();
   const { products: dbProducts, fetchProducts } = useCrmStore();
+  const { currentWorkspace } = useWorkspaceStore();
   const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
       fetchProducts();
+      fetchWarehouses();
     }
   }, [open, fetchProducts]);
+
+  const fetchWarehouses = async () => {
+    if (!currentWorkspace) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('baselinker_warehouses')
+        .select('warehouse_id, warehouse_name')
+        .eq('workspace_id', currentWorkspace.id);
+
+      if (error) throw error;
+      setWarehouses(data || []);
+    } catch (error) {
+      console.error('Error fetching warehouses:', error);
+    }
+  };
 
   const handleAddProduct = () => {
     setProducts([...products, { name: '', quantity: 1, sku: '' }]);
@@ -124,6 +139,7 @@ export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialo
     try {
       await createTransfer({
         ...formData,
+        customerName: formData.customer_name,
         products,
       });
 
@@ -254,21 +270,27 @@ export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialo
             <div className="space-y-2">
               <Label htmlFor="sourceStock" className="flex items-center gap-2">
                 <ArrowRightLeft className="h-4 w-4 text-blue-600" />
-                Estoque que está retirando *
+                Warehouse de Origem *
               </Label>
-              <Select 
-                value={formData.source_stock} 
+              <Select
+                value={formData.source_stock}
                 onValueChange={(value) => setFormData({ ...formData, source_stock: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione o estoque de origem" />
+                  <SelectValue placeholder="Selecione o warehouse de origem" />
                 </SelectTrigger>
                 <SelectContent>
-                  {stockLocations.map((location) => (
-                    <SelectItem key={location.value} value={location.value}>
-                      {location.label}
+                  {warehouses.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      Nenhum warehouse configurado
                     </SelectItem>
-                  ))}
+                  ) : (
+                    warehouses.map((wh) => (
+                      <SelectItem key={wh.warehouse_id} value={wh.warehouse_id}>
+                        {wh.warehouse_name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -276,23 +298,29 @@ export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialo
             <div className="space-y-2">
               <Label htmlFor="destinationStock" className="flex items-center gap-2">
                 <ArrowRightLeft className="h-4 w-4 text-blue-600" />
-                Estoque que está recebendo *
+                Warehouse de Destino *
               </Label>
-              <Select 
-                value={formData.destination_stock} 
+              <Select
+                value={formData.destination_stock}
                 onValueChange={(value) => setFormData({ ...formData, destination_stock: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione o estoque de destino" />
+                  <SelectValue placeholder="Selecione o warehouse de destino" />
                 </SelectTrigger>
                 <SelectContent>
-                  {stockLocations
-                    .filter(location => location.value !== formData.source_stock)
-                    .map((location) => (
-                      <SelectItem key={location.value} value={location.value}>
-                        {location.label}
-                      </SelectItem>
-                    ))}
+                  {warehouses.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      Nenhum warehouse configurado
+                    </SelectItem>
+                  ) : (
+                    warehouses
+                      .filter(wh => wh.warehouse_id !== formData.source_stock)
+                      .map((wh) => (
+                        <SelectItem key={wh.warehouse_id} value={wh.warehouse_id}>
+                          {wh.warehouse_name}
+                        </SelectItem>
+                      ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -317,23 +345,8 @@ export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialo
                     value={product}
                     onSelect={(selectedProduct) => handleProductSelect(index, selectedProduct)}
                     onInputChange={(text) => handleProductFieldChange(index, 'name', text)}
+                    selectedWarehouse={formData.source_stock}
                   />
-                  {/* Display stock quantity if product is selected */}
-                  {product.sku && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {(() => {
-                        const selectedDbProduct = dbProducts.find(p => 
-                          (p.sku === product.sku) || (p.SKU === product.sku)
-                        );
-                        return selectedDbProduct ? (
-                          <span className="flex items-center gap-1">
-                            <Package className="h-3 w-3" />
-                            Estoque disponível: {selectedDbProduct.stock} unidades
-                          </span>
-                        ) : null;
-                      })()}
-                    </div>
-                  )}
                 </div>
 
                 <div className="space-y-2">

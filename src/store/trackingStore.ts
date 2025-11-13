@@ -96,7 +96,6 @@ interface TrackingState {
         estimatedDelivery?: string;
         isArchived: boolean;
     }>) => Promise<void>;
-    archiveTransfer: (id: string) => Promise<void>;
     updateTrackingStatus: (type: 'purchase' | 'return' | 'transfer', id: string) => Promise<void>;
     updateAllTrackingStatuses: () => Promise<void>;
     getTrackingInfo: (carrier: string, trackingCode: string) => Promise<TrackingResponse>;
@@ -1152,15 +1151,6 @@ export const useTrackingStore = create<TrackingState>((set, get) => ({
             if (error) throw error;
             get().fetchTransfers();
             ErrorHandler.showSuccess('Transferência atualizada com sucesso!');
-        });
-    },
-
-    archiveTransfer: async (id) => {
-        await ErrorHandler.handleAsync(async () => {
-            const { error } = await supabase.from('transfers').update({ is_archived: true, updated_at: new Date().toISOString() }).eq('id', id);
-            if (error) { console.error("Error archiving transfer:", error); throw error; }
-            get().fetchTransfers();
-            ErrorHandler.showSuccess('Transferência arquivada com sucesso!');
         });
     },
 

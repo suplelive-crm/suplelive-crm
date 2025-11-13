@@ -43,7 +43,10 @@ export function CreateReturnDialog({ open, onOpenChange }: CreateReturnDialogPro
 
     setLoading(true);
     try {
-      await createReturn(formData);
+      await createReturn({
+        ...formData,
+        customerName: formData.customer_name,
+      });
 
       // Reset form
       setFormData({

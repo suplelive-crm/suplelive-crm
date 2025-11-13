@@ -28,9 +28,18 @@ interface BaselinkerInventory {
   description?: string;
 }
 
+interface BaselinkerWarehouseFromAPI {
+  warehouse_id: string;
+  name: string;
+  description?: string;
+  inventory_id: string;
+  inventory_name: string;
+}
+
 export function BaselinkerWarehouseConfig() {
   const { currentWorkspace } = useWorkspaceStore();
   const [warehouses, setWarehouses] = useState<BaselinkerWarehouse[]>([]);
+  const [availableWarehouses, setAvailableWarehouses] = useState<BaselinkerWarehouseFromAPI[]>([]);
   const [availableInventories, setAvailableInventories] = useState<BaselinkerInventory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,15 +47,15 @@ export function BaselinkerWarehouseConfig() {
 
   useEffect(() => {
     if (currentWorkspace?.id) {
-      loadWarehouses();
+      loadSavedWarehouses();
     }
   }, [currentWorkspace?.id]);
 
-  const loadWarehouses = async () => {
+  const loadSavedWarehouses = async () => {
     try {
       setLoading(true);
 
-      // 1. Buscar configuração salva no banco
+      // Buscar configuração salva no banco
       const { data: savedWarehouses, error: warehouseError } = await supabase
         .from('baselinker_warehouses')
         .select('*')
@@ -57,14 +66,20 @@ export function BaselinkerWarehouseConfig() {
       }
 
       setWarehouses(savedWarehouses || []);
+    } catch (error: any) {
+      console.error('Error loading warehouses:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // 2. Buscar inventories disponíveis do Baselinker
+  const loadWarehouses = async () => {
+    try {
+      await loadSavedWarehouses();
       await loadAvailableInventories();
     } catch (error: any) {
       console.error('Error loading warehouses:', error);
       toast.error('Erro ao carregar configuração de warehouses');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -93,16 +108,37 @@ export function BaselinkerWarehouseConfig() {
       }
 
       // Buscar inventories via API
-      const response = await baselinker.getInventories(apiKey);
+      const inventoriesResponse = await baselinker.getInventories(apiKey);
+      const warehousesResponse = await baselinker.getInventoryWarehouses(apiKey);
 
-      if (response.inventories) {
-        const inventories = Object.entries(response.inventories).map(([id, data]: [string, any]) => ({
+      // Processar inventories
+      if (inventoriesResponse.inventories) {
+        const inventories = Object.entries(inventoriesResponse.inventories).map(([id, data]: [string, any]) => ({
           inventory_id: id,
-          name: data.name || `Warehouse ${id}`,
+          name: data.name || `Inventory ${id}`,
           description: data.description,
         }));
 
         setAvailableInventories(inventories);
+      }
+
+      // Processar warehouses
+      if (warehousesResponse.warehouses) {
+        const warehouses: BaselinkerWarehouseFromAPI[] = Object.entries(warehousesResponse.warehouses).map(([whId, whData]: [string, any]) => {
+          // Encontrar o inventory correspondente (se warehouse_type === 'bl')
+          const inventoryId = inventoriesResponse.inventories ? Object.keys(inventoriesResponse.inventories)[0] : '0';
+          const inventoryName = inventoriesResponse.inventories?.[inventoryId]?.name || 'Baselinker Inventory';
+
+          return {
+            warehouse_id: whId,
+            name: whData.name || `Warehouse ${whId}`,
+            description: whData.description,
+            inventory_id: inventoryId,
+            inventory_name: inventoryName,
+          };
+        });
+
+        setAvailableWarehouses(warehouses);
       }
     } catch (error: any) {
       console.error('Error loading inventories:', error);
@@ -116,7 +152,7 @@ export function BaselinkerWarehouseConfig() {
     try {
       setSaving(true);
 
-      const inventory = availableInventories.find(inv => inv.inventory_id === warehouseId);
+      const warehouse = availableWarehouses.find(wh => wh.warehouse_id === warehouseId);
       const existingWarehouse = warehouses.find(w => w.warehouse_id === warehouseId);
 
       if (existingWarehouse) {
@@ -134,7 +170,7 @@ export function BaselinkerWarehouseConfig() {
           .insert({
             workspace_id: currentWorkspace!.id,
             warehouse_id: warehouseId,
-            warehouse_name: inventory?.name || `Warehouse ${warehouseId}`,
+            warehouse_name: warehouse?.name || `Warehouse ${warehouseId}`,
             is_active: isActive,
             allow_stock_updates: true,
             sync_direction: 'bidirectional',
@@ -143,11 +179,11 @@ export function BaselinkerWarehouseConfig() {
         if (error) throw error;
       }
 
-      toast.success(isActive ? 'Warehouse ativado' : 'Warehouse desativado');
+      toast.success(isActive ? 'Estoque ativado' : 'Estoque desativado');
       await loadWarehouses();
     } catch (error: any) {
       console.error('Error toggling warehouse:', error);
-      toast.error('Erro ao atualizar warehouse');
+      toast.error('Erro ao atualizar estoque');
     } finally {
       setSaving(false);
     }
@@ -247,98 +283,118 @@ export function BaselinkerWarehouseConfig() {
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {availableInventories.length === 0 ? (
+      <CardContent className="space-y-6">
+        {availableWarehouses.length === 0 ? (
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Nenhum warehouse encontrado. Configure a API Key do Baselinker primeiro.
+              Nenhum estoque encontrado. Configure a API Key do Baselinker primeiro.
             </AlertDescription>
           </Alert>
         ) : (
           availableInventories.map((inventory) => {
-            const config = warehouses.find(w => w.warehouse_id === inventory.inventory_id);
-            const isActive = config?.is_active || false;
-            const allowStockUpdates = config?.allow_stock_updates ?? true;
-            const syncDirection = config?.sync_direction || 'bidirectional';
+            // Filtrar warehouses deste inventory
+            const warehousesOfInventory = availableWarehouses.filter(
+              wh => wh.inventory_id === inventory.inventory_id
+            );
+
+            if (warehousesOfInventory.length === 0) return null;
 
             return (
-              <div
-                key={inventory.inventory_id}
-                className="border rounded-lg p-4 space-y-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <Label
-                        htmlFor={`warehouse-${inventory.inventory_id}`}
-                        className="text-base font-medium cursor-pointer"
+              <div key={inventory.inventory_id} className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Warehouse className="h-4 w-4" />
+                  {inventory.name}
+                </h3>
+
+                <div className="space-y-3 ml-6">
+                  {warehousesOfInventory.map((warehouse) => {
+                    const config = warehouses.find(w => w.warehouse_id === warehouse.warehouse_id);
+                    const isActive = config?.is_active || false;
+                    const allowStockUpdates = config?.allow_stock_updates ?? true;
+                    const syncDirection = config?.sync_direction || 'bidirectional';
+
+                    return (
+                      <div
+                        key={warehouse.warehouse_id}
+                        className="border rounded-lg p-4 space-y-4 bg-white"
                       >
-                        {inventory.name}
-                      </Label>
-                      {isActive ? (
-                        <Badge variant="default" className="bg-green-500">Ativo</Badge>
-                      ) : (
-                        <Badge variant="secondary">Inativo</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      ID: {inventory.inventory_id}
-                      {inventory.description && ` • ${inventory.description}`}
-                    </p>
-                  </div>
-                  <Switch
-                    id={`warehouse-${inventory.inventory_id}`}
-                    checked={isActive}
-                    onCheckedChange={(checked) => toggleWarehouse(inventory.inventory_id, checked)}
-                    disabled={saving}
-                  />
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <Label
+                                htmlFor={`warehouse-${warehouse.warehouse_id}`}
+                                className="text-base font-medium cursor-pointer"
+                              >
+                                {warehouse.name}
+                              </Label>
+                              {isActive ? (
+                                <Badge variant="default" className="bg-green-500">Ativo</Badge>
+                              ) : (
+                                <Badge variant="secondary">Inativo</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              ID: {warehouse.warehouse_id}
+                              {warehouse.description && ` • ${warehouse.description}`}
+                            </p>
+                          </div>
+                          <Switch
+                            id={`warehouse-${warehouse.warehouse_id}`}
+                            checked={isActive}
+                            onCheckedChange={(checked) => toggleWarehouse(warehouse.warehouse_id, checked)}
+                            disabled={saving}
+                          />
+                        </div>
+
+                        {isActive && config && (
+                          <div className="pl-4 space-y-3 border-l-2 border-gray-200">
+                            {/* Allow Stock Updates */}
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor={`stock-${warehouse.warehouse_id}`} className="text-sm">
+                                Permitir atualização de estoque
+                              </Label>
+                              <Switch
+                                id={`stock-${warehouse.warehouse_id}`}
+                                checked={allowStockUpdates}
+                                onCheckedChange={(checked) => updateStockUpdates(warehouse.warehouse_id, checked)}
+                                disabled={saving}
+                              />
+                            </div>
+
+                            {/* Sync Direction */}
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor={`direction-${warehouse.warehouse_id}`} className="text-sm">
+                                Direção de sincronização
+                              </Label>
+                              <Select
+                                value={syncDirection}
+                                onValueChange={(value: any) => updateSyncDirection(warehouse.warehouse_id, value)}
+                                disabled={saving}
+                              >
+                                <SelectTrigger id={`direction-${warehouse.warehouse_id}`} className="w-[180px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="read_only">Somente Leitura</SelectItem>
+                                  <SelectItem value="write_only">Somente Escrita</SelectItem>
+                                  <SelectItem value="bidirectional">Bidirecional</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Info */}
+                            <div className="text-xs text-muted-foreground bg-gray-50 p-2 rounded">
+                              {syncDirection === 'read_only' && '📖 A plataforma apenas lê dados deste estoque'}
+                              {syncDirection === 'write_only' && '✏️ A plataforma apenas escreve dados neste estoque'}
+                              {syncDirection === 'bidirectional' && '🔄 A plataforma lê e escreve dados neste estoque'}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-
-                {isActive && config && (
-                  <div className="pl-4 space-y-3 border-l-2 border-gray-200">
-                    {/* Allow Stock Updates */}
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor={`stock-${inventory.inventory_id}`} className="text-sm">
-                        Permitir atualização de estoque
-                      </Label>
-                      <Switch
-                        id={`stock-${inventory.inventory_id}`}
-                        checked={allowStockUpdates}
-                        onCheckedChange={(checked) => updateStockUpdates(inventory.inventory_id, checked)}
-                        disabled={saving}
-                      />
-                    </div>
-
-                    {/* Sync Direction */}
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor={`direction-${inventory.inventory_id}`} className="text-sm">
-                        Direção de sincronização
-                      </Label>
-                      <Select
-                        value={syncDirection}
-                        onValueChange={(value: any) => updateSyncDirection(inventory.inventory_id, value)}
-                        disabled={saving}
-                      >
-                        <SelectTrigger id={`direction-${inventory.inventory_id}`} className="w-[180px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="read_only">Somente Leitura</SelectItem>
-                          <SelectItem value="write_only">Somente Escrita</SelectItem>
-                          <SelectItem value="bidirectional">Bidirecional</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Info */}
-                    <div className="text-xs text-muted-foreground bg-gray-50 p-2 rounded">
-                      {syncDirection === 'read_only' && '📖 A plataforma apenas lê dados deste warehouse'}
-                      {syncDirection === 'write_only' && '✏️ A plataforma apenas escreve dados neste warehouse'}
-                      {syncDirection === 'bidirectional' && '🔄 A plataforma lê e escreve dados neste warehouse'}
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })

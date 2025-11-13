@@ -297,20 +297,50 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             .filter(statusInfo => statusNamesToSync.includes(statusInfo.name.toLowerCase().replace(/\s+/g, '_')))
             .map(statusInfo => statusInfo.id);
           
-          const parametersToSync = {
-            date_from: lastSyncTimestamp,
-            status_id: statusIdsToSync.join(',')
-          };
+          // Sistema de paginação: Baselinker retorna no máximo 100 pedidos por vez
+          let allOrders: any[] = [];
+          let page = 1;
+          let hasMoreOrders = true;
 
-          console.log("DEBUG: Parâmetros REAIS enviados para getOrders:", parametersToSync);
-          const response = await baselinker.getOrders(config.apiKey, parametersToSync);
-          
-          const orders = response.orders || [];
-          console.log(`Found ${orders.length} orders to sync`);
+          console.log(`Iniciando sincronização de pedidos (desde ${new Date(lastSyncTimestamp * 1000).toISOString()})...`);
+
+          while (hasMoreOrders) {
+            const parametersToSync = {
+              date_from: lastSyncTimestamp,
+              status_id: statusIdsToSync.join(','),
+              page: page
+            };
+
+            console.log(`[PÁGINA ${page}] Buscando pedidos...`, parametersToSync);
+            const response = await baselinker.getOrders(config.apiKey, parametersToSync);
+
+            const orders = response.orders || [];
+            console.log(`[PÁGINA ${page}] Encontrados ${orders.length} pedidos`);
+
+            if (orders.length === 0) {
+              // Não há mais pedidos
+              hasMoreOrders = false;
+            } else {
+              allOrders.push(...orders);
+
+              // Se retornou exatamente 100, provavelmente há mais pedidos
+              if (orders.length === 100) {
+                page++;
+                console.log(`[PÁGINA ${page}] Continuando para próxima página (100 pedidos encontrados)...`);
+              } else {
+                // Menos de 100 pedidos = última página
+                hasMoreOrders = false;
+                console.log(`[PÁGINA ${page}] Última página (${orders.length} pedidos)`);
+              }
+            }
+          }
+
+          console.log(`✅ TOTAL: ${allOrders.length} pedidos encontrados em ${page} página(s)`);
+          const orders = allOrders;
           
           for (const order of orders) {
-            const orderDetails = await baselinker.getOrderDetails(config.apiKey, order.order_id);
-            const orderData = orderDetails;
+            // Order details are already included in the getOrders response
+            const orderData = order;
             
             let status = 'pending';
             if (['paid', 'ready_for_shipping'].includes(order.order_status_id)) {
@@ -384,7 +414,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               .eq('external_id', order.order_id);
             
             if (existingOrders && existingOrders.length > 0) {
-              await supabase
+              const { error: updateError } = await supabase
                 .from('orders')
                 .update({
                   total_amount: parseFloat(order.price),
@@ -392,8 +422,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                   metadata: { baselinker_data: orderData }
                 })
                 .eq('external_id', order.order_id);
+
+              if (updateError) {
+                console.error('Error updating order:', updateError);
+              }
             } else {
-              await supabase
+              const { error: insertError } = await supabase
                 .from('orders')
                 .insert({
                   client_id: clientId,
@@ -401,8 +435,24 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                   order_date: new Date(order.date_add * 1000).toISOString(),
                   status,
                   external_id: order.order_id,
-                  metadata: { baselinker_data: orderData }
+                  order_id_base: parseInt(order.order_id),
+                  metadata: { baselinker_data: orderData },
+                  metadata_feita: false
                 });
+
+              if (insertError) {
+                console.error('Error inserting order:', {
+                  error: insertError,
+                  orderData: {
+                    client_id: clientId,
+                    total_amount: parseFloat(order.price),
+                    order_date: new Date(order.date_add * 1000).toISOString(),
+                    status,
+                    external_id: order.order_id,
+                    order_id_base: parseInt(order.order_id)
+                  }
+                });
+              }
             }
           }
           
@@ -464,9 +514,8 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           console.log(`Found ${orders.length} orders to extract customers from`);
           
           for (const order of orders) {
-            // CORREÇÃO: Assegurando que a chamada de API está correta
-            const orderDetails = await baselinker.getOrderDetails(config.apiKey, order.order_id);
-            const orderData = orderDetails;
+            // Order details are already included in the getOrders response
+            const orderData = order;
             
             if (!orderData.email && !orderData.phone) continue;
             
@@ -564,13 +613,15 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               inventory_id: config.inventoryId,
               page
             });
-            
-            const products = response.products || [];
+
+            // Baselinker returns products as an object, not array
+            const productsObj = response.products || {};
+            const products = Object.values(productsObj);
             allProducts.push(...products);
-            
+
             hasMore = products.length > 0;
             page++;
-            
+
             if (page > 10) break;
           }
           
@@ -617,7 +668,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                 ean: product.ean,
                 price: parseFloat(productData.price_brutto || product.price || 0),
                 cost: parseFloat(productData.purchase_price_brutto || 0),
-                stock_es: parseInt(stockQuantity as string), // Legacy column name
+                stock_es: parseInt(stockQuantity as string), // DEPRECATED: Manter temporariamente para compatibilidade
                 warehouseID: warehouseId,
                 description: productData?.text_fields?.description || '',
                 images: productData?.images || [],
@@ -628,20 +679,43 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                 updated_at: new Date().toISOString()
               };
 
+              let productId: string;
+
               if (existingProducts && existingProducts.length > 0) {
                 // Update existing product
                 await supabase
                   .from('products')
                   .update(productRecord)
                   .eq('id', existingProducts[0].id);
+                productId = existingProducts[0].id;
               } else {
                 // Insert new product
-                await supabase
+                const { data: newProduct } = await supabase
                   .from('products')
                   .insert({
                     ...productRecord,
                     external_id: product.id,
                     workspace_id: currentWorkspace.id,
+                  })
+                  .select('id')
+                  .single();
+
+                productId = newProduct?.id || '';
+              }
+
+              // NOVO SISTEMA: Salvar estoque por warehouse na tabela dinâmica
+              if (productId) {
+                await supabase
+                  .from('product_stock_by_warehouse')
+                  .upsert({
+                    workspace_id: currentWorkspace.id,
+                    product_id: productId,
+                    warehouse_id: warehouseId,
+                    sku: product.sku,
+                    stock_quantity: parseInt(stockQuantity as string),
+                    updated_at: new Date().toISOString()
+                  }, {
+                    onConflict: 'workspace_id,sku,warehouse_id'
                   });
               }
             }

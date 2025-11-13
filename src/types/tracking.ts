@@ -13,6 +13,8 @@ export interface Purchase {
   created_at: string;
   updated_at: string;
   products: PurchaseProduct[];
+  observation?: string;
+  warehouse?: string;
 }
 
 export interface PurchaseProduct {
