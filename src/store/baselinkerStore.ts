@@ -134,7 +134,10 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             onConflict: 'workspace_id'
           });
 
-        get().startSyncInterval();
+        // DESABILITADO: Sincronização automática removida em favor de webhooks
+        // get().startSyncInterval();
+
+        // Sincronização inicial manual ao conectar
         await get().syncAll(true);
       });
     },
@@ -319,22 +322,26 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           }
 
           // Sistema de paginação: Baselinker retorna no máximo 100 pedidos por vez
+          // LIMITE: Máximo 500 pedidos por sincronização (5 páginas) para evitar sobrecarga
+          const MAX_ORDERS = 500;
+          const MAX_PAGES = Math.ceil(MAX_ORDERS / 100); // 5 páginas
+
           let allOrders: any[] = [];
           let page = 1;
           let hasMoreOrders = true;
 
-          while (hasMoreOrders) {
+          while (hasMoreOrders && page <= MAX_PAGES) {
             const parametersToSync = {
               date_from: dateFrom, // Usar data incremental
               status_id: statusIdsToSync.join(','),
               page: page
             };
 
-            console.log(`[PÁGINA ${page}] Buscando pedidos...`, parametersToSync);
+            console.log(`[PÁGINA ${page}/${MAX_PAGES}] Buscando pedidos...`, parametersToSync);
             const response = await baselinker.getOrders(config.apiKey, parametersToSync);
 
             const orders = response.orders || [];
-            console.log(`[PÁGINA ${page}] Encontrados ${orders.length} pedidos`);
+            console.log(`[PÁGINA ${page}/${MAX_PAGES}] Encontrados ${orders.length} pedidos`);
 
             if (orders.length === 0) {
               // Não há mais pedidos
@@ -342,8 +349,13 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             } else {
               allOrders.push(...orders);
 
+              // Verificar se atingiu o limite
+              if (allOrders.length >= MAX_ORDERS) {
+                hasMoreOrders = false;
+                console.log(`⚠️ LIMITE ATINGIDO: ${allOrders.length} pedidos (máximo ${MAX_ORDERS})`);
+              }
               // Se retornou exatamente 100, provavelmente há mais pedidos
-              if (orders.length === 100) {
+              else if (orders.length === 100) {
                 page++;
                 console.log(`[PÁGINA ${page}] Continuando para próxima página (100 pedidos encontrados)...`);
               } else {
@@ -352,6 +364,10 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                 console.log(`[PÁGINA ${page}] Última página (${orders.length} pedidos)`);
               }
             }
+          }
+
+          if (allOrders.length >= MAX_ORDERS) {
+            console.log(`⚠️ AVISO: Foram buscados ${MAX_ORDERS} pedidos (limite). Execute sincronização novamente para buscar pedidos mais antigos.`);
           }
 
           console.log(`✅ TOTAL: ${allOrders.length} pedidos encontrados em ${page} página(s)`);
@@ -428,33 +444,51 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             if (!clientId) continue;
 
             // CORREÇÃO: Verificar duplicatas usando order_id_base
-            const { data: existingOrders } = await supabase
+            const { data: existingOrder, error: checkError } = await supabase
               .from('orders')
               .select('id')
               .eq('order_id_base', parseInt(order.order_id))
-              .eq('workspace_id', currentWorkspace.id);
+              .eq('workspace_id', currentWorkspace.id)
+              .maybeSingle();
 
-            if (existingOrders && existingOrders.length > 0) {
+            if (checkError) {
+              console.error('Error checking existing order:', checkError);
+              continue; // Pula este pedido
+            }
+
+            if (existingOrder) {
               // Pedido já existe, apenas atualizar status e metadata
+              // Calcular total_amount a partir dos dados do Baselinker
+              const paymentDone = parseFloat(orderData.payment_done || 0);
+              const totalAmount = !isNaN(paymentDone) && paymentDone > 0 ? paymentDone : 0;
+
               const { error: updateError } = await supabase
                 .from('orders')
                 .update({
-                  total_amount: parseFloat(order.price),
+                  total_amount: totalAmount,
                   status,
-                  metadata: { baselinker_data: orderData },
-                  updated_at: new Date().toISOString()
+                  metadata: { baselinker_data: orderData }
                 })
-                .eq('id', existingOrders[0].id);
+                .eq('id', existingOrder.id);
 
               if (updateError) {
                 console.error('Error updating order:', updateError);
               }
             } else {
+              // Calcular total_amount a partir dos dados do Baselinker
+              // payment_done = valor total pago (com frete)
+              // delivery_price = valor do frete
+              // Valor líquido dos produtos = payment_done - delivery_price
+              const paymentDone = parseFloat(orderData.payment_done || 0);
+              const deliveryPrice = parseFloat(orderData.delivery_price || 0);
+              const totalAmount = !isNaN(paymentDone) && paymentDone > 0 ? paymentDone : 0;
+
               const { error: insertError } = await supabase
                 .from('orders')
                 .insert({
+                  workspace_id: currentWorkspace.id,
                   client_id: clientId,
-                  total_amount: parseFloat(order.price),
+                  total_amount: totalAmount, // Valor total com frete
                   order_date: new Date(order.date_add * 1000).toISOString(),
                   status,
                   external_id: order.order_id,
@@ -464,15 +498,28 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                 });
 
               if (insertError) {
-                console.error('Error inserting order:', {
-                  error: insertError,
+                console.error('❌ ERROR INSERTING ORDER:', {
+                  errorMessage: insertError.message,
+                  errorCode: insertError.code,
+                  errorDetails: insertError.details,
+                  errorHint: insertError.hint,
+                  fullError: insertError,
                   orderData: {
+                    order_id: order.order_id,
+                    original_price: order.price,
+                    parsed_price: totalAmount,
+                    valid_price: validTotalAmount
+                  },
+                  attemptedData: {
+                    workspace_id: currentWorkspace.id,
                     client_id: clientId,
-                    total_amount: parseFloat(order.price),
+                    total_amount: validTotalAmount,
                     order_date: new Date(order.date_add * 1000).toISOString(),
                     status,
                     external_id: order.order_id,
-                    order_id_base: parseInt(order.order_id)
+                    order_id_base: parseInt(order.order_id),
+                    metadata: { baselinker_data: orderData },
+                    metadata_feita: false
                   }
                 });
               }
@@ -489,8 +536,16 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             }, {
               onConflict: 'workspace_id'
             });
-          
+
           set({ lastSyncTime: new Date() });
+
+          // Avisar usuário se atingiu o limite
+          if (allOrders.length >= MAX_ORDERS) {
+            ErrorHandler.showError(
+              `Limite de ${MAX_ORDERS} pedidos atingido. Execute a sincronização novamente para buscar pedidos mais antigos.`,
+              'Sincronização Parcial'
+            );
+          }
         } catch (error: any) {
           if (error.message.includes('401') || error.message.includes('Unauthorized') || 
               error.message.includes('Invalid API key')) {
@@ -698,7 +753,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               sku: product.sku,
               ean: product.ean,
               price: parseFloat(productData.price_brutto || product.price || 0),
-              cost: parseFloat(productData.purchase_price_brutto || 0),
+              custo: parseFloat(productData.purchase_price_brutto || 0), // Custo do produto
               stock_es: parseInt(firstStockQuantity as string), // DEPRECATED: Manter temporariamente
               warehouseID: firstWarehouseId, // Warehouse padrão
               description: productData?.text_fields?.description || '',
@@ -706,8 +761,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               metadata: {
                 baselinker_data: productData,
                 baselinker_product_id: product.id
-              },
-              updated_at: new Date().toISOString()
+              }
             };
 
             let productId: string;

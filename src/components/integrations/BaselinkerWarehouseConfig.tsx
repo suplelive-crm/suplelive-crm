@@ -93,19 +93,23 @@ export function BaselinkerWarehouseConfig() {
       }
 
       // CORREÇÃO: Buscar API Key do workspace settings (Supabase)
-      if (!currentWorkspace?.settings?.baselinker?.apiKey) {
+      // A API Key está salva como 'token' no settings
+      if (!currentWorkspace?.settings?.baselinker?.token) {
         throw new Error('Configuração do Baselinker não encontrada. Configure a API Key na aba Configuração primeiro.');
       }
 
-      const apiKey = currentWorkspace.settings.baselinker.apiKey;
+      const apiKey = currentWorkspace.settings.baselinker.token;
 
       if (!apiKey) {
         throw new Error('API Key do Baselinker não configurada');
       }
 
-      // Buscar inventories via API
+      // Buscar inventories e warehouses via API
       const inventoriesResponse = await baselinker.getInventories(apiKey);
       const warehousesResponse = await baselinker.getInventoryWarehouses(apiKey);
+
+      console.log('[WAREHOUSE CONFIG] Inventories response:', inventoriesResponse);
+      console.log('[WAREHOUSE CONFIG] Warehouses response:', warehousesResponse);
 
       // Processar inventories
       if (inventoriesResponse.inventories) {
@@ -118,22 +122,23 @@ export function BaselinkerWarehouseConfig() {
         setAvailableInventories(inventories);
       }
 
-      // Processar warehouses
-      if (warehousesResponse.warehouses) {
-        const warehouses: BaselinkerWarehouseFromAPI[] = Object.entries(warehousesResponse.warehouses).map(([whId, whData]: [string, any]) => {
-          // Encontrar o inventory correspondente (se warehouse_type === 'bl')
+      // Processar warehouses - RESPOSTA DA API: { warehouses: [{warehouse_id, name, ...}] }
+      if (warehousesResponse.warehouses && Array.isArray(warehousesResponse.warehouses)) {
+        const warehouses: BaselinkerWarehouseFromAPI[] = warehousesResponse.warehouses.map((wh: any) => {
+          // Pegar o primeiro inventory_id disponível (Baselinker sempre usa inventory)
           const inventoryId = inventoriesResponse.inventories ? Object.keys(inventoriesResponse.inventories)[0] : '0';
           const inventoryName = inventoriesResponse.inventories?.[inventoryId]?.name || 'Baselinker Inventory';
 
           return {
-            warehouse_id: whId,
-            name: whData.name || `Warehouse ${whId}`,
-            description: whData.description,
+            warehouse_id: String(wh.warehouse_id),
+            name: wh.name || `Warehouse ${wh.warehouse_id}`,
+            description: wh.description || '',
             inventory_id: inventoryId,
             inventory_name: inventoryName,
           };
         });
 
+        console.log('[WAREHOUSE CONFIG] Processed warehouses:', warehouses);
         setAvailableWarehouses(warehouses);
       }
     } catch (error: any) {
