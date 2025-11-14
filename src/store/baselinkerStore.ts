@@ -289,8 +289,10 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             .eq('workspace_id', currentWorkspace.id)
             .maybeSingle();
           
+          // CORREÇÃO: Sincronização incremental usando last_orders_sync
+          // Usar a data da última sincronização ou timestamp 0 (buscar tudo) se for primeira vez
           const lastSyncTimestamp = (syncData?.last_orders_sync && !forceFullSync)
-            ? new Date(syncData.last_orders_sync).getTime() / 1000 
+            ? Math.floor(new Date(syncData.last_orders_sync).getTime() / 1000)
             : 0;
 
           const statusListResponse = await baselinker.getOrderStatusList(config.apiKey);
@@ -299,26 +301,14 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           const statusIdsToSync = allStatusesFromBaselinker
             .filter(statusInfo => statusNamesToSync.includes(statusInfo.name.toLowerCase().replace(/\s+/g, '_')))
             .map(statusInfo => statusInfo.id);
-          
-          // CORREÇÃO: Sincronização incremental usando order_date do último pedido
-          // Buscar o último pedido sincronizado no banco
-          const { data: lastOrder } = await supabase
-            .from('orders')
-            .select('order_date')
-            .eq('workspace_id', currentWorkspace.id)
-            .order('order_date', { ascending: false })
-            .limit(1)
-            .single();
 
-          // Se houver último pedido, usar a data dele +1 segundo para evitar duplicatas
-          // Senão, usar lastSyncTimestamp (primeira sincronização)
-          const dateFrom = lastOrder
-            ? Math.floor(new Date(lastOrder.order_date).getTime() / 1000) + 1
-            : lastSyncTimestamp;
+          // Usar lastSyncTimestamp diretamente
+          const dateFrom = lastSyncTimestamp;
 
-          console.log(`Iniciando sincronização incremental de pedidos (desde ${new Date(dateFrom * 1000).toISOString()})...`);
-          if (lastOrder) {
-            console.log(`Último pedido no banco: ${lastOrder.order_date}`);
+          console.log(`Iniciando sincronização incremental de pedidos...`);
+          console.log(`Data de início: ${dateFrom > 0 ? new Date(dateFrom * 1000).toISOString() : 'TODOS OS PEDIDOS (primeira sincronização)'}`);
+          if (syncData?.last_orders_sync) {
+            console.log(`Última sincronização: ${syncData.last_orders_sync}`);
           }
 
           // Sistema de paginação: Baselinker retorna no máximo 100 pedidos por vez
@@ -372,7 +362,10 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
 
           console.log(`✅ TOTAL: ${allOrders.length} pedidos encontrados em ${page} página(s)`);
           const orders = allOrders;
-          
+
+          // Salvar timestamp do início do processamento para usar depois
+          const syncStartTime = new Date().toISOString();
+
           for (const order of orders) {
             // Order details are already included in the getOrders response
             const orderData = order;
@@ -526,18 +519,21 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             }
           }
           
+          // Salvar timestamp da sincronização no banco
+          // Usar syncStartTime para garantir que próxima sincronização pegue pedidos criados durante este processamento
+          console.log(`💾 Salvando timestamp da sincronização: ${syncStartTime}`);
           await supabase
             .from('baselinker_sync')
             .upsert({
               workspace_id: currentWorkspace.id,
-              last_orders_sync: new Date().toISOString(),
+              last_orders_sync: syncStartTime,
               sync_status: 'idle',
               updated_at: new Date().toISOString()
             }, {
               onConflict: 'workspace_id'
             });
 
-          set({ lastSyncTime: new Date() });
+          set({ lastSyncTime: new Date(syncStartTime) });
 
           // Avisar usuário se atingiu o limite
           if (allOrders.length >= MAX_ORDERS) {
@@ -745,7 +741,8 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             }
 
             // Pegar o primeiro warehouse disponível como padrão para warehouseID
-            const firstWarehouseId = Object.keys(stockByWarehouse)[0] || '';
+            const firstWarehouseIdRaw = Object.keys(stockByWarehouse)[0] || '';
+            const firstWarehouseId = firstWarehouseIdRaw.startsWith('bl_') ? firstWarehouseIdRaw : `bl_${firstWarehouseIdRaw}`;
             const firstStockQuantity = Object.values(stockByWarehouse)[0] ?? 0; // Usar ?? para preservar valores negativos
 
             // Extrair preço de venda (primeiro item de prices)
@@ -813,13 +810,20 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             // NOVO SISTEMA: Salvar estoque de TODOS os warehouses na tabela dinâmica
             // Usando RPC function para logging automático
             if (productId) {
+              console.log(`[BASELINKER SYNC] Salvando estoque para produto ${product.sku} em ${Object.keys(stockByWarehouse).length} warehouse(s)`);
+
               for (const [warehouseId, stockQuantity] of Object.entries(stockByWarehouse)) {
                 const stockQty = typeof stockQuantity === 'number' ? stockQuantity : parseInt(stockQuantity as string, 10);
+
+                // CORREÇÃO: Adicionar prefixo "bl_" ao warehouse_id se não existir
+                const warehouseIdWithPrefix = warehouseId.startsWith('bl_') ? warehouseId : `bl_${warehouseId}`;
+
+                console.log(`[BASELINKER SYNC] Chamando RPC para ${product.sku} - Warehouse: ${warehouseIdWithPrefix}, Qty: ${stockQty}`);
 
                 const { error: stockError } = await supabase.rpc('upsert_product_stock_with_log', {
                   p_workspace_id: currentWorkspace.id,
                   p_product_id: productId,
-                  p_warehouse_id: warehouseId,
+                  p_warehouse_id: warehouseIdWithPrefix,
                   p_sku: product.sku,
                   p_ean: product.ean || null,
                   p_product_name: product.name || productData?.name || product.sku,
@@ -833,7 +837,9 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                 });
 
                 if (stockError) {
-                  console.error('Error upserting stock with log:', stockError);
+                  console.error('[BASELINKER SYNC] Erro ao upsert stock com log:', stockError);
+                } else {
+                  console.log(`[BASELINKER SYNC] ✓ RPC executado com sucesso para ${product.sku}`);
                 }
               }
             }

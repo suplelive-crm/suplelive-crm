@@ -109,6 +109,10 @@ export function JobsPage() {
 
   const loadStockLogs = async () => {
     try {
+      console.log('[JOBS PAGE] Carregando logs de estoque...');
+      console.log('[JOBS PAGE] Workspace ID:', currentWorkspace?.id);
+      console.log('[JOBS PAGE] Filtro de origem:', stockSourceFilter);
+
       let query = supabase
         .from('v_recent_stock_changes')
         .select('*')
@@ -122,10 +126,16 @@ export function JobsPage() {
 
       const { data, error } = await query;
 
+      console.log('[JOBS PAGE] Resultado da query:', {
+        totalLogs: data?.length || 0,
+        error: error?.message,
+        primeiros3Logs: data?.slice(0, 3)
+      });
+
       if (error) throw error;
       setStockLogs(data || []);
     } catch (error: any) {
-      console.error('Error loading stock logs:', error);
+      console.error('[JOBS PAGE] Erro ao carregar logs de estoque:', error);
       throw error;
     }
   };
