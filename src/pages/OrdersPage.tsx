@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddOrderDialog } from '@/components/orders/AddOrderDialog';
 import { OrderDetailsDialog } from '@/components/orders/OrderDetailsDialog';
@@ -10,16 +10,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useCrmStore } from '@/store/crmStore';
 import { Order } from '@/types';
 
 export function OrdersPage() {
-  const { orders, fetchOrders } = useCrmStore();
+  const { orders, fetchOrders, deleteOrders } = useCrmStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>({ key: 'order_date', direction: 'descending' });
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
 
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<number | 'all'>(10);
@@ -67,6 +69,11 @@ export function OrdersPage() {
     if (page > totalPages) setPage(totalPages > 0 ? totalPages : 1);
   }, [page, totalPages]);
 
+  // Clear selection when page, filters, or sort changes
+  useEffect(() => {
+    setSelectedOrderIds([]);
+  }, [page, searchTerm, statusFilter, sortConfig]);
+
   const requestSort = (key: string) => {
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -90,7 +97,33 @@ export function OrdersPage() {
     setSelectedOrder(order);
     setOrderDetailsOpen(true);
   };
-  
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedOrderIds(paginatedOrders.map(order => order.id));
+    } else {
+      setSelectedOrderIds([]);
+    }
+  };
+
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedOrderIds(prev => [...prev, orderId]);
+    } else {
+      setSelectedOrderIds(prev => prev.filter(id => id !== orderId));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedOrderIds.length === 0) return;
+
+    const confirmed = window.confirm(`Tem certeza que deseja excluir ${selectedOrderIds.length} pedido(s)?`);
+    if (!confirmed) return;
+
+    await deleteOrders(selectedOrderIds);
+    setSelectedOrderIds([]);
+  };
+
   const formatCurrency = (amount: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
 
   const getStatusInfo = (status: string) => {
@@ -166,12 +199,28 @@ export function OrdersPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Todos os Pedidos ({sortedOrders.length})</CardTitle></CardHeader>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Todos os Pedidos ({sortedOrders.length})</CardTitle>
+                {selectedOrderIds.length > 0 && (
+                  <Button variant="destructive" size="sm" onClick={handleDeleteSelected}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir {selectedOrderIds.length} selecionado(s)
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
             <CardContent className='p-0'>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={paginatedOrders.length > 0 && selectedOrderIds.length === paginatedOrders.length}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
                       <TableHead onClick={() => requestSort('order_id_base')} className="cursor-pointer hover:bg-gray-100">ID do Pedido{getSortIcon('order_id_base')}</TableHead>
                       <TableHead onClick={() => requestSort('client.name')} className="cursor-pointer hover:bg-gray-100">Cliente{getSortIcon('client.name')}</TableHead>
                       <TableHead onClick={() => requestSort('total_amount')} className="cursor-pointer hover:bg-gray-100">Valor{getSortIcon('total_amount')}</TableHead>
@@ -185,6 +234,12 @@ export function OrdersPage() {
                       const statusInfo = getStatusInfo(order.status);
                       return (
                         <TableRow key={order.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedOrderIds.includes(order.id)}
+                              onCheckedChange={(checked) => handleSelectOrder(order.id, checked as boolean)}
+                            />
+                          </TableCell>
                           <TableCell className="font-medium">
                             {order.order_id_base ? (
                               <a href={`https://panel-u.baselinker.com/orders.php#order:${order.order_id_base}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline">

@@ -746,7 +746,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
 
             // Pegar o primeiro warehouse disponível como padrão para warehouseID
             const firstWarehouseId = Object.keys(stockByWarehouse)[0] || '';
-            const firstStockQuantity = Object.values(stockByWarehouse)[0] || 0;
+            const firstStockQuantity = Object.values(stockByWarehouse)[0] ?? 0; // Usar ?? para preservar valores negativos
 
             const productRecord = {
               name: product.name || productData.name,
@@ -754,7 +754,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               ean: product.ean,
               price: parseFloat(productData.price_brutto || product.price || 0),
               custo: parseFloat(productData.purchase_price_brutto || 0), // Custo do produto
-              stock_es: parseInt(firstStockQuantity as string), // DEPRECATED: Manter temporariamente
+              stock_es: typeof firstStockQuantity === 'number' ? firstStockQuantity : parseInt(firstStockQuantity as string, 10), // Preservar valores negativos
               warehouseID: firstWarehouseId, // Warehouse padrão
               description: productData?.text_fields?.description || '',
               images: productData?.images || [],
@@ -809,7 +809,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                     product_id: productId,
                     warehouse_id: warehouseId,
                     sku: product.sku,
-                    stock_quantity: parseInt(stockQuantity as string),
+                    ean: product.ean || null,
+                    product_name: product.name || productData?.name || product.sku,
+                    cost: parseFloat(productData?.purchase_price_brutto || 0) || null,
+                    price: parseFloat(productData?.price_brutto || 0) || null,
+                    stock_quantity: typeof stockQuantity === 'number' ? stockQuantity : parseInt(stockQuantity as string, 10), // Preservar negativos
+                    last_sync_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                   }, {
                     onConflict: 'workspace_id,sku,warehouse_id'

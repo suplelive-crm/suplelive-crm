@@ -13,6 +13,7 @@ CREATE TABLE public.baselinker_warehouses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
   warehouse_id TEXT NOT NULL,
+  warehouse_code TEXT,
   warehouse_name TEXT NOT NULL,
   is_active BOOLEAN NOT NULL DEFAULT false,
   allow_stock_updates BOOLEAN NOT NULL DEFAULT true,
@@ -34,6 +35,8 @@ ON public.baselinker_warehouses(workspace_id, is_active);
 -- Adicionar comentários
 COMMENT ON TABLE public.baselinker_warehouses IS 'Armazena configuração dos warehouses do Baselinker por workspace';
 COMMENT ON COLUMN public.baselinker_warehouses.warehouse_id IS 'ID do warehouse no Baselinker';
+COMMENT ON COLUMN public.baselinker_warehouses.warehouse_code IS 'Código curto do warehouse (ex: ES, SP)';
+COMMENT ON COLUMN public.baselinker_warehouses.warehouse_name IS 'Nome completo do warehouse';
 COMMENT ON COLUMN public.baselinker_warehouses.is_active IS 'Se o warehouse está ativo para sincronização';
 COMMENT ON COLUMN public.baselinker_warehouses.allow_stock_updates IS 'Se permite atualização de estoque';
 COMMENT ON COLUMN public.baselinker_warehouses.sync_direction IS 'Direção da sincronização: read_only, write_only, ou bidirectional';

@@ -15,12 +15,14 @@ import {
 } from "@/components/ui/table";
 import { Order } from '@/types';
 
-// Definindo uma interface para o produto dentro do metadata para maior segurança do código
-interface ProductMetadata {
-  sku_produto: string;
-  nome_produto: string;
-  receita_produto: number;
-  quantidade_de_itens: number;
+// Definindo uma interface para o produto do Baselinker
+interface BaselinkerProduct {
+  sku: string;
+  name: string;
+  price_brutto: number;
+  quantity: number;
+  ean?: string;
+  weight?: number;
 }
 
 interface OrderDetailsDialogProps {
@@ -74,10 +76,9 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
   const metadata = order.metadata || {};
   const baselinkerData = Array.isArray(metadata) ? (metadata[0]?.baselinker_data || {}) : (metadata.baselinker_data || {});
 
-  // Verificação para garantir que metadata é um array antes de renderizar a tabela de produtos
-  const isProductArray = (data: any): data is ProductMetadata[] => {
-    return Array.isArray(data) && data.length > 0 && typeof data[0] === 'object' && 'sku_produto' in data[0];
-  }
+  // Extrair produtos do baselinker_data.products
+  const products: BaselinkerProduct[] = baselinkerData?.products || [];
+  const hasProducts = products.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -190,35 +191,36 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {isProductArray(metadata) ? (
+              {hasProducts ? (
                 <div className="border rounded-lg">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[150px]">SKU</TableHead>
+                        <TableHead className="w-[120px]">SKU</TableHead>
                         <TableHead>Nome do Produto</TableHead>
+                        <TableHead className="w-[120px]">EAN</TableHead>
                         <TableHead className="text-center w-[80px]">Qtd.</TableHead>
-                        <TableHead className="text-right w-[150px]">Valor Unitário</TableHead>
+                        <TableHead className="text-right w-[120px]">Preço Unit.</TableHead>
+                        <TableHead className="text-right w-[120px]">Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {metadata.map((product, index) => (
-                        <TableRow key={product.sku_produto || index}>
-                          <TableCell className="font-mono text-xs">{product.sku_produto}</TableCell>
-                          <TableCell className="font-medium">{product.nome_produto}</TableCell>
-                          <TableCell className="text-center">{product.quantidade_de_itens}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(product.receita_produto)}</TableCell>
+                      {products.map((product, index) => (
+                        <TableRow key={product.sku || index}>
+                          <TableCell className="font-mono text-xs">{product.sku}</TableCell>
+                          <TableCell className="font-medium">{product.name}</TableCell>
+                          <TableCell className="font-mono text-xs">{product.ean || '-'}</TableCell>
+                          <TableCell className="text-center">{product.quantity}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(product.price_brutto)}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatCurrency(product.price_brutto * product.quantity)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
               ) : (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">Os dados do produto não estão no formato esperado. Exibindo dados brutos:</p>
-                  <pre className="text-xs overflow-auto">
-                    {JSON.stringify(metadata, null, 2)}
-                  </pre>
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <p className="text-sm text-muted-foreground">Nenhum produto encontrado neste pedido.</p>
                 </div>
               )}
             </CardContent>

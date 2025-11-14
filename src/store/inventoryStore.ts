@@ -63,20 +63,40 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         throw new Error('Nenhum workspace selecionado');
       }
 
+      // Buscar warehouses configurados
       const { data, error } = await supabase
         .from('baselinker_warehouses')
-        .select('warehouse_id, warehouse_code, warehouse_name')
+        .select('warehouse_id, warehouse_name, warehouse_code')
         .eq('workspace_id', currentWorkspace.id);
 
       if (error) throw error;
 
       const warehouseMap = new Map<string, { code: string; name: string }>();
-      data?.forEach(wh => {
-        warehouseMap.set(wh.warehouse_id, {
-          code: wh.warehouse_code || wh.warehouse_id,
-          name: wh.warehouse_name
+
+      // Se não houver warehouses cadastrados, buscar nomes únicos diretamente dos produtos
+      if (!data || data.length === 0) {
+        const { data: stockData } = await supabase
+          .from('product_stock_by_warehouse')
+          .select('warehouse_id')
+          .eq('workspace_id', currentWorkspace.id);
+
+        // Criar entradas com warehouse_id como nome temporário
+        const uniqueWarehouses = [...new Set(stockData?.map(s => s.warehouse_id) || [])];
+        uniqueWarehouses.forEach(whId => {
+          warehouseMap.set(whId, {
+            code: whId,
+            name: `Warehouse ${whId}` // Nome temporário até configurar
+          });
         });
-      });
+      } else {
+        // Usar warehouses cadastrados
+        data.forEach(wh => {
+          warehouseMap.set(wh.warehouse_id, {
+            code: wh.warehouse_code || wh.warehouse_id,
+            name: wh.warehouse_name
+          });
+        });
+      }
 
       set({ warehouses: warehouseMap });
     });
@@ -96,52 +116,30 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         await get().loadWarehouses();
       }
 
-      // Buscar produtos
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
+      // Buscar DIRETAMENTE da tabela product_stock_by_warehouse
+      const { data: stockData, error: stockError } = await supabase
+        .from('product_stock_by_warehouse')
         .select('*')
         .eq('workspace_id', currentWorkspace.id)
         .order('sku', { ascending: true });
 
-      if (productsError) throw productsError;
-
-      // Buscar estoques por warehouse da nova tabela
-      const { data: stockData, error: stockError } = await supabase
-        .from('product_stock_by_warehouse')
-        .select('product_id, warehouse_id, stock_quantity')
-        .eq('workspace_id', currentWorkspace.id);
-
-      if (stockError) {
-        console.error('Error loading stock data:', stockError);
-      }
-
-      // Criar mapa de estoque: Map<product_id, Map<warehouse_id, stock>>
-      const stockMap = new Map<string, Map<string, number>>();
-      (stockData || []).forEach(stock => {
-        if (!stockMap.has(stock.product_id)) {
-          stockMap.set(stock.product_id, new Map());
-        }
-        stockMap.get(stock.product_id)!.set(stock.warehouse_id, stock.stock_quantity);
-      });
+      if (stockError) throw stockError;
 
       const warehouses = get().warehouses;
 
-      // Map products com estoque dinâmico por warehouse
-      const products: ProductWarehouse[] = (productsData || []).map(product => {
-        const productStocks = stockMap.get(product.id);
-        const warehouseStock = productStocks?.get(product.warehouseID) ?? product.stock_es ?? 0; // Fallback para stock_es durante migração
-
+      // Map products diretamente da tabela de estoque por warehouse
+      const products: ProductWarehouse[] = (stockData || []).map(stock => {
         return {
-          id: product.id,
-          sku: product.sku,
-          name: product.name,
-          warehouseID: product.warehouseID || '',
-          warehouseName: warehouses.get(product.warehouseID)?.name || product.warehouseID,
-          warehouseCode: warehouses.get(product.warehouseID)?.code || product.warehouseID,
-          stock: warehouseStock,
-          cost: product.cost,
-          price: product.price,
-          ean: product.ean,
+          id: stock.id, // ID do registro de estoque
+          sku: stock.sku,
+          name: stock.product_name || stock.sku, // Usar nome cacheado ou SKU como fallback
+          warehouseID: stock.warehouse_id,
+          warehouseName: warehouses.get(stock.warehouse_id)?.name || stock.warehouse_id,
+          warehouseCode: warehouses.get(stock.warehouse_id)?.code || stock.warehouse_id,
+          stock: stock.stock_quantity,
+          cost: stock.cost,
+          price: stock.price,
+          ean: stock.ean,
         };
       });
 
@@ -185,15 +183,26 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       }
 
       const summary = grouped.get(product.sku)!;
-      summary.totalStock += product.stock;
-      summary.warehouses.push({
-        warehouseID: product.warehouseID,
-        warehouseName: product.warehouseName || product.warehouseID,
-        warehouseCode: product.warehouseCode || product.warehouseID,
-        stock: product.stock,
-        cost: product.cost,
-        price: product.price,
-      });
+
+      // Check if this warehouse already exists in the summary
+      const existingWarehouse = summary.warehouses.find(w => w.warehouseID === product.warehouseID);
+
+      if (existingWarehouse) {
+        // Update existing warehouse stock (aggregate duplicates)
+        existingWarehouse.stock += product.stock;
+        summary.totalStock += product.stock;
+      } else {
+        // Add new warehouse entry
+        summary.totalStock += product.stock;
+        summary.warehouses.push({
+          warehouseID: product.warehouseID,
+          warehouseName: product.warehouseName || product.warehouseID,
+          warehouseCode: product.warehouseCode || product.warehouseID,
+          stock: product.stock,
+          cost: product.cost,
+          price: product.price,
+        });
+      }
 
       // Calculate average cost and price
       const costs = summary.warehouses.filter(w => w.cost).map(w => w.cost!);
@@ -218,50 +227,29 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     set({ selectedWarehouse: warehouseID });
   },
 
-  updateProductStock: async (productId: string, newStock: number) => {
+  updateProductStock: async (stockRecordId: string, newStock: number) => {
     await ErrorHandler.handleAsync(async () => {
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       if (!currentWorkspace) {
         throw new Error('Nenhum workspace selecionado');
       }
 
-      // Buscar informações do produto
-      const { data: product, error: fetchError } = await supabase
-        .from('products')
-        .select('sku, warehouseID')
-        .eq('id', productId)
-        .single();
-
-      if (fetchError || !product) throw fetchError || new Error('Produto não encontrado');
-
-      // Atualizar na tabela nova (product_stock_by_warehouse)
+      // Atualizar DIRETAMENTE na tabela product_stock_by_warehouse
       const { error: stockError } = await supabase
         .from('product_stock_by_warehouse')
-        .upsert({
-          workspace_id: currentWorkspace.id,
-          product_id: productId,
-          warehouse_id: product.warehouseID,
-          sku: product.sku,
+        .update({
           stock_quantity: newStock,
           updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'workspace_id,sku,warehouse_id'
-        });
+        })
+        .eq('id', stockRecordId)
+        .eq('workspace_id', currentWorkspace.id);
 
       if (stockError) throw stockError;
-
-      // Atualizar também stock_es (temporário para compatibilidade)
-      const { error } = await supabase
-        .from('products')
-        .update({ stock_es: newStock })
-        .eq('id', productId);
-
-      if (error) throw error;
 
       // Update local state
       set(state => ({
         products: state.products.map(p =>
-          p.id === productId ? { ...p, stock: newStock } : p
+          p.id === stockRecordId ? { ...p, stock: newStock } : p
         )
       }));
 

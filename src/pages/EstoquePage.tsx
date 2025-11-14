@@ -201,9 +201,9 @@ export function EstoquePage() {
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           {product.warehouses.map((wh) => (
-                            <div key={wh.warehouseID} className="flex items-center gap-2 text-sm">
+                            <div key={`${product.sku}-${wh.warehouseID}`} className="flex items-center gap-2 text-sm">
                               <Badge variant="outline" className="min-w-[60px] justify-center">
-                                {wh.warehouseCode}
+                                {wh.warehouseName}
                               </Badge>
                               <span className="text-muted-foreground">
                                 {wh.stock} un.

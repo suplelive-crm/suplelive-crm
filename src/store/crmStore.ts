@@ -39,6 +39,7 @@ interface CrmState {
   createOrder: (order: Omit<Order, 'id' | 'order_date'>) => Promise<void>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
+  deleteOrders: (ids: string[]) => Promise<void>;
   
   sendMessage: (clientId: string, content: string, sendType?: 'manual' | 'automated') => Promise<void>;
   
@@ -461,6 +462,20 @@ export const useCrmStore = create<CrmState>((set, get) => ({
       get().fetchOrders();
       get().fetchStats();
       ErrorHandler.showSuccess('Pedido excluído com sucesso!');
+    });
+  },
+
+  deleteOrders: async (ids) => {
+    await ErrorHandler.handleAsync(async () => {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .in('id', ids);
+
+      if (error) throw error;
+      get().fetchOrders();
+      get().fetchStats();
+      ErrorHandler.showSuccess(`${ids.length} pedido(s) excluído(s) com sucesso!`);
     });
   },
 

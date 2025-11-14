@@ -21,7 +21,9 @@
       "Bash(.gitignore)",
       "Bash(npm install:*)",
       "Bash(npx supabase@2.58.5 functions deploy:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(\"C:\\Users\\paull\\Documents\\GitHub\\suplelive-crm\\src\\store\\baselinkerStore.ts\")",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []
