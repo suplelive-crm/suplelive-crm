@@ -12,6 +12,7 @@ ADD COLUMN IF NOT EXISTS ean TEXT,
 ADD COLUMN IF NOT EXISTS product_name TEXT,
 ADD COLUMN IF NOT EXISTS cost NUMERIC,
 ADD COLUMN IF NOT EXISTS price NUMERIC,
+ADD COLUMN IF NOT EXISTS duracao NUMERIC,
 ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Comentários para as novas colunas
@@ -19,6 +20,7 @@ COMMENT ON COLUMN public.product_stock_by_warehouse.ean IS 'Código de barras EA
 COMMENT ON COLUMN public.product_stock_by_warehouse.product_name IS 'Nome do produto (cache para performance)';
 COMMENT ON COLUMN public.product_stock_by_warehouse.cost IS 'Custo do produto neste warehouse';
 COMMENT ON COLUMN public.product_stock_by_warehouse.price IS 'Preço de venda do produto';
+COMMENT ON COLUMN public.product_stock_by_warehouse.duracao IS 'Duração do produto em dias (extra_field_63429 do Baselinker)';
 COMMENT ON COLUMN public.product_stock_by_warehouse.last_sync_at IS 'Última sincronização do Baselinker';
 
 -- Criar índice composto para busca eficiente
@@ -35,7 +37,8 @@ SET
   ean = p.ean,
   product_name = p.name,
   cost = p.custo,
-  price = p.price
+  price = p.price,
+  duracao = p.duracao
 FROM public.products p
 WHERE psw.product_id = p.id
   AND (psw.ean IS NULL OR psw.product_name IS NULL);

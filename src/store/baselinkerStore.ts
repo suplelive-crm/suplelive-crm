@@ -748,12 +748,23 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             const firstWarehouseId = Object.keys(stockByWarehouse)[0] || '';
             const firstStockQuantity = Object.values(stockByWarehouse)[0] ?? 0; // Usar ?? para preservar valores negativos
 
+            // Extrair preço de venda (primeiro item de prices)
+            const pricesObj = productData?.prices || {};
+            const priceValue = Object.values(pricesObj)[0] || product.price || 0;
+
+            // Extrair custo médio
+            const averageCost = parseFloat(productData?.average_cost || 0);
+
+            // Extrair duração do produto
+            const duracao = parseFloat(productData?.extra_field_63429 || 0);
+
             const productRecord = {
               name: product.name || productData.name,
               sku: product.sku,
               ean: product.ean,
-              price: parseFloat(productData.price_brutto || product.price || 0),
-              custo: parseFloat(productData.purchase_price_brutto || 0), // Custo do produto
+              price: parseFloat(priceValue),
+              custo: averageCost,
+              duracao: duracao,
               stock_es: typeof firstStockQuantity === 'number' ? firstStockQuantity : parseInt(firstStockQuantity as string, 10), // Preservar valores negativos
               warehouseID: firstWarehouseId, // Warehouse padrão
               description: productData?.text_fields?.description || '',
@@ -800,28 +811,29 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             }
 
             // NOVO SISTEMA: Salvar estoque de TODOS os warehouses na tabela dinâmica
+            // Usando RPC function para logging automático
             if (productId) {
               for (const [warehouseId, stockQuantity] of Object.entries(stockByWarehouse)) {
-                const { error: stockError } = await supabase
-                  .from('product_stock_by_warehouse')
-                  .upsert({
-                    workspace_id: currentWorkspace.id,
-                    product_id: productId,
-                    warehouse_id: warehouseId,
-                    sku: product.sku,
-                    ean: product.ean || null,
-                    product_name: product.name || productData?.name || product.sku,
-                    cost: parseFloat(productData?.purchase_price_brutto || 0) || null,
-                    price: parseFloat(productData?.price_brutto || 0) || null,
-                    stock_quantity: typeof stockQuantity === 'number' ? stockQuantity : parseInt(stockQuantity as string, 10), // Preservar negativos
-                    last_sync_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                  }, {
-                    onConflict: 'workspace_id,sku,warehouse_id'
-                  });
+                const stockQty = typeof stockQuantity === 'number' ? stockQuantity : parseInt(stockQuantity as string, 10);
+
+                const { error: stockError } = await supabase.rpc('upsert_product_stock_with_log', {
+                  p_workspace_id: currentWorkspace.id,
+                  p_product_id: productId,
+                  p_warehouse_id: warehouseId,
+                  p_sku: product.sku,
+                  p_ean: product.ean || null,
+                  p_product_name: product.name || productData?.name || product.sku,
+                  p_cost: averageCost || null,
+                  p_price: parseFloat(priceValue) || null,
+                  p_duracao: duracao || null,
+                  p_stock_quantity: stockQty,
+                  p_source: 'baselinker',
+                  p_action_type: 'sync',
+                  p_change_reason: 'Sincronização automática do Baselinker'
+                });
 
                 if (stockError) {
-                  console.error('Error upserting stock:', stockError);
+                  console.error('Error upserting stock with log:', stockError);
                 }
               }
             }
