@@ -297,16 +297,35 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             .filter(statusInfo => statusNamesToSync.includes(statusInfo.name.toLowerCase().replace(/\s+/g, '_')))
             .map(statusInfo => statusInfo.id);
           
+          // CORREÇÃO: Sincronização incremental usando order_date do último pedido
+          // Buscar o último pedido sincronizado no banco
+          const { data: lastOrder } = await supabase
+            .from('orders')
+            .select('order_date')
+            .eq('workspace_id', currentWorkspace.id)
+            .order('order_date', { ascending: false })
+            .limit(1)
+            .single();
+
+          // Se houver último pedido, usar a data dele +1 segundo para evitar duplicatas
+          // Senão, usar lastSyncTimestamp (primeira sincronização)
+          const dateFrom = lastOrder
+            ? Math.floor(new Date(lastOrder.order_date).getTime() / 1000) + 1
+            : lastSyncTimestamp;
+
+          console.log(`Iniciando sincronização incremental de pedidos (desde ${new Date(dateFrom * 1000).toISOString()})...`);
+          if (lastOrder) {
+            console.log(`Último pedido no banco: ${lastOrder.order_date}`);
+          }
+
           // Sistema de paginação: Baselinker retorna no máximo 100 pedidos por vez
           let allOrders: any[] = [];
           let page = 1;
           let hasMoreOrders = true;
 
-          console.log(`Iniciando sincronização de pedidos (desde ${new Date(lastSyncTimestamp * 1000).toISOString()})...`);
-
           while (hasMoreOrders) {
             const parametersToSync = {
-              date_from: lastSyncTimestamp,
+              date_from: dateFrom, // Usar data incremental
               status_id: statusIdsToSync.join(','),
               page: page
             };
@@ -407,21 +426,25 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             }
             
             if (!clientId) continue;
-            
+
+            // CORREÇÃO: Verificar duplicatas usando order_id_base
             const { data: existingOrders } = await supabase
               .from('orders')
               .select('id')
-              .eq('external_id', order.order_id);
-            
+              .eq('order_id_base', parseInt(order.order_id))
+              .eq('workspace_id', currentWorkspace.id);
+
             if (existingOrders && existingOrders.length > 0) {
+              // Pedido já existe, apenas atualizar status e metadata
               const { error: updateError } = await supabase
                 .from('orders')
                 .update({
                   total_amount: parseFloat(order.price),
                   status,
-                  metadata: { baselinker_data: orderData }
+                  metadata: { baselinker_data: orderData },
+                  updated_at: new Date().toISOString()
                 })
-                .eq('external_id', order.order_id);
+                .eq('id', existingOrders[0].id);
 
               if (updateError) {
                 console.error('Error updating order:', updateError);
@@ -652,60 +675,80 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             // productData.stock is an object like { "123": 50, "456": 30 }
             const stockByWarehouse = productData.stock || {};
 
-            // Create or update one row per warehouse
-            for (const [warehouseId, stockQuantity] of Object.entries(stockByWarehouse)) {
-              // Find existing product for this SKU and warehouse
-              const { data: existingProducts } = await supabase
+            // CORREÇÃO: Criar apenas UM produto por SKU (não um por warehouse)
+            // Primeiro, verificar se já existe um produto com este SKU
+            const { data: existingProducts, error: queryError } = await supabase
+              .from('products')
+              .select('id, warehouseID')
+              .eq('sku', product.sku)
+              .eq('workspace_id', currentWorkspace.id)
+              .limit(1);
+
+            if (queryError) {
+              console.error('Error querying product:', queryError);
+              continue;
+            }
+
+            // Pegar o primeiro warehouse disponível como padrão para warehouseID
+            const firstWarehouseId = Object.keys(stockByWarehouse)[0] || '';
+            const firstStockQuantity = Object.values(stockByWarehouse)[0] || 0;
+
+            const productRecord = {
+              name: product.name || productData.name,
+              sku: product.sku,
+              ean: product.ean,
+              price: parseFloat(productData.price_brutto || product.price || 0),
+              cost: parseFloat(productData.purchase_price_brutto || 0),
+              stock_es: parseInt(firstStockQuantity as string), // DEPRECATED: Manter temporariamente
+              warehouseID: firstWarehouseId, // Warehouse padrão
+              description: productData?.text_fields?.description || '',
+              images: productData?.images || [],
+              metadata: {
+                baselinker_data: productData,
+                baselinker_product_id: product.id
+              },
+              updated_at: new Date().toISOString()
+            };
+
+            let productId: string;
+
+            if (existingProducts && existingProducts.length > 0) {
+              // Update existing product
+              const { error: updateError } = await supabase
                 .from('products')
-                .select('id')
-                .eq('sku', product.sku)
-                .eq('warehouseID', warehouseId)
-                .eq('workspace_id', currentWorkspace.id);
+                .update(productRecord)
+                .eq('id', existingProducts[0].id);
 
-              const productRecord = {
-                name: product.name || productData.name,
-                sku: product.sku,
-                ean: product.ean,
-                price: parseFloat(productData.price_brutto || product.price || 0),
-                cost: parseFloat(productData.purchase_price_brutto || 0),
-                stock_es: parseInt(stockQuantity as string), // DEPRECATED: Manter temporariamente para compatibilidade
-                warehouseID: warehouseId,
-                description: productData?.text_fields?.description || '',
-                images: productData?.images || [],
-                metadata: {
-                  baselinker_data: productData,
-                  baselinker_product_id: product.id
-                },
-                updated_at: new Date().toISOString()
-              };
-
-              let productId: string;
-
-              if (existingProducts && existingProducts.length > 0) {
-                // Update existing product
-                await supabase
-                  .from('products')
-                  .update(productRecord)
-                  .eq('id', existingProducts[0].id);
-                productId = existingProducts[0].id;
-              } else {
-                // Insert new product
-                const { data: newProduct } = await supabase
-                  .from('products')
-                  .insert({
-                    ...productRecord,
-                    external_id: product.id,
-                    workspace_id: currentWorkspace.id,
-                  })
-                  .select('id')
-                  .single();
-
-                productId = newProduct?.id || '';
+              if (updateError) {
+                console.error('Error updating product:', updateError);
+                continue;
               }
 
-              // NOVO SISTEMA: Salvar estoque por warehouse na tabela dinâmica
-              if (productId) {
-                await supabase
+              productId = existingProducts[0].id;
+            } else {
+              // Insert new product
+              const { data: newProduct, error: insertError } = await supabase
+                .from('products')
+                .insert({
+                  ...productRecord,
+                  external_id: product.id.toString(),
+                  workspace_id: currentWorkspace.id,
+                })
+                .select('id')
+                .single();
+
+              if (insertError) {
+                console.error('Error inserting product:', insertError);
+                continue;
+              }
+
+              productId = newProduct?.id || '';
+            }
+
+            // NOVO SISTEMA: Salvar estoque de TODOS os warehouses na tabela dinâmica
+            if (productId) {
+              for (const [warehouseId, stockQuantity] of Object.entries(stockByWarehouse)) {
+                const { error: stockError } = await supabase
                   .from('product_stock_by_warehouse')
                   .upsert({
                     workspace_id: currentWorkspace.id,
@@ -717,6 +760,10 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                   }, {
                     onConflict: 'workspace_id,sku,warehouse_id'
                   });
+
+                if (stockError) {
+                  console.error('Error upserting stock:', stockError);
+                }
               }
             }
           }

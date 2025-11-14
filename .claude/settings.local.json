@@ -15,7 +15,13 @@
       "Bash(dir:*)",
       "Bash(findstr:*)",
       "Bash(timeout /t 3)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npm run build:*)",
+      "Bash(git rm:*)",
+      "Bash(.gitignore)",
+      "Bash(npm install:*)",
+      "Bash(npx supabase@2.58.5 functions deploy:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

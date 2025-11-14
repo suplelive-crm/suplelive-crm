@@ -32,6 +32,7 @@ import { JobsPage } from '@/pages/JobsPage';
 import { EstoquePage } from '@/pages/EstoquePage';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useAuthStore } from '@/store/authStore';
+import { initializeBaselinker } from '@/lib/baselinker-api';
 
 function AppContent() {
   const { currentWorkspace, workspaces, fetchWorkspaces, setCurrentWorkspace } =
@@ -358,6 +359,15 @@ function App() {
     const initAuth = async () => {
       try {
         await initialize();
+
+        // Initialize Baselinker API client
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        if (supabaseUrl && supabaseAnonKey) {
+          initializeBaselinker(supabaseUrl, supabaseAnonKey);
+          console.log('Baselinker API initialized');
+        }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {

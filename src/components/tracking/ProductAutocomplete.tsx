@@ -145,18 +145,31 @@ export function ProductAutocomplete({
     }
   }, [inputValue, filteredProducts.length]);
 
-  // Fechar ao clicar fora
+  // Fechar ao clicar fora - APENAS quando dropdown estiver aberto
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (event: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    // Usar setTimeout para evitar fechar imediatamente após abrir
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 100);
+
     return () => {
+      clearTimeout(timeoutId);
       document.removeEventListener('mousedown', handleClickOutside);
-      setIsOpen(false); // Garantir fechamento ao desmontar
+    };
+  }, [isOpen]); // Dependência: isOpen
+
+  // Limpar estado quando componente desmontar
+  useEffect(() => {
+    return () => {
+      setIsOpen(false);
     };
   }, []);
 
@@ -172,6 +185,13 @@ export function ProductAutocomplete({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onInputChange(e.target.value);
+  };
+
+  const handleInputBlur = () => {
+    // Delay para permitir clique nos itens do dropdown
+    setTimeout(() => {
+      setIsOpen(false);
+    }, 200);
   };
 
   // Função para obter o estoque correto do warehouse dinâmico
@@ -230,6 +250,7 @@ export function ProductAutocomplete({
             setIsOpen(true);
           }
         }}
+        onBlur={handleInputBlur}
         className="w-full"
         autoComplete="off"
       />
@@ -240,7 +261,10 @@ export function ProductAutocomplete({
             {filteredProducts.map((product) => (
               <div
                 key={product.id}
-                onClick={() => handleSelect(product)}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Previne blur do input
+                  handleSelect(product);
+                }}
                 className="px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">

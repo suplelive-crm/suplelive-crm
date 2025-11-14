@@ -92,16 +92,12 @@ export function BaselinkerWarehouseConfig() {
         throw new Error('Baselinker não está inicializado. Configure a API Key primeiro.');
       }
 
-      // Buscar API Key do localStorage (salva pelo baselinkerStore)
-      const configKey = `baselinker_config_${currentWorkspace!.id}`;
-      const savedConfig = localStorage.getItem(configKey);
-
-      if (!savedConfig) {
-        throw new Error('Configuração do Baselinker não encontrada. Configure a API Key na página de Integrações.');
+      // CORREÇÃO: Buscar API Key do workspace settings (Supabase)
+      if (!currentWorkspace?.settings?.baselinker?.apiKey) {
+        throw new Error('Configuração do Baselinker não encontrada. Configure a API Key na aba Configuração primeiro.');
       }
 
-      const config = JSON.parse(savedConfig);
-      const apiKey = config.apiKey;
+      const apiKey = currentWorkspace.settings.baselinker.apiKey;
 
       if (!apiKey) {
         throw new Error('API Key do Baselinker não configurada');

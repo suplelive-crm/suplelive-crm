@@ -7,6 +7,7 @@ import { OpenAIConfigDialog } from '@/components/integrations/OpenAIConfigDialog
 import { N8NConfigDialog } from '@/components/integrations/N8NConfigDialog';
 import { BaselinkerConfigDialog } from '@/components/integrations/BaselinkerConfigDialog';
 import { BaselinkerWarehouseConfig } from '@/components/integrations/BaselinkerWarehouseConfig';
+import { BaselinkerWebhookInstructions } from '@/components/integrations/BaselinkerWebhookInstructions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -282,9 +283,14 @@ export function IntegrationsPage() {
 
           {/* Baselinker Warehouse Configuration */}
           {isBaselinkerConnected() && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Configuração do Baselinker</h2>
-              <BaselinkerWarehouseConfig />
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Configuração do Baselinker</h2>
+                <div className="grid grid-cols-1 gap-6">
+                  <BaselinkerWarehouseConfig />
+                  <BaselinkerWebhookInstructions />
+                </div>
+              </div>
             </div>
           )}
         </motion.div>
