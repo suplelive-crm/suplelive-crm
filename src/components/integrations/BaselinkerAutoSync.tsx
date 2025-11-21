@@ -13,11 +13,6 @@ export function BaselinkerAutoSync() {
   const initializingRef = useRef(false);
 
   useEffect(() => {
-    console.log('[BASELINKER AUTO-SYNC] Verificando workspace...', {
-      hasWorkspace: !!currentWorkspace,
-      workspaceId: currentWorkspace?.id
-    });
-
     // Só executar se tiver workspace
     if (!currentWorkspace) {
       console.log('[BASELINKER AUTO-SYNC] ⚠️ Aguardando workspace...');
@@ -25,7 +20,7 @@ export function BaselinkerAutoSync() {
     }
 
     // Obter configuração de sincronização do workspace
-    const baselinkerSettings = currentWorkspace?.settings?.baselinker;
+    const baselinkerSettings = (currentWorkspace?.settings as any)?.baselinker;
 
     // Verificar se Baselinker está configurado
     if (!baselinkerSettings || !baselinkerSettings.token) {

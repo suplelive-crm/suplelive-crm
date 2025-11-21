@@ -58,6 +58,17 @@ export function BaselinkerConfigDialog() {
     if (open) {
       loadSavedConfig();
       checkConnectionStatus();
+      // SEMPRE buscar stats atualizados ao abrir o modal
+      fetchSyncStats();
+
+      // Atualizar stats a cada 10 segundos enquanto modal estiver aberto
+      const intervalId = setInterval(() => {
+        fetchSyncStats();
+      }, 10000); // 10 segundos
+
+      return () => {
+        clearInterval(intervalId);
+      };
     }
   }, [open, currentWorkspace?.id]);
 

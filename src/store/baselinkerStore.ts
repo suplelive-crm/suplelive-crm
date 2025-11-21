@@ -55,6 +55,146 @@ interface BaselinkerState {
   stopSyncInterval: () => void;
 }
 
+/**
+ * Calcula taxas e faturamento líquido com base na origem do pedido
+ * Baseado na lógica do n8n para cada marketplace/canal de venda
+ */
+// Função para buscar dados do cliente via CPF na API GhostAPIs
+async function fetchClientDataByCPF(cpf: string): Promise<{
+  nome: string | null;
+  email: string | null;
+  telefone: string | null;
+} | null> {
+  try {
+    const cpfLimpo = cpf.replace(/\D/g, ''); // Remove caracteres não numéricos
+
+    if (!cpfLimpo || cpfLimpo.length !== 11) {
+      console.log(`[GHOST API] CPF inválido: ${cpf}`);
+      return null;
+    }
+
+    console.log(`[GHOST API] Buscando dados do CPF: ${cpfLimpo}`);
+
+    const response = await fetch(
+      `https://ghostapis.com/api.php?token=aa21949b4c1804624d6a3a36253eeaad&cpf2=${cpfLimpo}`
+    );
+
+    if (!response.ok) {
+      console.error(`[GHOST API] Erro HTTP: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (!data || !data['response.NOME']) {
+      console.log(`[GHOST API] Dados não encontrados para CPF: ${cpfLimpo}`);
+      return null;
+    }
+
+    // Processar telefones (pega o primeiro com 11+ dígitos)
+    let telefone = null;
+    if (data['response.TELEFONES']) {
+      const telefones = data['response.TELEFONES'].split(',').map((t: string) => t.trim());
+      const telefoneValido = telefones.find((t: string) => t.replace(/\D/g, '').length >= 11);
+
+      if (telefoneValido) {
+        const telefoneLimpo = telefoneValido.replace(/\D/g, '');
+        telefone = `+55${telefoneLimpo}`;
+      }
+    }
+
+    const resultado = {
+      nome: data['response.NOME'] || null,
+      email: data['response.EMAIL'] || null,
+      telefone: telefone
+    };
+
+    console.log(`[GHOST API] ✅ Dados encontrados:`, resultado);
+    return resultado;
+  } catch (error) {
+    console.error('[GHOST API] Erro ao buscar dados do CPF:', error);
+    return null;
+  }
+}
+
+function calculateOrderFinancials(order: any): {
+  taxas: number;
+  faturamento_liquido: number;
+  canal_venda: string;
+} {
+  const valorCompra = parseFloat(order.payment_done || 0);
+  const valorFrete = parseFloat(order.delivery_price || 0);
+  const metodoPagamento = (order.payment_method || '').toLowerCase();
+  const source = (order.order_source || '').toLowerCase();
+  const sourceId = order.order_source_id;
+
+  // Calcular quantidade total de produtos
+  const products = order.products || [];
+  const quantidadeTotal = products.reduce((soma: number, produto: any) => soma + (produto.quantity || 0), 0);
+
+  let taxaCalculada = 0;
+  let canalVenda = source;
+
+  // Identificar canal e calcular taxa
+  if (source.includes('shopee') || sourceId === 123456) { // Ajustar sourceId correto
+    // Shopee: 22% + R$4 por item
+    taxaCalculada = (valorCompra * 0.22) + (quantidadeTotal * 4);
+    canalVenda = 'shopee';
+  }
+  else if (source.includes('mercado') || source.includes('meli') || source.includes('mercadolivre')) {
+    // Mercado Livre: 17% + R$19,50 por item
+    taxaCalculada = (valorCompra * 0.17) + (quantidadeTotal * 19.50);
+    canalVenda = 'mercadolivre';
+  }
+  else if (source.includes('amazon') || source.includes('magalu') || source.includes('shoptime') || source.includes('americanas')) {
+    // Amazon/Magalu/Shoptime/Americanas: 24.5%
+    taxaCalculada = valorCompra * 0.245;
+    canalVenda = source;
+  }
+  else if (sourceId === 8005077) {
+    // Site próprio: Taxa varia por método de pagamento
+    if (metodoPagamento.includes('pix')) {
+      taxaCalculada = valorCompra * 0.01; // 1%
+    } else if (metodoPagamento.includes('cartão') || metodoPagamento.includes('cartao') || metodoPagamento.includes('card')) {
+      taxaCalculada = valorCompra * 0.0887; // 8.87%
+    } else if (metodoPagamento.includes('boleto')) {
+      taxaCalculada = 2.39; // Taxa fixa
+    }
+    canalVenda = 'site';
+  }
+  else if (sourceId === 8005285) {
+    // Atacado: Sem taxa
+    taxaCalculada = 0;
+    canalVenda = 'atacado';
+  }
+  else if (source.includes('whatsapp') || source.includes('wpp')) {
+    // WhatsApp: Sem taxa
+    taxaCalculada = 0;
+    canalVenda = 'whatsapp';
+  }
+  else {
+    // Padrão: Considerar como site e calcular por método de pagamento
+    if (metodoPagamento.includes('pix')) {
+      taxaCalculada = valorCompra * 0.01;
+    } else if (metodoPagamento.includes('cartão') || metodoPagamento.includes('cartao') || metodoPagamento.includes('card')) {
+      taxaCalculada = valorCompra * 0.0887;
+    } else if (metodoPagamento.includes('boleto')) {
+      taxaCalculada = 2.39;
+    }
+    canalVenda = source || 'desconhecido';
+  }
+
+  // Calcular faturamento líquido
+  // Faturamento líquido = Valor pago - Taxa da plataforma - Frete
+  const faturamentoLiquido = valorCompra - taxaCalculada - valorFrete;
+
+  return {
+    taxas: parseFloat(taxaCalculada.toFixed(2)),
+    faturamento_liquido: parseFloat(faturamentoLiquido.toFixed(2)),
+    canal_venda: canalVenda
+  };
+}
+
 export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
   // Interval reference for cleanup
   let syncIntervalId: number | null = null;
@@ -366,6 +506,11 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
           // Salvar timestamp do início do processamento para usar depois
           const syncStartTime = new Date().toISOString();
 
+          let processedCount = 0;
+          let updatedCount = 0;
+          let insertedCount = 0;
+          let errorCount = 0;
+
           for (const order of orders) {
             // Order details are already included in the getOrders response
             const orderData = order;
@@ -380,22 +525,58 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             }
             
             let clientId = null;
-            if (orderData.email || orderData.phone) {
-              const { data: existingClients } = await supabase
+            let clientEmail = orderData.email;
+            let clientPhone = orderData.phone;
+            let clientName = orderData.delivery_fullname || orderData.invoice_fullname;
+
+            // Se não tiver email/telefone, tentar buscar via CPF (invoice_nip)
+            if (!clientEmail && !clientPhone && orderData.invoice_nip) {
+              console.log(`[PEDIDO ${order.order_id}] Sem email/telefone, tentando buscar via CPF: ${orderData.invoice_nip}`);
+
+              const ghostData = await fetchClientDataByCPF(orderData.invoice_nip);
+
+              if (ghostData) {
+                clientEmail = ghostData.email || clientEmail;
+                clientPhone = ghostData.telefone || clientPhone;
+                clientName = ghostData.nome || clientName;
+                console.log(`[PEDIDO ${order.order_id}] ✅ Dados encontrados via CPF - Email: ${clientEmail}, Telefone: ${clientPhone}`);
+              }
+            }
+
+            // Buscar ou criar cliente
+            if (clientEmail || clientPhone) {
+              // Buscar cliente existente por email, telefone OU CPF
+              let query = supabase
                 .from('clients')
                 .select('id')
-                .or(`email.eq.${orderData.email},phone.eq.${orderData.phone}`)
                 .eq('workspace_id', currentWorkspace.id);
-              
+
+              // Construir OR com os campos disponíveis
+              const orConditions: string[] = [];
+              if (clientEmail) orConditions.push(`email.eq.${clientEmail}`);
+              if (clientPhone) orConditions.push(`phone.eq.${clientPhone}`);
+              if (orderData.invoice_nip) {
+                const cpfLimpo = orderData.invoice_nip.replace(/\D/g, '');
+                if (cpfLimpo.length === 11) {
+                  orConditions.push(`metadata->baselinker_data->invoice_nip.eq.${cpfLimpo}`);
+                }
+              }
+
+              if (orConditions.length > 0) {
+                query = query.or(orConditions.join(','));
+              }
+
+              const { data: existingClients } = await query;
+
               if (existingClients && existingClients.length > 0) {
                 clientId = existingClients[0].id;
-                
+
                 await supabase
                   .from('clients')
                   .update({
-                    name: orderData.delivery_fullname || orderData.invoice_fullname,
-                    email: orderData.email,
-                    phone: orderData.phone,
+                    name: clientName,
+                    email: clientEmail,
+                    phone: clientPhone,
                     metadata: {
                       baselinker_data: {
                         company: orderData.invoice_company,
@@ -403,6 +584,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                         city: orderData.delivery_city,
                         postcode: orderData.delivery_postcode,
                         country: orderData.delivery_country,
+                        invoice_nip: orderData.invoice_nip,
                         last_order_id: order.order_id
                       }
                     }
@@ -412,9 +594,9 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                 const { data: newClient } = await supabase
                   .from('clients')
                   .insert({
-                    name: orderData.delivery_fullname || orderData.invoice_fullname,
-                    email: orderData.email,
-                    phone: orderData.phone,
+                    name: clientName,
+                    email: clientEmail,
+                    phone: clientPhone,
                     workspace_id: currentWorkspace.id,
                     metadata: {
                       baselinker_data: {
@@ -423,18 +605,19 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                         city: orderData.delivery_city,
                         postcode: orderData.delivery_postcode,
                         country: orderData.delivery_country,
+                        invoice_nip: orderData.invoice_nip,
                         last_order_id: order.order_id
                       }
                     }
                   })
                   .select()
                   .single();
-                
+
                 clientId = newClient?.id;
               }
+            } else {
+              console.log(`[PEDIDO ${order.order_id}] ⚠️ Pedido sem email/telefone/CPF - será criado sem cliente vinculado`);
             }
-            
-            if (!clientId) continue;
 
             // CORREÇÃO: Verificar duplicatas usando order_id_base
             const { data: existingOrder, error: checkError } = await supabase
@@ -446,6 +629,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
 
             if (checkError) {
               console.error('Error checking existing order:', checkError);
+              errorCount++;
               continue; // Pula este pedido
             }
 
@@ -455,17 +639,28 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               const paymentDone = parseFloat(orderData.payment_done || 0);
               const totalAmount = !isNaN(paymentDone) && paymentDone > 0 ? paymentDone : 0;
 
+              // ✅ RECALCULAR TAXAS E FATURAMENTO LÍQUIDO (caso tenha mudado)
+              const financials = calculateOrderFinancials(orderData);
+
               const { error: updateError } = await supabase
                 .from('orders')
                 .update({
                   total_amount: totalAmount,
                   status,
-                  metadata: { baselinker_data: orderData }
+                  metadata: { baselinker_data: orderData },
+                  // ✅ ATUALIZAR CAMPOS CALCULADOS
+                  taxas: financials.taxas,
+                  faturamento_liquido: financials.faturamento_liquido,
+                  canal_venda: financials.canal_venda
                 })
                 .eq('id', existingOrder.id);
 
               if (updateError) {
                 console.error('Error updating order:', updateError);
+                errorCount++;
+              } else {
+                updatedCount++;
+                processedCount++;
               }
             } else {
               // Calcular total_amount a partir dos dados do Baselinker
@@ -475,6 +670,15 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
               const paymentDone = parseFloat(orderData.payment_done || 0);
               const deliveryPrice = parseFloat(orderData.delivery_price || 0);
               const totalAmount = !isNaN(paymentDone) && paymentDone > 0 ? paymentDone : 0;
+
+              // ✅ CALCULAR TAXAS E FATURAMENTO LÍQUIDO
+              const financials = calculateOrderFinancials(orderData);
+              console.log(`[PEDIDO ${order.order_id}] Cálculo financeiro:`, {
+                canal: financials.canal_venda,
+                valorTotal: totalAmount,
+                taxas: financials.taxas,
+                faturamentoLiquido: financials.faturamento_liquido
+              });
 
               const { error: insertError } = await supabase
                 .from('orders')
@@ -487,7 +691,11 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                   external_id: order.order_id,
                   order_id_base: parseInt(order.order_id),
                   metadata: { baselinker_data: orderData },
-                  metadata_feita: false
+                  metadata_feita: false,
+                  // ✅ NOVOS CAMPOS CALCULADOS
+                  taxas: financials.taxas,
+                  faturamento_liquido: financials.faturamento_liquido,
+                  canal_venda: financials.canal_venda
                 });
 
               if (insertError) {
@@ -500,13 +708,12 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                   orderData: {
                     order_id: order.order_id,
                     original_price: order.price,
-                    parsed_price: totalAmount,
-                    valid_price: validTotalAmount
+                    parsed_price: totalAmount
                   },
                   attemptedData: {
                     workspace_id: currentWorkspace.id,
                     client_id: clientId,
-                    total_amount: validTotalAmount,
+                    total_amount: totalAmount,
                     order_date: new Date(order.date_add * 1000).toISOString(),
                     status,
                     external_id: order.order_id,
@@ -515,9 +722,20 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
                     metadata_feita: false
                   }
                 });
+                errorCount++;
+              } else {
+                insertedCount++;
+                processedCount++;
               }
             }
           }
+
+          console.log(`\n📊 RESUMO DA SINCRONIZAÇÃO DE PEDIDOS:`);
+          console.log(`   Total encontrado: ${allOrders.length}`);
+          console.log(`   ✅ Processados: ${processedCount}`);
+          console.log(`   🆕 Novos pedidos inseridos: ${insertedCount}`);
+          console.log(`   🔄 Pedidos atualizados: ${updatedCount}`);
+          console.log(`   ❌ Erros: ${errorCount}\n`);
           
           // Salvar timestamp da sincronização no banco
           // Usar syncStartTime para garantir que próxima sincronização pegue pedidos criados durante este processamento
