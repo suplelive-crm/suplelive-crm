@@ -17,6 +17,12 @@ import {
   getBaselinkerToken,
   getEvolutionConfig
 } from '../_shared/workspace-config.ts';
+import {
+  getWelcomeMessage,
+  getUpsellMessage,
+  getReorderMessage,
+  sendWhatsAppMessage
+} from '../_shared/message-templates.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -170,7 +176,7 @@ serve(async (req) => {
       client = newClient;
 
       // Send welcome message for new client
-      await sendWelcomeMessage(supabaseClient, workspaceId, client);
+      await sendWelcomeMessage(supabaseClient, workspaceId, client, fullOrder);
     } else {
       console.log(`Found existing client: ${client.id}`);
     }
@@ -304,26 +310,23 @@ serve(async (req) => {
 // ============================================================================
 
 /**
- * Send welcome message to new client
+ * Send welcome message to new client using template from database
  */
-async function sendWelcomeMessage(supabase: any, workspaceId: string, client: any) {
+async function sendWelcomeMessage(supabase: any, workspaceId: string, client: any, order?: any) {
   try {
     if (!client.phone) {
       console.log('Client has no phone, skipping welcome message');
       return;
     }
 
-    const message = `
-Olá ${client.name}! 👋
+    // Get welcome message from template system
+    const message = await getWelcomeMessage(supabase, workspaceId, {
+      client_name: client.name,
+      order_id: order?.order_id_base?.toString() || ''
+    });
 
-Obrigado por escolher nossa loja!
-Seu pedido foi recebido e já estamos processando.
-
-Qualquer dúvida, estou à disposição! 😊
-    `.trim();
-
-    // Send via Evolution API (WhatsApp)
-    await sendWhatsAppMessage(workspaceId, client.phone, message);
+    // Send via Evolution API (WhatsApp) using template helper
+    await sendWhatsAppMessage(supabase, workspaceId, client.phone, message);
 
     // Log message
     await supabase.from('messages').insert({
@@ -335,15 +338,16 @@ Qualquer dúvida, estou à disposição! 😊
       sender_type: 'bot',
     });
 
-    console.log(`Sent welcome message to ${client.phone}`);
+    console.log(`✅ Sent welcome message to ${client.phone} using template from database`);
   } catch (error) {
-    console.error('Error sending welcome message:', error);
+    console.error('❌ Error sending welcome message:', error);
     // Don't fail the whole process
   }
 }
 
 /**
- * Send upsell message suggesting complementary products
+ * Send upsell message for second unit with 20% discount
+ * Sends offer to buy additional unit of same product at discounted price
  */
 async function sendUpsellMessage(
   supabase: any,
@@ -358,40 +362,40 @@ async function sendUpsellMessage(
       return;
     }
 
-    // Get products from this order
-    const orderSkus = fullOrder.products.map((p: any) => p.sku);
-
-    // Find complementary products (simple rule-based for now)
-    const { data: complementaryProducts } = await supabase
-      .from('products')
-      .select('name, sku, price')
-      .eq('workspace_id', workspaceId)
-      .not('sku', 'in', `(${orderSkus.join(',')})`)
-      .limit(3);
-
-    if (!complementaryProducts || complementaryProducts.length === 0) {
-      console.log('No complementary products found');
+    // Check if order has products
+    if (!fullOrder.products || fullOrder.products.length === 0) {
+      console.log('Order has no products, skipping upsell message');
       return;
     }
 
-    const productList = complementaryProducts
-      .map((p: any) => `• ${p.name} - R$ ${p.price.toFixed(2)}`)
-      .join('\n');
+    // Get first product from order
+    const firstProduct = fullOrder.products[0];
 
-    const message = `
-Olá ${client.name}! 🎉
+    // Calculate prices: original price and 20% discount
+    const originalPrice = firstProduct.price_brutto * firstProduct.quantity;
+    const discountedPrice = originalPrice * 0.80; // 20% discount
 
-Obrigado pelo seu pedido!
+    // Get upsell message from template system
+    const message = await getUpsellMessage(supabase, workspaceId, {
+      client_name: client.name,
+      product_name: firstProduct.name,
+      original_price: originalPrice.toFixed(2),
+      discounted_price: discountedPrice.toFixed(2)
+    });
 
-Clientes que compraram os mesmos produtos também gostaram de:
+    // Send via Evolution API using template helper
+    await sendWhatsAppMessage(supabase, workspaceId, client.phone, message);
 
-${productList}
+    // Update order: mark upsell message as sent
+    await supabase
+      .from('orders')
+      .update({
+        mensagem_enviada: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', order.id);
 
-Quer aproveitar? Posso adicionar ao seu pedido! 😊
-    `.trim();
-
-    await sendWhatsAppMessage(workspaceId, client.phone, message);
-
+    // Log message
     await supabase.from('messages').insert({
       client_id: client.id,
       content: message,
@@ -401,13 +405,18 @@ Quer aproveitar? Posso adicionar ao seu pedido! 😊
       sender_type: 'bot',
       metadata: {
         order_id: order.id,
-        suggested_products: complementaryProducts.map((p: any) => p.sku),
+        product_sku: firstProduct.sku,
+        product_name: firstProduct.name,
+        original_price: originalPrice,
+        discounted_price: discountedPrice,
+        discount_percentage: 20
       },
     });
 
-    console.log(`Sent upsell message to ${client.phone}`);
+    console.log(`✅ Sent upsell message (segunda unidade 20% off) to ${client.phone} using template from database`);
+    console.log(`✅ Updated orders.mensagem_enviada = true for order ${order.id}`);
   } catch (error) {
-    console.error('Error sending upsell message:', error);
+    console.error('❌ Error sending upsell message:', error);
   }
 }
 
@@ -448,21 +457,21 @@ async function scheduleReorderMessages(
         continue;
       }
 
-      const message = `
-Olá ${client.name}!
+      // Get reorder message from template system
+      const message = await getReorderMessage(supabase, workspaceId, {
+        client_name: client.name,
+        product_name: productData.name,
+        product_sku: product.sku,
+        order_date: new Date(order.order_date).toLocaleDateString('pt-BR'),
+        duration_days: durationDays
+      });
 
-O produto "${productData.name}" que você comprou está acabando! 🏁
-
-Quer fazer uma nova compra para não ficar sem? 🛒
-
-É só me chamar! 😊
-      `.trim();
-
+      // Insert scheduled message with processed template
       await supabase.from('scheduled_messages').insert({
         workspace_id: workspaceId,
         client_id: client.id,
         message_type: 'reorder',
-        message_content: message,
+        message_content: message, // Template already processed with variables
         scheduled_for: reorderDate.toISOString(),
         status: 'pending',
         metadata: {
@@ -473,7 +482,15 @@ Quer fazer uma nova compra para não ficar sem? 🛒
         },
       });
 
-      console.log(`Scheduled reorder message for ${product.sku} on ${reorderDate.toISOString()}`);
+      // Update orders_products: mark reorder message as scheduled
+      await supabase
+        .from('orders_products')
+        .update({ mensagem_recompra: true })
+        .eq('order_id', order.id)
+        .eq('sku', product.sku);
+
+      console.log(`✅ Scheduled reorder message for ${product.sku} on ${reorderDate.toISOString()} using template from database`);
+      console.log(`✅ Updated orders_products.mensagem_recompra = true for product ${product.sku}`);
     }
   } catch (error) {
     console.error('Error scheduling reorder messages:', error);
@@ -510,52 +527,4 @@ async function updateClientStats(supabase: any, clientId: string) {
   }
 }
 
-/**
- * Send WhatsApp message via Evolution API
- */
-async function sendWhatsAppMessage(workspaceId: string, phone: string, message: string) {
-  // Get WhatsApp instance for workspace
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  );
-
-  const { data: instance } = await supabase
-    .from('whatsapp_instances')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .eq('status', 'connected')
-    .limit(1)
-    .maybeSingle();
-
-  if (!instance) {
-    console.log('No WhatsApp instance connected for workspace');
-    return;
-  }
-
-  // Get Evolution API credentials from workspace settings
-  try {
-    const evolutionConfig = await getEvolutionConfig(supabase, workspaceId);
-
-    const response = await fetch(`${evolutionConfig.api_url}/message/sendText/${instance.instance_name}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: evolutionConfig.api_key,
-      },
-      body: JSON.stringify({
-        number: phone,
-        text: message,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to send WhatsApp message: ${response.statusText}`);
-    }
-
-    console.log(`WhatsApp message sent to ${phone}`);
-  } catch (error) {
-    console.error('Error sending WhatsApp message:', error);
-    throw error;
-  }
-}
+// WhatsApp message sending is now handled by the imported sendWhatsAppMessage from message-templates.ts

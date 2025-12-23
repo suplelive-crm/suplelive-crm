@@ -25,7 +25,8 @@ import {
   Package,
   Truck,
   ShoppingBag,
-  Activity
+  Activity,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +46,7 @@ const navigation = [
   /*{ name: 'Mensagens', href: '/messages', icon: MessageSquare },*/
   { name: 'Campanhas', href: '/campaigns', icon: Target },
   { name: 'Automação', href: '/automation', icon: Bot },
+  { name: 'Templates', href: '/message-templates', icon: FileText },
   { name: 'Integrações', href: '/integrations', icon: Zap },
   /*{ name: 'Analytics', href: '/analytics', icon: BarChart3 },*/
   { name: 'Acompanhamento', href: '/tracking', icon: Truck },

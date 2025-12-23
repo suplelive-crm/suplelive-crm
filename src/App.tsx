@@ -30,6 +30,7 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { TrackingPage } from '@/pages/TrackingPage';
 import { JobsPage } from '@/pages/JobsPage';
 import { EstoquePage } from '@/pages/EstoquePage';
+import { MessageTemplatesPage } from '@/pages/MessageTemplatesPage';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useAuthStore } from '@/store/authStore';
 import { initializeBaselinker } from '@/lib/baselinker-api';
@@ -249,6 +250,18 @@ function AppContent() {
               <Navigate to="/onboarding" replace />
             ) : (
               <AutomationPage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/message-templates"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <MessageTemplatesPage />
             )}
           </ProtectedRoute>
         }

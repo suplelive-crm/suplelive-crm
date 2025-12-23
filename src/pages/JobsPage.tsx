@@ -24,7 +24,10 @@ import {
   TrendingUp,
   TrendingDown,
   Search,
+  Play,
+  MessageSquare,
 } from 'lucide-react';
+import { HistoryPanel } from '@/components/automation/HistoryPanel';
 
 interface EventQueueItem {
   id: string;
@@ -297,6 +300,10 @@ export function JobsPage() {
           <TabsList>
             <TabsTrigger value="events">Fila de Eventos</TabsTrigger>
             <TabsTrigger value="stock-logs">Logs de Estoque</TabsTrigger>
+            <TabsTrigger value="history">
+              <Play className="h-4 w-4 mr-2" />
+              Histórico Completo
+            </TabsTrigger>
           </TabsList>
 
           {/* Events Tab */}
@@ -496,6 +503,11 @@ export function JobsPage() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* History Panel Tab */}
+          <TabsContent value="history" className="space-y-4">
+            <HistoryPanel />
           </TabsContent>
         </Tabs>
       </div>
