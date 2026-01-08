@@ -40,7 +40,9 @@ interface CrmState {
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
   deleteOrders: (ids: string[]) => Promise<void>;
-  
+  verifyOrder: (orderId: string) => Promise<void>;
+  unverifyOrder: (orderId: string) => Promise<void>;
+
   sendMessage: (clientId: string, content: string, sendType?: 'manual' | 'automated') => Promise<void>;
   
   createCampaign: (campaign: Omit<Campaign, 'id' | 'created_at' | 'user_id' | 'workspace_id'>) => Promise<void>;
@@ -453,6 +455,13 @@ export const useCrmStore = create<CrmState>((set, get) => ({
 
   deleteOrder: async (id) => {
     await ErrorHandler.handleAsync(async () => {
+      // Verificar se usuário tem permissão
+      const canDelete = useWorkspaceStore.getState().canDeleteOrders();
+
+      if (!canDelete) {
+        throw new Error('Apenas Administradores e Proprietários podem deletar pedidos');
+      }
+
       const { error } = await supabase
         .from('orders')
         .delete()
@@ -467,6 +476,13 @@ export const useCrmStore = create<CrmState>((set, get) => ({
 
   deleteOrders: async (ids) => {
     await ErrorHandler.handleAsync(async () => {
+      // Verificar se usuário tem permissão
+      const canDelete = useWorkspaceStore.getState().canDeleteOrders();
+
+      if (!canDelete) {
+        throw new Error('Apenas Administradores e Proprietários podem deletar pedidos');
+      }
+
       const { error } = await supabase
         .from('orders')
         .delete()
@@ -476,6 +492,73 @@ export const useCrmStore = create<CrmState>((set, get) => ({
       get().fetchOrders();
       get().fetchStats();
       ErrorHandler.showSuccess(`${ids.length} pedido(s) excluído(s) com sucesso!`);
+    });
+  },
+
+  verifyOrder: async (orderId) => {
+    await ErrorHandler.handleAsync(async () => {
+      const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!currentWorkspace || !user) {
+        throw new Error('Workspace ou usuário não encontrado');
+      }
+
+      // Verificar se usuário tem permissão
+      const canVerify = useWorkspaceStore.getState().canDeleteOrders(); // Mesma permissão que deletar
+
+      if (!canVerify) {
+        throw new Error('Apenas Administradores e Proprietários podem verificar pedidos');
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          is_verified: true,
+          verified_by: user.id,
+          verified_at: new Date().toISOString()
+        })
+        .eq('id', orderId)
+        .eq('workspace_id', currentWorkspace.id);
+
+      if (error) throw error;
+
+      get().fetchOrders();
+      get().fetchStats();
+      ErrorHandler.showSuccess('Pedido verificado com sucesso!');
+    });
+  },
+
+  unverifyOrder: async (orderId) => {
+    await ErrorHandler.handleAsync(async () => {
+      const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
+
+      if (!currentWorkspace) {
+        throw new Error('Workspace não encontrado');
+      }
+
+      // Verificar se usuário tem permissão
+      const canVerify = useWorkspaceStore.getState().canDeleteOrders();
+
+      if (!canVerify) {
+        throw new Error('Apenas Administradores e Proprietários podem remover verificação');
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          is_verified: false,
+          verified_by: null,
+          verified_at: null
+        })
+        .eq('id', orderId)
+        .eq('workspace_id', currentWorkspace.id);
+
+      if (error) throw error;
+
+      get().fetchOrders();
+      get().fetchStats();
+      ErrorHandler.showSuccess('Verificação removida com sucesso!');
     });
   },
 

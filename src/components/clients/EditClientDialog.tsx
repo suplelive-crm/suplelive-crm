@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { User, Mail, Phone } from 'lucide-react';
 import { useCrmStore } from '@/store/crmStore';
 import { ErrorHandler } from '@/lib/error-handler';
@@ -20,6 +21,7 @@ export function EditClientDialog({ open, onOpenChange, contact }: EditClientDial
     name: '',
     phone: '',
     email: '',
+    is_verified: false,
   });
   const [phoneValid, setPhoneValid] = useState(true);
   const [emailValid, setEmailValid] = useState(true);
@@ -32,6 +34,7 @@ export function EditClientDialog({ open, onOpenChange, contact }: EditClientDial
         name: contact.name || '',
         phone: contact.phone || '',
         email: contact.email || '',
+        is_verified: (contact as Client).is_verified || false,
       });
       setPhoneValid(true);
       setEmailValid(true);
@@ -171,6 +174,23 @@ export function EditClientDialog({ open, onOpenChange, contact }: EditClientDial
                 <p className="text-sm text-destructive">Email inválido</p>
               )}
             </div>
+
+            {/* Checkbox de Verificado - apenas para clientes */}
+            {contact?.type === 'client' && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is_verified"
+                  checked={formData.is_verified}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_verified: checked as boolean })}
+                />
+                <Label
+                  htmlFor="is_verified"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Cliente Verificado
+                </Label>
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MessageSquare, ShoppingBag, Package, Store, Settings, Zap, RefreshCw, CheckCircle, XCircle, Clock, Bot } from 'lucide-react';
+import { MessageSquare, ShoppingBag, Package, Store, Settings, Zap, RefreshCw, CheckCircle, XCircle, Clock, Bot, Database } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { WhatsAppConfigDialog } from '@/components/whatsapp/WhatsAppConfigDialog';
 import { OpenAIConfigDialog } from '@/components/integrations/OpenAIConfigDialog';
@@ -8,6 +8,7 @@ import { N8NConfigDialog } from '@/components/integrations/N8NConfigDialog';
 import { BaselinkerConfigDialog } from '@/components/integrations/BaselinkerConfigDialog';
 import { BaselinkerWarehouseConfig } from '@/components/integrations/BaselinkerWarehouseConfig';
 import { BaselinkerWebhookInstructions } from '@/components/integrations/BaselinkerWebhookInstructions';
+import { GhostAPISConfigDialog } from '@/components/integrations/GhostAPISConfigDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -69,6 +70,16 @@ export function IntegrationsPage() {
       color: 'bg-orange-100 text-orange-800',
       status: isBaselinkerConnected() ? 'connected' : 'disconnected',
       action: 'Configurar Baselinker',
+      available: true,
+    },
+    {
+      id: 'ghostapis',
+      name: 'GhostAPIs (CPF)',
+      description: 'Enriqueça dados de clientes via CPF - busca nome, email e telefone automaticamente',
+      icon: Database,
+      color: 'bg-cyan-100 text-cyan-800',
+      status: useWorkspaceStore.getState().currentWorkspace?.settings?.ghostapis?.enabled ? 'connected' : 'disconnected',
+      action: 'Configurar GhostAPIs',
       available: true,
     },
     {
@@ -139,6 +150,8 @@ export function IntegrationsPage() {
         return <N8NConfigDialog />;
       case 'baselinker':
         return <BaselinkerConfigDialog />;
+      case 'ghostapis':
+        return <GhostAPISConfigDialog />;
       default:
         return (
           <Button className="w-full\" variant="outline\" disabled={!integration.available}>

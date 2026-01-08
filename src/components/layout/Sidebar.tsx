@@ -43,6 +43,7 @@ const navigation = [
   /*{ name: 'Kanban', href: '/kanban', icon: Kanban },*/
   { name: 'Pedidos', href: '/orders', icon: ShoppingCart },
   { name: 'Estoque', href: '/estoque', icon: Package },
+  { name: 'Vendas por SKU', href: '/sales-by-sku', icon: BarChart3 },
   /*{ name: 'Mensagens', href: '/messages', icon: MessageSquare },*/
   { name: 'Campanhas', href: '/campaigns', icon: Target },
   { name: 'Automação', href: '/automation', icon: Bot },

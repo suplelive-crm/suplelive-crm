@@ -3,6 +3,7 @@ import { Workspace, Plan, Subscription, Channel, WhatsAppInstance, WorkspaceUser
 import { supabase } from '@/lib/supabase';
 import { getEvolutionAPI, formatPhoneNumber } from '@/lib/evolution-api';
 import { ErrorHandler } from '@/lib/error-handler';
+import { useAuthStore } from './authStore';
 
 interface WorkspaceState {
   currentWorkspace: Workspace | null;
@@ -53,6 +54,11 @@ interface WorkspaceState {
   // Channel connections
   connectChannel: (type: string, config: Record<string, any>) => Promise<Channel>;
   disconnectChannel: (channelId: string) => Promise<void>;
+
+  // Permission helpers
+  getCurrentUserRole: () => 'owner' | 'admin' | 'operator' | null;
+  canDeleteOrders: () => boolean;
+  canManageUsers: () => boolean;
 }
 
 // Helper function to generate a unique workspace slug
@@ -182,13 +188,36 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const currentWorkspace = get().currentWorkspace;
       if (!currentWorkspace) return;
 
-      // Since workspace_users table doesn't exist in current schema,
-      // we'll return empty array for now
-      const data: any[] = [];
-      const error = null;
+      // Usar RPC para buscar workspace_users com detalhes do auth.users
+      const { data, error } = await supabase
+        .rpc('get_workspace_users_with_details', {
+          p_workspace_id: currentWorkspace.id
+        });
 
       if (error) throw error;
-      set({ workspaceUsers: data || [] });
+
+      // Transformar dados para formato esperado
+      const enrichedUsers = (data || []).map((wu: any) => ({
+        id: wu.id,
+        workspace_id: wu.workspace_id,
+        user_id: wu.user_id,
+        role: wu.role,
+        invited_by: wu.invited_by,
+        invited_at: wu.invited_at,
+        joined_at: wu.joined_at,
+        status: wu.status,
+        created_at: wu.created_at,
+        updated_at: wu.updated_at,
+        user: {
+          id: wu.user_id,
+          email: wu.user_email,
+          user_metadata: {
+            name: wu.user_name
+          }
+        }
+      }));
+
+      set({ workspaceUsers: enrichedUsers });
     });
   },
 
@@ -197,13 +226,36 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const currentWorkspace = get().currentWorkspace;
       if (!currentWorkspace) return;
 
-      // Since user_invitations table doesn't exist in current schema,
-      // we'll return empty array for now
-      const data: any[] = [];
-      const error = null;
+      // Usar RPC para buscar user_invitations com detalhes de quem convidou
+      const { data, error } = await supabase
+        .rpc('get_user_invitations_with_details', {
+          p_workspace_id: currentWorkspace.id
+        });
 
       if (error) throw error;
-      set({ userInvitations: data || [] });
+
+      // Transformar dados para formato esperado
+      const enrichedInvitations = (data || []).map((inv: any) => ({
+        id: inv.id,
+        workspace_id: inv.workspace_id,
+        email: inv.email,
+        role: inv.role,
+        invited_by: inv.invited_by,
+        token: inv.token,
+        expires_at: inv.expires_at,
+        status: inv.status,
+        created_at: inv.created_at,
+        updated_at: inv.updated_at,
+        invited_by_user: {
+          id: inv.invited_by,
+          email: inv.invited_by_email,
+          user_metadata: {
+            name: inv.invited_by_name
+          }
+        }
+      }));
+
+      set({ userInvitations: enrichedInvitations });
     });
   },
 
@@ -327,9 +379,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       set({ currentWorkspace: workspace });
       get().fetchChannels();
       get().fetchWhatsAppInstances();
-      // Skip user management fetches until tables are properly set up
-      // get().fetchWorkspaceUsers();
-      // get().fetchUserInvitations();
+      get().fetchWorkspaceUsers();
+      get().fetchUserInvitations();
     } else {
       // Clear workspace
       localStorage.removeItem('currentWorkspaceId');
@@ -351,8 +402,43 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   inviteUser: async (email, role) => {
     await ErrorHandler.handleAsync(async () => {
-      // User invitation functionality disabled until proper tables are created
-      throw new Error('Funcionalidade de convite de usuários temporariamente indisponível');
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      // Check if user already exists in workspace
+      const { data: existingMember } = await supabase
+        .from('workspace_users')
+        .select('id')
+        .eq('workspace_id', currentWorkspace.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existingMember) {
+        throw new Error('Este usuário já é membro do workspace');
+      }
+
+      // Create invitation
+      const { error } = await supabase
+        .from('user_invitations')
+        .insert({
+          workspace_id: currentWorkspace.id,
+          email,
+          role,
+          invited_by: user.id,
+        });
+
+      if (error) throw error;
+
+      ErrorHandler.showSuccess(
+        'Convite enviado!',
+        `Um convite foi enviado para ${email}`
+      );
+
+      // Refresh invitations list
+      get().fetchUserInvitations();
     });
   },
 
@@ -396,29 +482,100 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
   removeUser: async (userId) => {
     await ErrorHandler.handleAsync(async () => {
-      // User management functionality disabled until proper tables are created
-      throw new Error('Funcionalidade de gerenciamento de usuários temporariamente indisponível');
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+      // Remove user from workspace
+      const { error } = await supabase
+        .from('workspace_users')
+        .delete()
+        .eq('workspace_id', currentWorkspace.id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      ErrorHandler.showSuccess(
+        'Usuário removido',
+        'O usuário foi removido do workspace com sucesso'
+      );
+
+      // Refresh users list
+      get().fetchWorkspaceUsers();
     });
   },
 
   updateUserRole: async (userId, role) => {
     await ErrorHandler.handleAsync(async () => {
-      // User role management functionality disabled until proper tables are created
-      throw new Error('Funcionalidade de alteração de roles temporariamente indisponível');
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+      // Update user role
+      const { error } = await supabase
+        .from('workspace_users')
+        .update({ role })
+        .eq('workspace_id', currentWorkspace.id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      ErrorHandler.showSuccess(
+        'Role atualizado',
+        `O role do usuário foi alterado para ${role === 'admin' ? 'Administrador' : 'Operador'}`
+      );
+
+      // Refresh users list
+      get().fetchWorkspaceUsers();
     });
   },
 
   cancelInvitation: async (invitationId) => {
     await ErrorHandler.handleAsync(async () => {
-      // Invitation management functionality disabled until proper tables are created
-      throw new Error('Funcionalidade de cancelamento de convites temporariamente indisponível');
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+      // Update invitation status to cancelled
+      const { error } = await supabase
+        .from('user_invitations')
+        .update({ status: 'cancelled' })
+        .eq('id', invitationId)
+        .eq('workspace_id', currentWorkspace.id);
+
+      if (error) throw error;
+
+      ErrorHandler.showSuccess(
+        'Convite cancelado',
+        'O convite foi cancelado com sucesso'
+      );
+
+      // Refresh invitations list
+      get().fetchUserInvitations();
     });
   },
 
   resendInvitation: async (invitationId) => {
     await ErrorHandler.handleAsync(async () => {
-      // Invitation resend functionality disabled until proper tables are created
-      throw new Error('Funcionalidade de reenvio de convites temporariamente indisponível');
+      const currentWorkspace = get().currentWorkspace;
+      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+      // Update invitation expiration date
+      const { error } = await supabase
+        .from('user_invitations')
+        .update({
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+          status: 'pending'
+        })
+        .eq('id', invitationId)
+        .eq('workspace_id', currentWorkspace.id);
+
+      if (error) throw error;
+
+      ErrorHandler.showSuccess(
+        'Convite reenviado',
+        'O convite foi reenviado com nova data de expiração'
+      );
+
+      // Refresh invitations list
+      get().fetchUserInvitations();
     });
   },
 
@@ -976,5 +1133,29 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       if (error) throw error;
       get().fetchChannels();
     });
+  },
+
+  // Permission helpers
+  getCurrentUserRole: () => {
+    const currentWorkspace = get().currentWorkspace;
+    const workspaceUsers = get().workspaceUsers;
+    const currentUser = useAuthStore.getState().user;
+
+    if (!currentWorkspace || !currentUser) return null;
+
+    // Find user in workspace users
+    const userInWorkspace = workspaceUsers.find(wu => wu.user_id === currentUser.id);
+
+    return (userInWorkspace?.role as 'owner' | 'admin' | 'operator') || null;
+  },
+
+  canDeleteOrders: () => {
+    const role = get().getCurrentUserRole();
+    return role === 'owner' || role === 'admin';
+  },
+
+  canManageUsers: () => {
+    const role = get().getCurrentUserRole();
+    return role === 'owner' || role === 'admin';
   },
 }));

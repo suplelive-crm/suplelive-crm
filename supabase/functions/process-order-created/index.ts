@@ -23,6 +23,7 @@ import {
   getReorderMessage,
   sendWhatsAppMessage
 } from '../_shared/message-templates.ts';
+import { validateAndFindBestPhone } from './validate-client-data.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -149,12 +150,55 @@ serve(async (req) => {
     if (!client) {
       console.log('Creating new client');
 
+      // ========================================================================
+      // VALIDAÇÃO AVANÇADA DE TELEFONE
+      // ========================================================================
+      let validatedPhone: string | null = phone;
+
+      // Se não tiver telefone no pedido E tiver CPF, buscar no GhostAPI + validar WhatsApp
+      if (!phone && cpf) {
+        console.log('⚠️ Pedido sem telefone - Iniciando busca no GhostAPI + validação WhatsApp');
+
+        // Buscar instância WhatsApp ativa do workspace
+        const { data: whatsappInstance } = await supabaseClient
+          .from('whatsapp_instances')
+          .select('id')
+          .eq('workspace_id', workspaceId)
+          .eq('status', 'connected')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (whatsappInstance) {
+          const customerName = fullOrder.delivery_fullname || fullOrder.invoice_fullname || 'Cliente';
+
+          validatedPhone = await validateAndFindBestPhone(
+            cpf,
+            customerName,
+            workspaceId,
+            whatsappInstance.id,
+            supabaseClient
+          );
+
+          if (validatedPhone) {
+            console.log(`✅ Telefone validado encontrado: ${validatedPhone}`);
+          } else {
+            console.log(`❌ Nenhum telefone válido encontrado - Cliente será criado SEM telefone`);
+          }
+        } else {
+          console.log('⚠️ Sem instância WhatsApp ativa - Não é possível validar telefones');
+        }
+      } else if (phone) {
+        console.log(`ℹ️ Telefone do pedido: ${phone} (sem validação extra)`);
+      }
+
+      // Criar cliente (com ou sem telefone validado)
       const { data: newClient, error: clientError } = await supabaseClient
         .from('clients')
         .insert({
           workspace_id: workspaceId,
           name: fullOrder.delivery_fullname || fullOrder.invoice_fullname || 'Cliente',
-          phone: phone,
+          phone: validatedPhone,
           email: email || null,
           cpf: cpf,
           metadata: {
@@ -164,6 +208,14 @@ serve(async (req) => {
             delivery_city: fullOrder.delivery_city,
             delivery_state: fullOrder.delivery_state,
             delivery_postcode: fullOrder.delivery_postcode,
+            phone_validation: validatedPhone ? {
+              validated: true,
+              source: !phone ? 'ghost_api_whatsapp' : 'baselinker',
+              validated_at: new Date().toISOString(),
+            } : {
+              validated: false,
+              reason: !phone && cpf ? 'no_valid_phone_found' : 'no_phone_in_order',
+            }
           },
         })
         .select()
@@ -175,8 +227,12 @@ serve(async (req) => {
 
       client = newClient;
 
-      // Send welcome message for new client
-      await sendWelcomeMessage(supabaseClient, workspaceId, client, fullOrder);
+      // Send welcome message for new client (apenas se tiver telefone válido)
+      if (validatedPhone) {
+        await sendWelcomeMessage(supabaseClient, workspaceId, client, fullOrder);
+      } else {
+        console.log('⚠️ Cliente criado sem telefone - Mensagem de boas-vindas NÃO enviada');
+      }
     } else {
       console.log(`Found existing client: ${client.id}`);
     }
@@ -389,10 +445,7 @@ async function sendUpsellMessage(
     // Update order: mark upsell message as sent
     await supabase
       .from('orders')
-      .update({
-        mensagem_enviada: true,
-        updated_at: new Date().toISOString()
-      })
+      .update({ mensagem_enviada: true })
       .eq('id', order.id);
 
     // Log message

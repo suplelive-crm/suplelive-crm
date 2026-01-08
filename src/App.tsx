@@ -31,6 +31,7 @@ import { TrackingPage } from '@/pages/TrackingPage';
 import { JobsPage } from '@/pages/JobsPage';
 import { EstoquePage } from '@/pages/EstoquePage';
 import { MessageTemplatesPage } from '@/pages/MessageTemplatesPage';
+import { SalesBySkuPage } from '@/pages/SalesBySkuPage';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useAuthStore } from '@/store/authStore';
 import { initializeBaselinker } from '@/lib/baselinker-api';
@@ -322,6 +323,18 @@ function AppContent() {
               <Navigate to="/onboarding" replace />
             ) : (
               <EstoquePage />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales-by-sku"
+        element={
+          <ProtectedRoute>
+            {!currentWorkspace ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <SalesBySkuPage />
             )}
           </ProtectedRoute>
         }

@@ -60,7 +60,7 @@ interface BaselinkerState {
  * Baseado na lógica do n8n para cada marketplace/canal de venda
  */
 // Função para buscar dados do cliente via CPF na API GhostAPIs
-async function fetchClientDataByCPF(cpf: string): Promise<{
+async function fetchClientDataByCPF(cpf: string, workspaceId?: string): Promise<{
   nome: string | null;
   email: string | null;
   telefone: string | null;
@@ -73,10 +73,28 @@ async function fetchClientDataByCPF(cpf: string): Promise<{
       return null;
     }
 
+    // Get GhostAPIs token from workspace settings
+    let token = 'aa21949b4c1804624d6a3a36253eeaad'; // Default fallback token
+
+    if (workspaceId) {
+      const { data: workspace } = await supabase
+        .from('workspaces')
+        .select('settings')
+        .eq('id', workspaceId)
+        .single();
+
+      if (workspace?.settings?.ghostapis?.token) {
+        token = workspace.settings.ghostapis.token;
+        console.log(`[GHOST API] Usando token do workspace`);
+      } else {
+        console.log(`[GHOST API] Token não configurado no workspace, usando token padrão`);
+      }
+    }
+
     console.log(`[GHOST API] Buscando dados do CPF: ${cpfLimpo}`);
 
     const response = await fetch(
-      `https://ghostapis.com/api.php?token=aa21949b4c1804624d6a3a36253eeaad&cpf2=${cpfLimpo}`
+      `https://ghostapis.com/api.php?token=${token}&cpf2=${cpfLimpo}`
     );
 
     if (!response.ok) {
@@ -533,7 +551,7 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
             if (!clientEmail && !clientPhone && orderData.invoice_nip) {
               console.log(`[PEDIDO ${order.order_id}] Sem email/telefone, tentando buscar via CPF: ${orderData.invoice_nip}`);
 
-              const ghostData = await fetchClientDataByCPF(orderData.invoice_nip);
+              const ghostData = await fetchClientDataByCPF(orderData.invoice_nip, currentWorkspace.id);
 
               if (ghostData) {
                 clientEmail = ghostData.email || clientEmail;

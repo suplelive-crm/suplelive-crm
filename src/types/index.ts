@@ -251,6 +251,7 @@ export interface Client {
   total_spent?: number;
   last_order_date?: string;
   metadata?: Record<string, any>;
+  is_verified?: boolean;
 }
 
 export interface Order {
@@ -274,6 +275,9 @@ export interface Order {
   'custo_frete(taxa)'?: number;
   produtos_order?: boolean;
   metadata_feita?: boolean;
+  is_verified?: boolean;
+  verified_by?: string;
+  verified_at?: string;
 }
 
 export interface Product {

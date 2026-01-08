@@ -341,7 +341,15 @@ export function ClientsPage() {
                                 <AvatarFallback className={contact.type === 'client' ? 'bg-indigo-100 text-indigo-600' : 'bg-blue-100 text-blue-600'}>{getInitials(contact.name)}</AvatarFallback>
                               </Avatar>
                               <div>
-                                <div className="font-medium">{contact.name}</div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{contact.name}</span>
+                                  {contact.is_verified && (
+                                    <Badge className="bg-green-100 text-green-800 text-xs">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Verificado
+                                    </Badge>
+                                  )}
+                                </div>
                                 <div className="flex items-center gap-1 mt-0.5">
                                   <Badge variant={contact.type === 'client' ? 'default' : 'secondary'} className="text-xs">{contact.type === 'client' ? 'Cliente' : 'Lead'}</Badge>
                                   {contact.tags && contact.tags.length > 0 && (<Badge variant="outline" className="text-xs"><Tag className="h-3 w-3 mr-1" />{contact.tags[0]}{contact.tags.length > 1 && `+${contact.tags.length - 1}`}</Badge>)}

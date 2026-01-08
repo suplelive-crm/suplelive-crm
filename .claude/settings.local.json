@@ -23,7 +23,10 @@
       "Bash(npx supabase@2.58.5 functions deploy:*)",
       "Bash(curl:*)",
       "Bash(\"C:\\Users\\paull\\Documents\\GitHub\\suplelive-crm\\src\\store\\baselinkerStore.ts\")",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(move \"c:\\\\Users\\\\paull\\\\Documents\\\\GitHub\\\\suplelive-crm\\\\src\\\\components\\\\integrations\\\\GhostAP ISConfigDialog.tsx\" \"c:\\\\Users\\\\paull\\\\Documents\\\\GitHub\\\\suplelive-crm\\\\src\\\\components\\\\integrations\\\\GhostAPISConfigDialog.tsx\")",
+      "Bash(ren \"c:\\\\Users\\\\paull\\\\Documents\\\\GitHub\\\\suplelive-crm\\\\src\\\\components\\\\integrations\\\\GhostAP ISConfigDialog.tsx\" \"GhostAPISConfigDialog.tsx\")",
+      "Bash(powershell -Command \"Start-Process ''C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe''\")"
     ],
     "deny": [],
     "ask": []

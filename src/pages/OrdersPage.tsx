@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Search, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddOrderDialog } from '@/components/orders/AddOrderDialog';
 import { OrderDetailsDialog } from '@/components/orders/OrderDetailsDialog';
@@ -12,12 +12,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useCrmStore } from '@/store/crmStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
 import { Order } from '@/types';
 
 export function OrdersPage() {
-  const { orders, fetchOrders, deleteOrders } = useCrmStore();
+  const { orders, fetchOrders, deleteOrders, verifyOrder, unverifyOrder } = useCrmStore();
+  const canDeleteOrders = useWorkspaceStore(state => state.canDeleteOrders);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showOnlyUnverified, setShowOnlyUnverified] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>({ key: 'order_date', direction: 'descending' });
@@ -38,9 +41,10 @@ export function OrdersPage() {
                             (order.order_id_base && order.order_id_base.toString().includes(searchTerm)) ||
                             order.id.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesVerification = !showOnlyUnverified || !order.is_verified;
+      return matchesSearch && matchesStatus && matchesVerification;
     });
-  }, [orders, searchTerm, statusFilter]);
+  }, [orders, searchTerm, statusFilter, showOnlyUnverified]);
 
   const sortedOrders = useMemo(() => {
     let sortableItems = [...filteredOrders];
@@ -151,7 +155,7 @@ export function OrdersPage() {
             <AddOrderDialog />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card>
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-yellow-600">{orders.filter(o => o.status === 'pending').length}</div>
@@ -176,23 +180,41 @@ export function OrdersPage() {
                 <div className="text-sm text-gray-600">Ticket Médio</div>
               </CardContent>
             </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-orange-600">{orders.filter(o => !o.is_verified).length}</div>
+                <div className="text-sm text-gray-600">Pendentes Verificação</div>
+              </CardContent>
+            </Card>
           </div>
 
           <Card>
             <CardHeader><CardTitle>Busca & Filtros</CardTitle></CardHeader>
             <CardContent>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input placeholder="Buscar pedidos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input placeholder="Buscar pedidos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant={statusFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('all')}>Todos</Button>
+                    <Button variant={statusFilter === 'pending' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('pending')}>Pendentes</Button>
+                    <Button variant={statusFilter === 'completed' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('completed')}>Concluídos</Button>
+                    <Button variant={statusFilter === 'cancelled' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('cancelled')}>Cancelados</Button>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant={statusFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('all')}>Todos</Button>
-                  <Button variant={statusFilter === 'pending' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('pending')}>Pendentes</Button>
-                  <Button variant={statusFilter === 'completed' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('completed')}>Concluídos</Button>
-                  <Button variant={statusFilter === 'cancelled' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('cancelled')}>Cancelados</Button>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="showOnlyUnverified"
+                    checked={showOnlyUnverified}
+                    onCheckedChange={(checked) => setShowOnlyUnverified(checked as boolean)}
+                  />
+                  <label htmlFor="showOnlyUnverified" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                    Apenas Não Verificados
+                  </label>
                 </div>
               </div>
             </CardContent>
@@ -202,7 +224,7 @@ export function OrdersPage() {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Todos os Pedidos ({sortedOrders.length})</CardTitle>
-                {selectedOrderIds.length > 0 && (
+                {selectedOrderIds.length > 0 && canDeleteOrders() && (
                   <Button variant="destructive" size="sm" onClick={handleDeleteSelected}>
                     <Trash2 className="h-4 w-4 mr-2" />
                     Excluir {selectedOrderIds.length} selecionado(s)
@@ -215,17 +237,21 @@ export function OrdersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12">
-                        <Checkbox
-                          checked={paginatedOrders.length > 0 && selectedOrderIds.length === paginatedOrders.length}
-                          onCheckedChange={handleSelectAll}
-                        />
-                      </TableHead>
+                      {canDeleteOrders() && (
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={paginatedOrders.length > 0 && selectedOrderIds.length === paginatedOrders.length}
+                            onCheckedChange={handleSelectAll}
+                          />
+                        </TableHead>
+                      )}
                       <TableHead onClick={() => requestSort('order_id_base')} className="cursor-pointer hover:bg-gray-100">ID do Pedido{getSortIcon('order_id_base')}</TableHead>
                       <TableHead onClick={() => requestSort('client.name')} className="cursor-pointer hover:bg-gray-100">Cliente{getSortIcon('client.name')}</TableHead>
                       <TableHead onClick={() => requestSort('total_amount')} className="cursor-pointer hover:bg-gray-100">Valor{getSortIcon('total_amount')}</TableHead>
                       <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-gray-100">Status{getSortIcon('status')}</TableHead>
                       <TableHead onClick={() => requestSort('order_date')} className="cursor-pointer hover:bg-gray-100">Data{getSortIcon('order_date')}</TableHead>
+                      <TableHead className="text-center">2ª Compra</TableHead>
+                      <TableHead className="text-center">Recompra</TableHead>
                       <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -234,12 +260,14 @@ export function OrdersPage() {
                       const statusInfo = getStatusInfo(order.status);
                       return (
                         <TableRow key={order.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedOrderIds.includes(order.id)}
-                              onCheckedChange={(checked) => handleSelectOrder(order.id, checked as boolean)}
-                            />
-                          </TableCell>
+                          {canDeleteOrders() && (
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedOrderIds.includes(order.id)}
+                                onCheckedChange={(checked) => handleSelectOrder(order.id, checked as boolean)}
+                              />
+                            </TableCell>
+                          )}
                           <TableCell className="font-medium">
                             {order.order_id_base ? (
                               <a href={`https://panel-u.baselinker.com/orders.php#order:${order.order_id_base}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline">
@@ -252,12 +280,55 @@ export function OrdersPage() {
                           </TableCell>
                           <TableCell>{order.client?.name || 'Cliente Desconhecido'}</TableCell>
                           <TableCell>{formatCurrency(order.total_amount)}</TableCell>
-                          <TableCell><Badge className={statusInfo.className}>{statusInfo.text}</Badge></TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Badge className={statusInfo.className}>{statusInfo.text}</Badge>
+                              {order.is_verified && (
+                                <Badge className="bg-green-100 text-green-800 text-xs">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Verificado
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>{new Date(order.order_date).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell className="text-center">
+                            {order.mensagem_enviada ? (
+                              <span className="text-2xl" title="Mensagem de segunda compra (upsell) enviada">✅</span>
+                            ) : (
+                              <span className="text-2xl" title="Mensagem de segunda compra não enviada">❌</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="text-xl text-gray-400" title="Rastreamento de recompra em desenvolvimento">⏳</span>
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
                               <Button size="sm" variant="outline">Editar</Button>
                               <Button size="sm" variant="outline" onClick={() => handleViewOrder(order)}>Ver</Button>
+                              {canDeleteOrders() && (
+                                order.is_verified ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => unverifyOrder(order.id)}
+                                    className="text-orange-600 hover:text-orange-700"
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Desverificar
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => verifyOrder(order.id)}
+                                    className="text-green-600 hover:text-green-700"
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Verificar
+                                  </Button>
+                                )
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
