@@ -1109,9 +1109,27 @@ export const useBaselinkerStore = create<BaselinkerState>((set, get) => {
       await ErrorHandler.handleAsync(async () => {
         const config = get().config;
         const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
-        
-        if (!config || !currentWorkspace) {
-          throw new Error('Configuração incompleta');
+
+        // Log detalhado para debug
+        console.log('[BASELINKER SYNC] Verificando configuração:', {
+          hasConfig: !!config,
+          hasWorkspace: !!currentWorkspace,
+          config: config ? {
+            apiKey: config.apiKey ? '***' + config.apiKey.slice(-4) : 'undefined',
+            syncOrders: config.syncOrders,
+            syncCustomers: config.syncCustomers,
+            syncInventory: config.syncInventory,
+            inventoryId: config.inventoryId
+          } : null,
+          workspaceId: currentWorkspace?.id
+        });
+
+        if (!config) {
+          throw new Error('Configuração incompleta: config is null. O Baselinker pode não estar conectado ou a conexão ainda está inicializando.');
+        }
+
+        if (!currentWorkspace) {
+          throw new Error('Configuração incompleta: currentWorkspace is null. Nenhum workspace selecionado.');
         }
         
         await supabase

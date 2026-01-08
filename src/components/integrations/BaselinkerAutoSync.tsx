@@ -7,7 +7,7 @@ import { useWorkspaceStore } from '@/store/workspaceStore';
  * Deve ser montado uma única vez no layout principal
  */
 export function BaselinkerAutoSync() {
-  const { isConnected, connect, syncAll } = useBaselinkerStore();
+  const { isConnected, connect, syncAll, config } = useBaselinkerStore();
   const { currentWorkspace } = useWorkspaceStore();
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
   const initializingRef = useRef(false);
@@ -61,12 +61,34 @@ export function BaselinkerAutoSync() {
       }
     };
 
-    // Inicializar antes de começar as sincronizações
-    initializeConnection();
-
     // Função para executar sincronização
     const runSync = async () => {
       try {
+        // Verificar se está conectado antes de sincronizar
+        const connected = isConnected();
+        const hasConfig = !!config;
+
+        console.log(`[BASELINKER AUTO-SYNC] Status:`, {
+          isConnected: connected ? '✅ Sim' : '❌ Não',
+          hasConfig: hasConfig ? '✅ Sim' : '❌ Não',
+          configDetails: config ? {
+            apiKey: config.apiKey ? '***' + config.apiKey.slice(-4) : 'undefined',
+            syncOrders: config.syncOrders,
+            syncCustomers: config.syncCustomers,
+            syncInventory: config.syncInventory
+          } : 'Config is null'
+        });
+
+        if (!connected) {
+          console.log('[BASELINKER AUTO-SYNC] ⚠️ Baselinker não está conectado (settings). Aguardando conexão...');
+          return;
+        }
+
+        if (!hasConfig) {
+          console.log('[BASELINKER AUTO-SYNC] ⚠️ Config do Zustand store é null. A conexão pode estar inicializando...');
+          return;
+        }
+
         const now = new Date();
         console.log(`[BASELINKER AUTO-SYNC] 🔄 Executando sincronização automática às ${now.toLocaleTimeString('pt-BR')}`);
 
@@ -78,12 +100,26 @@ export function BaselinkerAutoSync() {
       }
     };
 
-    // Executar primeira sincronização após 10 segundos (dar tempo do app carregar)
-    console.log('[BASELINKER AUTO-SYNC] ⏰ Primeira sincronização em 10 segundos...');
-    const initialTimeout = setTimeout(() => {
-      console.log('[BASELINKER AUTO-SYNC] 🚀 Executando sincronização inicial...');
-      runSync();
-    }, 10000); // 10 segundos
+    // Inicializar conexão e depois agendar sincronizações
+    const initializeAndStartSync = async () => {
+      // Aguardar inicialização da conexão
+      await initializeConnection();
+
+      // Executar primeira sincronização após 10 segundos (dar tempo do app carregar)
+      console.log('[BASELINKER AUTO-SYNC] ⏰ Primeira sincronização em 10 segundos...');
+      const initialTimeout = setTimeout(() => {
+        console.log('[BASELINKER AUTO-SYNC] 🚀 Executando sincronização inicial...');
+        runSync();
+      }, 10000); // 10 segundos
+
+      return initialTimeout;
+    };
+
+    // Iniciar o processo de inicialização e sincronização
+    let initialTimeout: NodeJS.Timeout | null = null;
+    initializeAndStartSync().then(timeout => {
+      initialTimeout = timeout;
+    });
 
     // Configurar intervalo de sincronização
     const intervalMs = syncInterval * 60 * 1000; // Converter minutos para ms
@@ -98,7 +134,9 @@ export function BaselinkerAutoSync() {
         clearInterval(intervalIdRef.current);
         intervalIdRef.current = null;
       }
-      clearTimeout(initialTimeout);
+      if (initialTimeout) {
+        clearTimeout(initialTimeout);
+      }
     };
   }, [currentWorkspace?.id]); // Removido isConnected() das dependências!
 
