@@ -448,6 +448,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Usuário não autenticado');
 
+      console.log('[REGISTER USER] Chamando Edge Function register-user');
+      console.log('[REGISTER USER] Workspace ID:', userData.workspace_id);
+      console.log('[REGISTER USER] Session token:', session.access_token ? 'presente' : 'ausente');
+
       // Call the secure Edge Function to register the user
       const { data, error } = await supabase.functions.invoke('register-user', {
         body: {
@@ -459,11 +463,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         }
       });
 
+      console.log('[REGISTER USER] Resposta:', { data, error });
+
       if (error) {
+        console.error('[REGISTER USER] Erro da função:', error);
         throw new Error(error.message || 'Falha ao cadastrar usuário');
       }
 
       if (data && data.error) {
+        console.error('[REGISTER USER] Erro no data:', data.error);
         throw new Error(data.error || 'Falha ao cadastrar usuário');
       }
 
