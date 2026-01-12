@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useWorkspaceStore } from '@/store/workspaceStore';
+import { supabase } from '@/lib/supabase';
 
 export function GhostAPISConfigDialog() {
   const [open, setOpen] = useState(false);
@@ -26,7 +27,7 @@ export function GhostAPISConfigDialog() {
   } | null>(null);
 
   const { toast } = useToast();
-  const { currentWorkspace, updateWorkspaceSettings } = useWorkspaceStore();
+  const { currentWorkspace, updateCurrentWorkspace } = useWorkspaceStore();
 
   // Load current token when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
@@ -48,12 +49,35 @@ export function GhostAPISConfigDialog() {
       return;
     }
 
+    if (!currentWorkspace?.id) {
+      toast({
+        title: 'Workspace não selecionado',
+        description: 'Por favor, selecione um workspace',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      await updateWorkspaceSettings({
+      const updatedSettings = {
+        ...(currentWorkspace.settings || {}),
         ghostapis: {
           token: token.trim(),
           enabled: true,
         },
+      };
+
+      const { error } = await supabase
+        .from('workspaces')
+        .update({ settings: updatedSettings })
+        .eq('id', currentWorkspace.id);
+
+      if (error) throw error;
+
+      // Atualizar workspace no store local
+      updateCurrentWorkspace({
+        ...currentWorkspace,
+        settings: updatedSettings,
       });
 
       toast({
@@ -63,6 +87,7 @@ export function GhostAPISConfigDialog() {
 
       setOpen(false);
     } catch (error) {
+      console.error('Erro ao salvar configuração:', error);
       toast({
         title: 'Erro ao salvar',
         description: 'Não foi possível salvar a configuração',
@@ -90,6 +115,15 @@ export function GhostAPISConfigDialog() {
       return;
     }
 
+    if (!currentWorkspace?.id) {
+      toast({
+        title: 'Workspace não selecionado',
+        description: 'Por favor, selecione um workspace',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setTesting(true);
     setTestResult(null);
 
@@ -106,21 +140,50 @@ export function GhostAPISConfigDialog() {
         return;
       }
 
-      // Test API connection
-      const response = await fetch(
-        `https://ghostapis.com/api.php?token=${token.trim()}&cpf2=${cpfLimpo}`
-      );
+      // Primeiro, salvar o token temporariamente nas configurações
+      // para que a Edge Function possa usá-lo
+      const updatedSettings = {
+        ...(currentWorkspace.settings || {}),
+        ghostapis: {
+          token: token.trim(),
+          enabled: true,
+        },
+      };
 
-      if (!response.ok) {
+      await supabase
+        .from('workspaces')
+        .update({ settings: updatedSettings })
+        .eq('id', currentWorkspace.id);
+
+      // Atualizar workspace local
+      updateCurrentWorkspace({
+        ...currentWorkspace,
+        settings: updatedSettings,
+      });
+
+      console.log('[GHOST API TEST] Chamando Edge Function...');
+
+      // Test API connection via Edge Function
+      const { data, error } = await supabase.functions.invoke('ghostapis-proxy', {
+        body: {
+          endpoint: 'cpf',
+          params: {
+            cpf2: cpfLimpo,
+          },
+          workspaceId: currentWorkspace.id,
+        },
+      });
+
+      console.log('[GHOST API TEST] Resposta:', { data, error });
+
+      if (error) {
         setTestResult({
           success: false,
-          message: `Erro HTTP: ${response.status} - ${response.statusText}`,
+          message: `Erro ao chamar API: ${error.message}`,
         });
         setTesting(false);
         return;
       }
-
-      const data = await response.json();
 
       if (!data || !data['response.NOME']) {
         setTestResult({

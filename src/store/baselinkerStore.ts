@@ -3,6 +3,7 @@ import { BaselinkerAPI, BaselinkerConfig, initializeBaselinker, getBaselinker } 
 import { supabase } from '@/lib/supabase';
 import { useWorkspaceStore } from './workspaceStore';
 import { ErrorHandler } from '@/lib/error-handler';
+import { fetchClientDataByCPF } from '@/lib/ghostapis-api';
 
 interface Product {
   id: string;
@@ -59,81 +60,6 @@ interface BaselinkerState {
  * Calcula taxas e faturamento líquido com base na origem do pedido
  * Baseado na lógica do n8n para cada marketplace/canal de venda
  */
-// Função para buscar dados do cliente via CPF na API GhostAPIs
-async function fetchClientDataByCPF(cpf: string, workspaceId?: string): Promise<{
-  nome: string | null;
-  email: string | null;
-  telefone: string | null;
-} | null> {
-  try {
-    const cpfLimpo = cpf.replace(/\D/g, ''); // Remove caracteres não numéricos
-
-    if (!cpfLimpo || cpfLimpo.length !== 11) {
-      console.log(`[GHOST API] CPF inválido: ${cpf}`);
-      return null;
-    }
-
-    // Get GhostAPIs token from workspace settings
-    let token = 'aa21949b4c1804624d6a3a36253eeaad'; // Default fallback token
-
-    if (workspaceId) {
-      const { data: workspace } = await supabase
-        .from('workspaces')
-        .select('settings')
-        .eq('id', workspaceId)
-        .single();
-
-      if (workspace?.settings?.ghostapis?.token) {
-        token = workspace.settings.ghostapis.token;
-        console.log(`[GHOST API] Usando token do workspace`);
-      } else {
-        console.log(`[GHOST API] Token não configurado no workspace, usando token padrão`);
-      }
-    }
-
-    console.log(`[GHOST API] Buscando dados do CPF: ${cpfLimpo}`);
-
-    const response = await fetch(
-      `https://ghostapis.com/api.php?token=${token}&cpf2=${cpfLimpo}`
-    );
-
-    if (!response.ok) {
-      console.error(`[GHOST API] Erro HTTP: ${response.status}`);
-      return null;
-    }
-
-    const data = await response.json();
-
-    if (!data || !data['response.NOME']) {
-      console.log(`[GHOST API] Dados não encontrados para CPF: ${cpfLimpo}`);
-      return null;
-    }
-
-    // Processar telefones (pega o primeiro com 11+ dígitos)
-    let telefone = null;
-    if (data['response.TELEFONES']) {
-      const telefones = data['response.TELEFONES'].split(',').map((t: string) => t.trim());
-      const telefoneValido = telefones.find((t: string) => t.replace(/\D/g, '').length >= 11);
-
-      if (telefoneValido) {
-        const telefoneLimpo = telefoneValido.replace(/\D/g, '');
-        telefone = `+55${telefoneLimpo}`;
-      }
-    }
-
-    const resultado = {
-      nome: data['response.NOME'] || null,
-      email: data['response.EMAIL'] || null,
-      telefone: telefone
-    };
-
-    console.log(`[GHOST API] ✅ Dados encontrados:`, resultado);
-    return resultado;
-  } catch (error) {
-    console.error('[GHOST API] Erro ao buscar dados do CPF:', error);
-    return null;
-  }
-}
 
 function calculateOrderFinancials(order: any): {
   taxas: number;
