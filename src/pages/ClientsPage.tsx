@@ -22,7 +22,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { OrderDetailsDialog } from '@/components/orders/OrderDetailsDialog'; // Ajuste o caminho se necessário
 import { Order } from '@/types'; // Ajuste o caminho se necessário
 
-type SortableKey = 'name' | 'status' | 'total_orders' | 'total_spent' | 'created_at';
+type SortableKey = 'name' | 'status' | 'total_orders' | 'total_spent' | 'created_at' | 'last_order_date';
 
 export function ClientsPage() {
   const { clients, leads, fetchClients, fetchLeads, fetchClientRFMAnalysis, convertLeadToClient, fetchClientOrders } = useCrmStore();
@@ -31,7 +31,7 @@ export function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('all');
-  const [sortConfig, setSortConfig] = useState<{ key: SortableKey; direction: 'asc' | 'desc' }>({ key: 'created_at', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState<{ key: SortableKey; direction: 'asc' | 'desc' }>({ key: 'last_order_date', direction: 'desc' });
   
   // --- Estados para a Paginação ---
   const [page, setPage] = useState(1);
@@ -325,7 +325,7 @@ export function ClientsPage() {
                       <TableHead><Button variant="ghost" onClick={() => requestSort('status')} className="-ml-4">Status{getSortIcon('status')}</Button></TableHead>
                       <TableHead><Button variant="ghost" onClick={() => requestSort('total_orders')} className="-ml-4">Pedidos{getSortIcon('total_orders')}</Button></TableHead>
                       <TableHead><Button variant="ghost" onClick={() => requestSort('total_spent')} className="-ml-4">Total Gasto{getSortIcon('total_spent')}</Button></TableHead>
-                      <TableHead><Button variant="ghost" onClick={() => requestSort('created_at')} className="-ml-4">Criado{getSortIcon('created_at')}</Button></TableHead>
+                      <TableHead><Button variant="ghost" onClick={() => requestSort('last_order_date')} className="-ml-4">Último Pedido{getSortIcon('last_order_date')}</Button></TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -366,7 +366,13 @@ export function ClientsPage() {
                           <TableCell><Badge className={getStatusColor(contact.status)}>{getStatusIcon(contact.status)}{getStatusText(contact.status)}</Badge></TableCell>
                           <TableCell>{contact.total_orders || 0}</TableCell>
                           <TableCell>R$ {(contact.total_spent || 0).toFixed(2)}</TableCell>
-                          <TableCell>{new Date(contact.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>
+                            {contact.last_order_date ? (
+                              new Date(contact.last_order_date).toLocaleDateString('pt-BR')
+                            ) : (
+                              <span className="text-muted-foreground text-sm">Sem pedidos</span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
                               <Dialog>
