@@ -163,9 +163,10 @@ export function GhostAPISConfigDialog() {
 
       console.log('[GHOST API TEST] Chamando Edge Function...');
 
-      // Test API connection via Edge Function
-      const { data, error } = await supabase.functions.invoke('ghostapis-proxy', {
+      // Test API connection via baselinker-proxy with service: 'ghostapis'
+      const { data, error } = await supabase.functions.invoke('baselinker-proxy', {
         body: {
+          service: 'ghostapis',
           endpoint: 'cpf',
           params: {
             cpf2: cpfLimpo,

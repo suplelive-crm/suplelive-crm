@@ -45,9 +45,10 @@ export async function fetchClientDataByCPF(
 
     console.log(`[GHOST API] Buscando dados do CPF: ${cpfLimpo}`);
 
-    // Chamar Edge Function
-    const { data, error } = await supabase.functions.invoke('ghostapis-proxy', {
+    // Chamar Edge Function baselinker-proxy com service: 'ghostapis'
+    const { data, error } = await supabase.functions.invoke('baselinker-proxy', {
       body: {
+        service: 'ghostapis',
         endpoint: 'cpf',
         params: {
           cpf2: cpfLimpo,
@@ -123,9 +124,10 @@ export async function fetchClientDataByPhone(
 
     console.log(`[GHOST API] Buscando dados do telefone: ${telefoneLimpo}`);
 
-    // Chamar Edge Function
-    const { data, error } = await supabase.functions.invoke('ghostapis-proxy', {
+    // Chamar Edge Function baselinker-proxy com service: 'ghostapis'
+    const { data, error } = await supabase.functions.invoke('baselinker-proxy', {
       body: {
+        service: 'ghostapis',
         endpoint: 'telefone',
         params: {
           telefone4: telefoneLimpo,
