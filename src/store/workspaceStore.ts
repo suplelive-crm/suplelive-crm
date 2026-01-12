@@ -452,23 +452,33 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       console.log('[REGISTER USER] Workspace ID:', userData.workspace_id);
       console.log('[REGISTER USER] Session token:', session.access_token ? 'presente' : 'ausente');
 
-      // Call the secure Edge Function to register the user
-      const { data, error } = await supabase.functions.invoke('register-user', {
-        body: {
+      // Use fetch directly due to SDK issues with Edge Functions
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/register-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
           name: userData.name,
           email: userData.email,
           password: userData.password,
           role: userData.role,
           workspace_id: userData.workspace_id
-        }
+        })
       });
 
-      console.log('[REGISTER USER] Resposta:', { data, error });
+      console.log('[REGISTER USER] Response status:', response.status);
 
-      if (error) {
-        console.error('[REGISTER USER] Erro da função:', error);
-        throw new Error(error.message || 'Falha ao cadastrar usuário');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[REGISTER USER] Erro da resposta:', errorData);
+        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
       }
+
+      const data = await response.json();
+      console.log('[REGISTER USER] Sucesso:', data);
 
       if (data && data.error) {
         console.error('[REGISTER USER] Erro no data:', data.error);
