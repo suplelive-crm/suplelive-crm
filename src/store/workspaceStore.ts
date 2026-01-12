@@ -449,28 +449,24 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       if (!session) throw new Error('Usuário não autenticado');
 
       // Call the secure Edge Function to register the user
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/register-user`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('register-user', {
+        body: {
           name: userData.name,
           email: userData.email,
           password: userData.password,
           role: userData.role,
           workspace_id: userData.workspace_id
-        })
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Falha ao cadastrar usuário');
+      if (error) {
+        throw new Error(error.message || 'Falha ao cadastrar usuário');
       }
 
-      const result = await response.json();
-      
+      if (data && data.error) {
+        throw new Error(data.error || 'Falha ao cadastrar usuário');
+      }
+
       ErrorHandler.showSuccess(
         'Usuário cadastrado com sucesso!',
         `${userData.name} foi criado e pode fazer login com o email ${userData.email}`
