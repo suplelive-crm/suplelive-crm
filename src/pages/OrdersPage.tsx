@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Search, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Search, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, Trash2, CheckCircle } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddOrderDialog } from '@/components/orders/AddOrderDialog';
 import { OrderDetailsDialog } from '@/components/orders/OrderDetailsDialog';
@@ -16,7 +16,7 @@ import { useWorkspaceStore } from '@/store/workspaceStore';
 import { Order } from '@/types';
 
 export function OrdersPage() {
-  const { orders, fetchOrders, deleteOrders, verifyOrder, unverifyOrder } = useCrmStore();
+  const { orders, fetchOrders, deleteOrders } = useCrmStore();
   const canDeleteOrders = useWorkspaceStore(state => state.canDeleteOrders);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -41,7 +41,7 @@ export function OrdersPage() {
                             (order.order_id_base && order.order_id_base.toString().includes(searchTerm)) ||
                             order.id.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-      const matchesVerification = !showOnlyUnverified || !order.is_verified;
+      const matchesVerification = !showOnlyUnverified || !order.client?.phone_verified;
       return matchesSearch && matchesStatus && matchesVerification;
     });
   }, [orders, searchTerm, statusFilter, showOnlyUnverified]);
@@ -182,8 +182,8 @@ export function OrdersPage() {
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="text-2xl font-bold text-orange-600">{orders.filter(o => !o.is_verified).length}</div>
-                <div className="text-sm text-gray-600">Pendentes Verificação</div>
+                <div className="text-2xl font-bold text-orange-600">{orders.filter(o => o.client && !o.client.phone_verified).length}</div>
+                <div className="text-sm text-gray-600">Tel. Não Verificados</div>
               </CardContent>
             </Card>
           </div>
@@ -283,10 +283,10 @@ export function OrdersPage() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Badge className={statusInfo.className}>{statusInfo.text}</Badge>
-                              {order.is_verified && (
+                              {order.client?.phone_verified && (
                                 <Badge className="bg-green-100 text-green-800 text-xs">
                                   <CheckCircle className="h-3 w-3 mr-1" />
-                                  Verificado
+                                  Tel. Verificado
                                 </Badge>
                               )}
                             </div>
@@ -306,29 +306,6 @@ export function OrdersPage() {
                             <div className="flex gap-2">
                               <Button size="sm" variant="outline">Editar</Button>
                               <Button size="sm" variant="outline" onClick={() => handleViewOrder(order)}>Ver</Button>
-                              {canDeleteOrders() && (
-                                order.is_verified ? (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => unverifyOrder(order.id)}
-                                    className="text-orange-600 hover:text-orange-700"
-                                  >
-                                    <XCircle className="h-4 w-4 mr-1" />
-                                    Desverificar
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => verifyOrder(order.id)}
-                                    className="text-green-600 hover:text-green-700"
-                                  >
-                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                    Verificar
-                                  </Button>
-                                )
-                              )}
                             </div>
                           </TableCell>
                         </TableRow>

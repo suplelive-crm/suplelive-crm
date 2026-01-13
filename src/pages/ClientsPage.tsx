@@ -25,7 +25,7 @@ import { Order } from '@/types'; // Ajuste o caminho se necessário
 type SortableKey = 'name' | 'status' | 'total_orders' | 'total_spent' | 'created_at' | 'last_order_date';
 
 export function ClientsPage() {
-  const { clients, leads, fetchClients, fetchLeads, fetchClientRFMAnalysis, convertLeadToClient, fetchClientOrders } = useCrmStore();
+  const { clients, leads, fetchClients, fetchLeads, fetchClientRFMAnalysis, convertLeadToClient, fetchClientOrders, verifyOrder, unverifyOrder } = useCrmStore();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<any>(null);
@@ -343,10 +343,10 @@ export function ClientsPage() {
                               <div>
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{contact.name}</span>
-                                  {contact.is_verified && (
+                                  {contact.phone_verified && (
                                     <Badge className="bg-green-100 text-green-800 text-xs">
                                       <CheckCircle className="h-3 w-3 mr-1" />
-                                      Verificado
+                                      Tel. Verificado
                                     </Badge>
                                   )}
                                 </div>
@@ -476,6 +476,19 @@ export function ClientsPage() {
                                   <DropdownMenuItem onClick={() => handleEditContact(contact)}>Editar</DropdownMenuItem>
                                   <DropdownMenuItem>Enviar Mensagem</DropdownMenuItem>
                                   {contact.type === 'client' && (<DropdownMenuItem>Ver Pedidos</DropdownMenuItem>)}
+                                  {contact.type === 'client' && (
+                                    contact.phone_verified ? (
+                                      <DropdownMenuItem onClick={() => unverifyOrder(contact.id)}>
+                                        <XCircle className="h-4 w-4 mr-2" />
+                                        Desverificar Tel.
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem onClick={() => verifyOrder(contact.id)}>
+                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                        Verificar Tel.
+                                      </DropdownMenuItem>
+                                    )
+                                  )}
                                   <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>

@@ -109,27 +109,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
       console.log('Fetching workspaces for user:', user.email);
 
-      const { data, error } = await supabase
-        .from('workspaces')
-        .select(`
-          *,
-          plan:plans(*),
-          subscription:subscriptions(*)
-        `)
-        .eq('owner_id', user.id);
+      // Use RPC function to get all workspaces (owned + member)
+      // This bypasses RLS issues with nested joins
+      const { data: workspaces, error } = await supabase
+        .rpc('get_user_workspaces');
 
-      if (error) throw error;
-      
-      // Add user role to each workspace
-      const workspaces = (data || []).map(workspace => ({
-        ...workspace,
-        user_role: 'owner' as const
-      }));
-      
-      console.log('Fetched workspaces:', workspaces.length, workspaces.map(w => ({ id: w.id, name: w.name })));
-      set({ workspaces });
+      if (error) {
+        console.error('Error fetching workspaces:', error);
+        throw error;
+      }
 
-      // Don't automatically set workspace here - let App.tsx handle it
+      console.log('Fetched workspaces via RPC:', workspaces?.length || 0, workspaces);
+      set({ workspaces: workspaces || [] });
+
       console.log('Workspaces fetched successfully');
     });
   },

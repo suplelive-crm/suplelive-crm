@@ -86,7 +86,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Verify that the requesting user has permission to manage this workspace
-    const { data: workspace, error: workspaceError } = await supabaseClient
+    const { data: workspace, error: workspaceError } = await supabaseAdmin
       .from('workspaces')
       .select('owner_id')
       .eq('id', workspace_id)
@@ -148,8 +148,32 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Add user to workspace_users table with active status
+    const { error: workspaceUserError } = await supabaseAdmin
+      .from('workspace_users')
+      .insert({
+        workspace_id,
+        user_id: newUser.user.id,
+        role,
+        status: 'active'
+      });
+
+    if (workspaceUserError) {
+      console.error('Failed to add user to workspace:', workspaceUserError);
+      return new Response(
+        JSON.stringify({
+          error: 'User created but failed to associate with workspace',
+          details: workspaceUserError.message
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     // Create client record for the new user in the workspace
-    const { error: clientError } = await supabaseClient
+    const { error: clientError } = await supabaseAdmin
       .from('clients')
       .insert({
         name,
@@ -166,7 +190,7 @@ Deno.serve(async (req: Request) => {
 
     if (clientError) {
       console.warn('Could not create client record:', clientError);
-      // Don't fail the request as user creation was successful
+      // Don't fail the request as user and workspace association were successful
     }
 
     return new Response(

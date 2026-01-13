@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Shield, UserX, MoreVertical, Crown, UserPlus } from 'lucide-react';
+import { Users, Shield, UserX, MoreVertical, Crown, UserPlus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,16 +13,25 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useAuthStore } from '@/store/authStore';
 import { ErrorHandler } from '@/lib/error-handler';
+import { supabase } from '@/lib/supabase';
 
 export function UserManagementDialog() {
   const [open, setOpen] = useState(false);
   const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
   const [registerData, setRegisterData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
     role: 'operator' as 'admin' | 'operator'
+  });
+  const [editData, setEditData] = useState({
+    name: '',
+    email: '',
+    role: 'operator' as 'admin' | 'operator',
+    status: 'active' as 'active' | 'pending' | 'inactive'
   });
   const [loading, setLoading] = useState(false);
 
@@ -95,6 +104,67 @@ export function UserManagementDialog() {
     }
   };
 
+  const handleOpenEditDialog = (workspaceUser: any) => {
+    setEditingUser(workspaceUser);
+    setEditData({
+      name: workspaceUser.user?.user_metadata?.name || '',
+      email: workspaceUser.user?.email || '',
+      role: workspaceUser.role,
+      status: workspaceUser.status || 'active'
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingUser || !editData.name.trim() || !editData.email.trim()) return;
+
+    setLoading(true);
+    try {
+      const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
+      if (!currentWorkspace) throw new Error('Nenhum workspace selecionado');
+
+      // Update role and/or status if changed
+      const needsUpdate = editData.role !== editingUser.role || editData.status !== editingUser.status;
+
+      if (needsUpdate) {
+        const { error } = await supabase
+          .from('workspace_users')
+          .update({
+            role: editData.role,
+            status: editData.status
+          })
+          .eq('workspace_id', currentWorkspace.id)
+          .eq('user_id', editingUser.user_id);
+
+        if (error) throw error;
+      }
+
+      // TODO: Add function to update user name/email via Supabase Admin API
+      ErrorHandler.showSuccess('Sucesso', 'Usuário atualizado com sucesso');
+      setEditDialogOpen(false);
+      setEditingUser(null);
+      await fetchWorkspaceUsers();
+    } catch (error) {
+      console.error('Error updating user:', error);
+      ErrorHandler.showError('Erro', 'Falha ao atualizar usuário');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const canEditUser = (targetUserId: string, targetRole: string) => {
+    // Proprietário pode editar todos
+    if (isCurrentUserOwner) return true;
+
+    // Admin pode editar operadores
+    if (currentUserRole === 'admin' && targetRole === 'operator') return true;
+
+    // Usuário pode editar apenas a si mesmo
+    if (currentUser?.id === targetUserId) return true;
+
+    return false;
+  };
+
   const getRoleBadge = (role: string, isOwner: boolean = false) => {
     if (isOwner) {
       return (
@@ -153,14 +223,20 @@ export function UserManagementDialog() {
   const canManageUsers = isCurrentUserOwner || currentUserRole === 'admin';
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen} modal={true}>
       <DialogTrigger asChild>
         <Button variant="outline">
           <Users className="mr-2 h-4 w-4" />
           Gerenciar Usuários
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => {
+        // Permitir interações com dropdowns e outros portals
+        const target = e.target as HTMLElement;
+        if (target.closest('[role="menu"]') || target.closest('[data-radix-popper-content-wrapper]')) {
+          e.preventDefault();
+        }
+      }}>
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <Users className="mr-2 h-5 w-5" />
@@ -288,111 +364,100 @@ export function UserManagementDialog() {
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Membro desde</TableHead>
-                    {canManageUsers && <TableHead>Ações</TableHead>}
+                    <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* Workspace Owner */}
-                  <TableRow>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
-                          <Crown className="h-4 w-4 text-yellow-600" />
+                  {/* Workspace Users - TODOS os usuários incluindo owner */}
+                  {workspaceUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8">
+                        <div className="text-gray-500">
+                          <Users className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                          <p className="text-sm">Nenhum usuário encontrado</p>
+                          <p className="text-xs mt-1">Use o botão "Cadastrar Usuário" para adicionar membros ao workspace</p>
                         </div>
-                        <div>
-                          <p className="font-medium">{currentUser?.email}</p>
-                          <p className="text-xs text-gray-500">Proprietário do workspace</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getRoleBadge('owner', true)}</TableCell>
-                    <TableCell>{getStatusBadge('active')}</TableCell>
-                    <TableCell>{formatDate(currentWorkspace?.created_at || '')}</TableCell>
-                    {canManageUsers && (
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          Proprietário
-                        </Badge>
                       </TableCell>
-                    )}
-                  </TableRow>
-
-                  {/* Workspace Users */}
-                  {workspaceUsers
-                    .filter(wu => wu.user_id !== currentWorkspace?.owner_id)
-                    .map((workspaceUser) => (
-                      <TableRow key={workspaceUser.id}>
+                    </TableRow>
+                  ) : (
+                    workspaceUsers.map((workspaceUser) => (
+                      <TableRow key={workspaceUser.user_id}>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">
-                                {workspaceUser.user?.email?.charAt(0).toUpperCase()}
-                              </span>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              workspaceUser.role === 'owner' ? 'bg-yellow-100' : 'bg-blue-100'
+                            }`}>
+                              {workspaceUser.role === 'owner' ? (
+                                <Crown className="h-4 w-4 text-yellow-600" />
+                              ) : (
+                                <span className="text-xs font-medium text-blue-600">
+                                  {workspaceUser.email?.charAt(0).toUpperCase()}
+                                </span>
+                              )}
                             </div>
                             <div>
-                              <p className="font-medium">
-                                {workspaceUser.user?.user_metadata?.name || workspaceUser.user?.email}
-                              </p>
-                              <p className="text-xs text-gray-500">{workspaceUser.user?.email}</p>
+                              <p className="font-medium">{workspaceUser.name}</p>
+                              <p className="text-xs text-gray-500">{workspaceUser.email}</p>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>{getRoleBadge(workspaceUser.role)}</TableCell>
+                        <TableCell>{getRoleBadge(workspaceUser.role, workspaceUser.role === 'owner')}</TableCell>
                         <TableCell>{getStatusBadge(workspaceUser.status)}</TableCell>
                         <TableCell>
-                          {workspaceUser.joined_at ? formatDate(workspaceUser.joined_at) : 'Pendente'}
+                          {workspaceUser.created_at ? formatDate(workspaceUser.created_at) : 'Pendente'}
                         </TableCell>
-                        {canManageUsers && (
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                <DropdownMenuItem
-                                  onClick={() => handleUpdateRole(
-                                    workspaceUser.user_id,
-                                    workspaceUser.role === 'admin' ? 'operator' : 'admin'
-                                  )}
-                                >
-                                  <Shield className="h-4 w-4 mr-2" />
-                                  Alterar para {workspaceUser.role === 'admin' ? 'Operador' : 'Administrador'}
-                                </DropdownMenuItem>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {/* Botão Editar */}
+                            {canEditUser(workspaceUser.user_id, workspaceUser.role) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEditDialog(workspaceUser)}
+                                title="Editar usuário"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
 
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                      <UserX className="h-4 w-4 mr-2" />
-                                      Remover do Workspace
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Remover Usuário</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Tem certeza que deseja remover "{workspaceUser.user?.email}" do workspace?
-                                        O usuário perderá acesso a todos os dados e funcionalidades.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleRemoveUser(workspaceUser.user_id)}
-                                        className="bg-red-600 hover:bg-red-700"
-                                      >
-                                        Remover
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        )}
+                            {/* Botão Remover (apenas para admins e owner) */}
+                            {canManageUsers && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Remover do workspace"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <UserX className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Remover Usuário</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja remover "{workspaceUser.user?.email}" do workspace?
+                                      O usuário perderá acesso a todos os dados e funcionalidades.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleRemoveUser(workspaceUser.user_id)}
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      Remover
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
+                        </TableCell>
                       </TableRow>
-                    ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -423,6 +488,117 @@ export function UserManagementDialog() {
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Edit User Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do usuário
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="editName">Nome Completo *</Label>
+              <Input
+                id="editName"
+                placeholder="João Silva"
+                value={editData.name}
+                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="editEmail">Email *</Label>
+              <Input
+                id="editEmail"
+                type="email"
+                placeholder="usuario@exemplo.com"
+                value={editData.email}
+                disabled
+                className="bg-gray-50"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Email não pode ser alterado
+              </p>
+            </div>
+            {(isCurrentUserOwner || (currentUserRole === 'admin' && editingUser?.role === 'operator')) && (
+              <>
+                <div>
+                  <Label htmlFor="editRole">Role do Usuário *</Label>
+                  <Select value={editData.role} onValueChange={(value: 'admin' | 'operator') => setEditData({ ...editData, role: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">
+                        <div className="flex items-center">
+                          <Shield className="h-4 w-4 mr-2" />
+                          Administrador
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="operator">
+                        <div className="flex items-center">
+                          <Users className="h-4 w-4 mr-2" />
+                          Operador
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isCurrentUserOwner
+                      ? 'Como proprietário, você pode alterar qualquer role'
+                      : 'Como admin, você pode alterar roles de operadores'}
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="editStatus">Status do Usuário *</Label>
+                  <Select value={editData.status} onValueChange={(value: 'active' | 'pending' | 'inactive') => setEditData({ ...editData, status: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">
+                        <div className="flex items-center">
+                          <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                          Ativo
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="pending">
+                        <div className="flex items-center">
+                          <span className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></span>
+                          Pendente
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="inactive">
+                        <div className="flex items-center">
+                          <span className="w-2 h-2 rounded-full bg-gray-500 mr-2"></span>
+                          Inativo
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Ative usuários pendentes ou desative temporariamente o acesso
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={loading || !editData.name.trim()}
+            >
+              {loading ? 'Salvando...' : 'Salvar Alterações'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

@@ -251,7 +251,8 @@ export interface Client {
   total_spent?: number;
   last_order_date?: string;
   metadata?: Record<string, any>;
-  is_verified?: boolean;
+  is_verified?: boolean; // DEPRECATED: usar phone_verified
+  phone_verified?: boolean; // Indica se o número do WhatsApp foi verificado
 }
 
 export interface Order {

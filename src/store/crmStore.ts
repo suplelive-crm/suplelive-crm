@@ -495,7 +495,7 @@ export const useCrmStore = create<CrmState>((set, get) => ({
     });
   },
 
-  verifyOrder: async (orderId) => {
+  verifyOrder: async (clientId) => {
     await ErrorHandler.handleAsync(async () => {
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
       const { data: { user } } = await supabase.auth.getUser();
@@ -505,31 +505,29 @@ export const useCrmStore = create<CrmState>((set, get) => ({
       }
 
       // Verificar se usuário tem permissão
-      const canVerify = useWorkspaceStore.getState().canDeleteOrders(); // Mesma permissão que deletar
+      const canVerify = useWorkspaceStore.getState().canDeleteOrders();
 
       if (!canVerify) {
-        throw new Error('Apenas Administradores e Proprietários podem verificar pedidos');
+        throw new Error('Apenas Administradores e Proprietários podem verificar números');
       }
 
       const { error } = await supabase
-        .from('orders')
+        .from('clients')
         .update({
-          is_verified: true,
-          verified_by: user.id,
-          verified_at: new Date().toISOString()
+          phone_verified: true
         })
-        .eq('id', orderId)
+        .eq('id', clientId)
         .eq('workspace_id', currentWorkspace.id);
 
       if (error) throw error;
 
       get().fetchOrders();
-      get().fetchStats();
-      ErrorHandler.showSuccess('Pedido verificado com sucesso!');
+      get().fetchClients();
+      ErrorHandler.showSuccess('Número verificado com sucesso!');
     });
   },
 
-  unverifyOrder: async (orderId) => {
+  unverifyOrder: async (clientId) => {
     await ErrorHandler.handleAsync(async () => {
       const currentWorkspace = useWorkspaceStore.getState().currentWorkspace;
 
@@ -545,20 +543,18 @@ export const useCrmStore = create<CrmState>((set, get) => ({
       }
 
       const { error } = await supabase
-        .from('orders')
+        .from('clients')
         .update({
-          is_verified: false,
-          verified_by: null,
-          verified_at: null
+          phone_verified: false
         })
-        .eq('id', orderId)
+        .eq('id', clientId)
         .eq('workspace_id', currentWorkspace.id);
 
       if (error) throw error;
 
       get().fetchOrders();
-      get().fetchStats();
-      ErrorHandler.showSuccess('Verificação removida com sucesso!');
+      get().fetchClients();
+      ErrorHandler.showSuccess('Verificação de número removida!');
     });
   },
 

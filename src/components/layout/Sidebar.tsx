@@ -26,12 +26,16 @@ import {
   Truck,
   ShoppingBag,
   Activity,
-  FileText
+  FileText,
+  ChevronsUpDown,
+  Check,
+  Crown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/store/authStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { cn } from '@/lib/utils';
@@ -60,7 +64,8 @@ export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const signOut = useAuthStore(state => state.signOut);
-  const { currentWorkspace } = useWorkspaceStore();
+  const { user } = useAuthStore();
+  const { currentWorkspace, workspaces, setCurrentWorkspace } = useWorkspaceStore();
   const location = useLocation();
 
   useEffect(() => {
@@ -204,12 +209,82 @@ export function Sidebar() {
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="flex items-center gap-2 mt-4 px-2 py-2 rounded-md bg-muted/50"
+                  className="mt-4"
                 >
-                  <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <span className="text-sm font-medium truncate">
-                    {currentWorkspace.name}
-                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between h-auto px-3 py-2 hover:bg-muted"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-sm font-medium truncate">
+                            {currentWorkspace.name}
+                          </span>
+                        </div>
+                        <ChevronsUpDown className="h-4 w-4 text-muted-foreground flex-shrink-0 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-72" align="start">
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">
+                        Seus Workspaces ({workspaces.length})
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {workspaces.map((workspace) => {
+                        const isOwner = workspace.owner_id === user?.id;
+                        const userRole = isOwner ? 'owner' : workspace.user_role;
+                        const isCurrentWorkspace = workspace.id === currentWorkspace?.id;
+
+                        return (
+                          <DropdownMenuItem
+                            key={workspace.id}
+                            onClick={() => {
+                              if (!isCurrentWorkspace) {
+                                setCurrentWorkspace(workspace);
+                              }
+                            }}
+                            className="flex items-center justify-between cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <div className="flex items-center justify-center w-8 h-8 rounded-md bg-primary/10 flex-shrink-0">
+                                <Building2 className="h-4 w-4 text-primary" />
+                              </div>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="text-sm font-medium truncate">
+                                  {workspace.name}
+                                </span>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                                    {workspace.plan?.name || 'Free'}
+                                  </Badge>
+                                  {userRole === 'owner' && (
+                                    <Badge className="text-[10px] px-1 py-0 h-4 bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                                      <Crown className="h-2.5 w-2.5 mr-0.5" />
+                                      Owner
+                                    </Badge>
+                                  )}
+                                  {userRole === 'admin' && (
+                                    <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
+                                      Admin
+                                    </Badge>
+                                  )}
+                                  {userRole === 'operator' && (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                                      Operador
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {isCurrentWorkspace && (
+                              <Check className="h-4 w-4 text-primary flex-shrink-0 ml-2" />
+                            )}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </motion.div>
               )}
             </AnimatePresence>

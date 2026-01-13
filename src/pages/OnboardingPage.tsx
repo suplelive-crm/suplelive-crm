@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, ArrowRight, Building2, Users, Zap, Plus, LogIn } from 'lucide-react';
+import { Check, ArrowRight, Building2, Users, Zap, Plus, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,23 +18,37 @@ export function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [showCreateNew, setShowCreateNew] = useState(false);
   
-  const { 
-    workspaces, 
-    plans, 
+  const {
+    workspaces,
+    plans,
+    currentWorkspace,
     fetchWorkspaces,
-    fetchPlans, 
-    createWorkspace, 
-    setCurrentWorkspace 
+    fetchPlans,
+    createWorkspace,
+    setCurrentWorkspace
   } = useWorkspaceStore();
   const { checkWorkspaceUniqueness } = useWorkspaceStore();
-  const { user } = useAuthStore();
+  const { user, signOut } = useAuthStore();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
   useEffect(() => {
     fetchWorkspaces();
     fetchPlans();
   }, [fetchWorkspaces, fetchPlans]);
+
+  // Se o usuário já tem um workspace selecionado E não está criando um novo, redireciona para o dashboard
+  useEffect(() => {
+    if (currentWorkspace && !showCreateNew) {
+      console.log('[Onboarding] User already has workspace selected, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentWorkspace, showCreateNew, navigate]);
 
   // Generate display slug from workspace name (for preview only)
   const displaySlug = workspaceName
@@ -135,6 +149,14 @@ export function OnboardingPage() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      {/* Logout Button */}
+      <div className="absolute top-4 right-4">
+        <Button variant="ghost" onClick={handleLogout} className="text-gray-600 hover:text-gray-900">
+          <LogOut className="h-4 w-4 mr-2" />
+          Sair
+        </Button>
+      </div>
+
       <div className="w-full h-full flex items-center justify-center">
         <div className="w-full max-w-4xl">
           <motion.div
@@ -146,7 +168,7 @@ export function OnboardingPage() {
               Bem-vindo ao OmniCRM
             </h1>
             <p className="text-xl text-gray-600">
-              {workspaces.length > 0 && !showCreateNew 
+              {workspaces.length > 0 && !showCreateNew
                 ? 'Escolha um workspace ou crie um novo'
                 : 'Vamos configurar seu workspace e começar'
               }
