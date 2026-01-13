@@ -1,0 +1,73 @@
+# =====================================================
+# BASELINKER SYNC CRON JOBS
+# =====================================================
+# Configuração de jobs cron para sincronização do Baselinker
+# Deploy com: supabase functions deploy
+# =====================================================
+
+# [A] POLLING DE NOVOS PEDIDOS - A cada 60 segundos 🆕
+# Busca novos pedidos confirmados via getOrders (date_confirmed_from)
+# Execução: Sempre (mesmo durante o dia todo)
+# Objetivo: Capturar pedidos assim que são confirmados
+- name: "baselinker-orders-poller"
+  schedule: "*/1 * * * *" # A cada 1 minuto
+  function: "baselinker-orders-poller"
+  description: "Polls Baselinker for new confirmed orders using getOrders API"
+  enabled: true
+
+# [B] POLLING DE EVENTOS - A cada 60 segundos
+# Busca eventos de mudança via getJournalList (pagamentos, status, etc.)
+# Execução: Sempre
+# Objetivo: Capturar mudanças em pedidos existentes
+- name: "baselinker-events-poller"
+  schedule: "*/1 * * * *" # A cada 1 minuto
+  function: "baselinker-events-poller"
+  description: "Polls Baselinker journal for order events (payment, status changes)"
+  enabled: true
+
+# [C] PROCESSAMENTO DE FILA - A cada minuto
+# Processa eventos da fila e cria/atualiza clientes e pedidos
+# Execução: Sempre
+# Objetivo: Processar eventos coletados pelos pollers
+- name: "process-order-events"
+  schedule: "*/1 * * * *" # A cada 1 minuto
+  function: "process-order-event"
+  description: "Processes queued order events and creates/updates clients and orders"
+  enabled: true
+
+# [D] SINCRONIZAÇÃO COMPLETA DIÁRIA - Às 3:00 AM (fallback)
+# Sincroniza últimos 7 dias completos como backup
+# Execução: Uma vez por dia
+# Objetivo: Garantir que nenhum pedido foi perdido
+- name: "baselinker-full-sync-daily"
+  schedule: "0 3 * * *" # 3:00 AM todos os dias
+  function: "baselinker-full-sync"
+  description: "Daily full sync of last 7 days as fallback to ensure no missing orders"
+  enabled: true
+
+# =====================================================
+# NOTAS DE CONFIGURAÇÃO
+# =====================================================
+#
+# Sintaxe do cron: "minuto hora dia mês dia_da_semana"
+# - */1 * * * * = A cada 1 minuto
+# - 0 3 * * * = Às 3:00 AM todos os dias
+# - 0 */6 * * * = A cada 6 horas
+#
+# Rate Limits do Baselinker:
+# - 100 requisições por minuto por conta
+# - Com 3 jobs rodando a cada minuto, temos ~3 req/min base
+# - Paginação adiciona mais requisições conforme volume
+# - Rate limiter implementado nas funções para controle
+#
+# Arquitetura:
+# 1. [A] orders-poller: Captura novos pedidos (tempo real)
+# 2. [B] events-poller: Captura mudanças (pagamentos, status)
+# 3. [C] processor: Processa fila e sincroniza com banco
+# 4. [D] full-sync: Backup diário para garantir integridade
+#
+# Para desabilitar um job: enabled: false
+# Para testar localmente: supabase functions serve
+# Para fazer deploy: supabase functions deploy
+#
+# =====================================================
